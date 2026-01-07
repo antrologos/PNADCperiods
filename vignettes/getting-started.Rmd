@@ -1,0 +1,198 @@
+---
+title: "Getting Started with mensalizePNADC"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with mensalizePNADC}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+## Introduction
+The `mensalizePNADC` package converts Brazil's quarterly PNADC survey data into monthly time series. It provides two main capabilities:
+
+1. **Reference month identification**: Determines which month within each quarter each survey observation refers to
+2. **Monthly weight computation**: Adjusts survey weights for monthly (instead of quarterly) estimates
+
+## Installation
+
+```{r installation}
+# Install from GitHub (when available)
+# devtools::install_github("PLACEHOLDER/mensalizePNADC")
+
+# Or install locally
+# devtools::install("path/to/mensalizePNADC")
+```
+
+## Basic Usage: Identifying Reference Months
+
+The most common use case is identifying which month each observation refers to, then joining this information with your data.
+
+### Step 1: Prepare your data
+
+You need stacked quarterly PNADC data with at least these columns:
+
+| Column | Description |
+|--------|-------------|
+| `Ano` | Survey year |
+| `Trimestre` | Quarter (1-4) |
+| `UPA` | Primary Sampling Unit |
+| `V1014` | Panel identifier |
+| `V2008` | Birth day (1-31) |
+| `V20081` | Birth month (1-12) |
+| `V20082` | Birth year |
+| `V2009` | Age |
+
+Plus join keys: `V1008` (household) and `V2003` (person)
+
+```{r load-data}
+library(mensalizePNADC)
+library(data.table)
+
+# Load your stacked quarterly PNADC data
+pnadc <- fread("pnadc_stacked.csv",
+  select = c("Ano", "Trimestre", "UPA", "V1008", "V1014", "V2003",
+             "V2008", "V20081", "V20082", "V2009"))
+```
+
+### Step 2: Get the crosswalk
+
+```{r get-crosswalk}
+crosswalk <- mensalizePNADC(pnadc)
+
+print(crosswalk)
+# PNADC Reference Month Crosswalk
+# -------------------------------
+# Observations: 1,234,567
+# Determination rate: 87.3%
+# Date range: 201201 - 202312
+```
+
+### Step 3: Join with original data
+
+```{r join-data}
+# Load an original quarterly file
+library(haven)
+original <- read_dta("PNADC_2023T1.dta")
+
+# Join to add monthly information
+monthly_data <- merge(original, crosswalk,
+  by = c("Ano", "Trimestre", "UPA", "V1008", "V1014", "V2003"),
+  all.x = TRUE)
+
+# Now you have:
+# - ref_month: Reference month as Date
+# - ref_month_in_quarter: Position in quarter (1, 2, 3, or NA)
+# - ref_month_yyyymm: Integer YYYYMM format
+```
+
+### Step 4: Use the monthly information
+
+```{r use-monthly}
+# Filter to a specific month
+jan_2023 <- monthly_data[ref_month_yyyymm == 202301]
+
+# Group by month
+by_month <- monthly_data[, .(
+  n_obs = .N,
+  mean_age = mean(V2009, na.rm = TRUE)
+), by = ref_month_yyyymm]
+```
+
+## Advanced Usage: Computing Monthly Weights
+
+For monthly aggregate estimates (e.g., monthly unemployment rate), you need monthly-appropriate survey weights:
+
+```{r monthly-weights}
+# Load full data with all required variables
+pnadc_full <- read_dta("PNADCtrimestralempilhada.dta")
+
+# Load monthly population totals
+monthly_pop <- read_dta("pnadc_series_mensalizadas.dta")
+
+# Run full mensalization
+result <- mensalizePNADC(pnadc_full,
+  compute_weights = TRUE,
+  monthly_totals = monthly_pop,
+  verbose = TRUE)
+
+# Use weight_monthly for estimates
+unemployment <- result[, .(
+  unemployed = sum(weight_monthly * (VD4002 == 2), na.rm = TRUE),
+  labor_force = sum(weight_monthly * (VD4001 == 1), na.rm = TRUE)
+), by = ref_month_yyyymm]
+
+unemployment[, rate := 100 * unemployed / labor_force]
+```
+
+## Understanding the Output
+
+### Reference Month Variables
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `ref_month` | Date | First day of reference month (e.g., "2023-01-01") |
+| `ref_month_in_quarter` | Integer | Position: 1, 2, 3, or NA if indeterminate |
+| `ref_month_yyyymm` | Integer | YYYYMM format (e.g., 202301) |
+
+### Determination Rate
+
+Not all observations can be assigned a definite reference month. The **determination rate** tells you what percentage could be identified:
+
+- Typical rate: 85-90%
+- `ref_month_in_quarter = NA` for indeterminate observations
+
+### Exception Quarters
+
+Some quarters have non-standard IBGE timing rules:
+
+```{r exceptions}
+get_exception_quarters()
+# [1] "2016t3" "2016t4" "2017t2" "2022t3" "2023t2"
+```
+
+## Using Modular Functions
+
+For more control, use the individual functions:
+
+```{r modular}
+# Step 1: Just identify reference months
+months <- identify_reference_month(pnadc)
+
+# Step 2: Check determination rate by quarter
+months[, .(
+  total = .N,
+  determined = sum(!is.na(ref_month_in_quarter)),
+  rate = mean(!is.na(ref_month_in_quarter))
+), by = .(Ano, Trimestre)]
+
+# Step 3: Calibrate weights (if needed)
+calibrated <- calibrate_monthly_weights(merged_data, monthly_pop)
+
+# Step 4: Compute indicators
+indicators <- compute_labor_indicators(calibrated)
+```
+
+## Tips and Best Practices
+
+1. **Start with reference month identification**: You don't always need monthly weights. Often just knowing the reference month is enough.
+
+2. **Check determination rates**: If rates are unusually low for certain quarters, investigate the data.
+
+3. **Handle indeterminate observations**: Decide whether to exclude them or use quarterly-level analysis.
+
+4. **Use data.table**: The package is optimized for data.table. Converting from data.frame is automatic but working directly with data.table is faster.
+
+5. **Memory considerations**: For very large datasets, consider processing in chunks or using the modular functions.
+
+## Further Reading
+
+- [IBGE PNADC Documentation](https://www.ibge.gov.br/estatisticas/sociais/trabalho/9171-pesquisa-nacional-por-amostra-de-domicilios-continua-mensal.html)
+- Package function reference: `?mensalizePNADC`, `?identify_reference_month`

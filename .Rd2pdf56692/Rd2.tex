@@ -1,0 +1,46 @@
+\nonstopmode{}
+\documentclass[a4paper]{book}
+\usepackage[times,inconsolata,hyper]{Rd}
+\usepackage{makeidx}
+\makeatletter\@ifl@t@r\fmtversion{2018/04/01}{}{\usepackage[utf8]{inputenc}}\makeatother
+% \usepackage{graphicx} % @USE GRAPHICX@
+\makeindex{}
+\begin{document}
+\chapter*{}
+\begin{center}
+{\textbf{\huge Package `mensalizePNADC'}}
+\par\bigskip{\large \today}
+\end{center}
+\ifthenelse{\boolean{Rd@use@hyper}}{\hypersetup{pdftitle = {mensalizePNADC: Convert Quarterly PNADC Survey Data to Monthly Time Series}}}{}
+\ifthenelse{\boolean{Rd@use@hyper}}{\hypersetup{pdfauthor = {Marcos Hecksher}}}{}
+\begin{description}
+\raggedright{}
+\item[Title]\AsIs{Convert Quarterly PNADC Survey Data to Monthly Time Series}
+\item[Version]\AsIs{0.1.0}
+\item[Description]\AsIs{Identifies reference months in Brazil's quarterly PNADC (Pesquisa
+Nacional por Amostra de Domicilios Continua) survey data and optionally
+computes monthly survey weights. The core algorithm uses IBGE's ``Parada
+Tecnica'' (technical break) rules combined with respondent birthdates to
+determine which month each survey observation refers to. For users needing
+monthly aggregate estimates, the package also provides hierarchical weight
+calibration and Bayesian adjustment to produce monthly-appropriate survey
+weights.}
+\item[License]\AsIs{MIT + file LICENSE}
+\item[Encoding]\AsIs{UTF-8}
+\item[Roxygen]\AsIs{list(markdown = TRUE)}
+\item[RoxygenNote]\AsIs{7.3.2}
+\item[Depends]\AsIs{R (>= 4.0.0)}
+\item[Imports]\AsIs{data.table (>= 1.14.0),
+checkmate (>= 2.0.0)}
+\item[Suggests]\AsIs{dplyr,
+haven,
+testthat (>= 3.0.0),
+knitr,
+rmarkdown}
+\item[Config/testthat/edition]\AsIs{3}
+\item[VignetteBuilder]\AsIs{knitr}
+\item[URL]\AsIs{}\url{https://github.com/PLACEHOLDER/mensalizePNADC}\AsIs{}
+\item[BugReports]\AsIs{}\url{https://github.com/PLACEHOLDER/mensalizePNADC/issues}\AsIs{}
+\item[LazyData]\AsIs{true}
+\end{description}
+\Rdcontents{Contents}

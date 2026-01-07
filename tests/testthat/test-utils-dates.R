@@ -1,0 +1,88 @@
+# Tests for date utility functions
+
+test_that("dow returns correct day of week", {
+  # Sunday = 0
+ expect_equal(dow(as.Date("2024-01-07")), 0)  # Sunday
+  # Monday = 1
+  expect_equal(dow(as.Date("2024-01-08")), 1)  # Monday
+  # Saturday = 6
+  expect_equal(dow(as.Date("2024-01-06")), 6)  # Saturday
+})
+
+test_that("make_date handles valid dates", {
+  expect_equal(make_date(2024, 1, 15), as.Date("2024-01-15"))
+  expect_equal(make_date(2024, 12, 31), as.Date("2024-12-31"))
+})
+
+test_that("make_date returns NA for invalid dates", {
+  # February 30 doesn't exist
+  expect_true(is.na(make_date(2024, 2, 30)))
+  # February 29 in non-leap year
+  expect_true(is.na(make_date(2023, 2, 29)))
+  # February 29 in leap year is valid
+  expect_false(is.na(make_date(2024, 2, 29)))
+})
+
+test_that("make_birthday handles Feb 29", {
+  # In leap year, Feb 29 is valid
+  expect_equal(make_birthday(2, 29, 2024), as.Date("2024-02-29"))
+
+  # In non-leap year, Feb 29 becomes March 1
+  expect_equal(make_birthday(2, 29, 2023), as.Date("2023-03-01"))
+})
+
+test_that("is_leap_year identifies leap years correctly", {
+  expect_true(is_leap_year(2024))
+  expect_true(is_leap_year(2000))
+  expect_false(is_leap_year(2023))
+  expect_false(is_leap_year(1900))
+})
+
+test_that("quarter_months returns correct months", {
+  expect_equal(quarter_months(1), c(1, 2, 3))
+  expect_equal(quarter_months(2), c(4, 5, 6))
+  expect_equal(quarter_months(3), c(7, 8, 9))
+  expect_equal(quarter_months(4), c(10, 11, 12))
+})
+
+test_that("yyyymm creates correct format", {
+  expect_equal(yyyymm(2024, 1), 202401L)
+  expect_equal(yyyymm(2024, 12), 202412L)
+  expect_equal(yyyymm(2023, 6), 202306L)
+})
+
+test_that("first_valid_saturday calculates correctly", {
+  # January 2024: starts on Monday (dow=1)
+  # First Saturday is day 6
+  # With min_days=4, need at least 4 days in week, so day 6 is OK (6 days in month)
+  expect_equal(first_valid_saturday(2024, 1, min_days = 4), 6)
+
+  # March 2024: starts on Friday (dow=5)
+  # First Saturday is day 2 (only 2 days in March)
+  # With min_days=4, need second Saturday (day 9)
+  expect_equal(first_valid_saturday(2024, 3, min_days = 4), 9)
+
+  # With min_days=3, first Saturday (day 2) might work
+  # 2 days is less than 3, so still need second Saturday
+  expect_equal(first_valid_saturday(2024, 3, min_days = 3), 9)
+})
+
+test_that("first_saturday_on_or_after works correctly", {
+  # If date is Saturday, return same date
+  expect_equal(first_saturday_on_or_after(as.Date("2024-01-06")), as.Date("2024-01-06"))
+
+  # If date is Sunday, return next Saturday (6 days later)
+  expect_equal(first_saturday_on_or_after(as.Date("2024-01-07")), as.Date("2024-01-13"))
+
+  # If date is Monday, return Saturday (5 days later)
+  expect_equal(first_saturday_on_or_after(as.Date("2024-01-08")), as.Date("2024-01-13"))
+})
+
+test_that("month_in_quarter returns correct position", {
+  expect_equal(month_in_quarter(as.Date("2024-01-15")), 1)  # Jan = 1st in Q1
+  expect_equal(month_in_quarter(as.Date("2024-02-15")), 2)  # Feb = 2nd in Q1
+  expect_equal(month_in_quarter(as.Date("2024-03-15")), 3)  # Mar = 3rd in Q1
+  expect_equal(month_in_quarter(as.Date("2024-04-15")), 1)  # Apr = 1st in Q2
+  expect_equal(month_in_quarter(as.Date("2024-07-15")), 1)  # Jul = 1st in Q3
+  expect_equal(month_in_quarter(as.Date("2024-12-15")), 3)  # Dec = 3rd in Q4
+})
