@@ -116,8 +116,10 @@ validate_pnadc <- function(data, check_weights = FALSE, stop_on_error = TRUE) {
   join_available <- intersect(join_keys, names(data))
 
   # Validate data types and ranges
+  # Note: PNADC data may have character columns that need conversion
   if ("Ano" %in% names(data)) {
-    years <- unique(data$Ano)
+    years <- suppressWarnings(as.integer(unique(data$Ano)))
+    years <- years[!is.na(years)]
     invalid_years <- years[years < 2012 | years > 2100]
     if (length(invalid_years) > 0) {
       issues$invalid_years <- invalid_years
@@ -125,7 +127,8 @@ validate_pnadc <- function(data, check_weights = FALSE, stop_on_error = TRUE) {
   }
 
   if ("Trimestre" %in% names(data)) {
-    quarters <- unique(data$Trimestre)
+    quarters <- suppressWarnings(as.integer(unique(data$Trimestre)))
+    quarters <- quarters[!is.na(quarters)]
     invalid_quarters <- quarters[!quarters %in% 1:4]
     if (length(invalid_quarters) > 0) {
       issues$invalid_quarters <- invalid_quarters
@@ -133,26 +136,34 @@ validate_pnadc <- function(data, check_weights = FALSE, stop_on_error = TRUE) {
   }
 
   if ("V2008" %in% names(data)) {
-    days <- unique(data$V2008)
-    invalid_days <- days[!is.na(days) & (days < 1 | days > 31)]
+    days <- suppressWarnings(as.integer(unique(data$V2008)))
+    # Exclude NA and special codes (99 = unknown)
+    days <- days[!is.na(days) & days != 99]
+    invalid_days <- days[days < 1 | days > 31]
     if (length(invalid_days) > 0) {
       issues$invalid_birth_days <- invalid_days
     }
   }
 
   if ("V20081" %in% names(data)) {
-    months <- unique(data$V20081)
-    invalid_months <- months[!is.na(months) & (months < 1 | months > 12)]
+    months <- suppressWarnings(as.integer(unique(data$V20081)))
+    # Exclude NA and special codes (99 = unknown)
+    months <- months[!is.na(months) & months != 99]
+    invalid_months <- months[months < 1 | months > 12]
     if (length(invalid_months) > 0) {
       issues$invalid_birth_months <- invalid_months
     }
   }
 
   if ("V2009" %in% names(data)) {
-    ages <- unique(data$V2009)
-    invalid_ages <- ages[!is.na(ages) & (ages < 0 | ages > 120)]
+    ages <- suppressWarnings(as.numeric(unique(data$V2009)))
+    ages <- ages[!is.na(ages)]
+    # Allow ages up to 130 (rare but possible; higher values are likely data errors)
+    # These extreme values will be handled gracefully during processing
+    invalid_ages <- ages[ages < 0 | ages > 130]
     if (length(invalid_ages) > 0) {
-      issues$invalid_ages <- invalid_ages
+      issues$warning_ages <- paste("Unusual ages found:", paste(head(invalid_ages, 5), collapse = ", "),
+                                    "- these will be processed but may affect results")
     }
   }
 

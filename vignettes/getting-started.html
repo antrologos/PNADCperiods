@@ -350,7 +350,7 @@ capabilities:</p>
 <li><strong>Reference month identification</strong>: Determines which
 month within each quarter each survey observation refers to</li>
 <li><strong>Monthly weight computation</strong>: Adjusts survey weights
-for monthly (instead of quarterly) estimates</li>
+for monthly (instead of quarterly) estimates using rake weighting</li>
 </ol>
 </div>
 <div id="installation" class="section level2">
@@ -460,29 +460,120 @@ columns:</p>
 <span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>), by <span class="ot">=</span> ref_month_yyyymm]</span></code></pre></div>
 </div>
 </div>
-<div id="advanced-usage-computing-monthly-weights" class="section level2">
-<h2>Advanced Usage: Computing Monthly Weights</h2>
-<p>For monthly aggregate estimates (e.g., monthly unemployment rate),
-you need monthly-appropriate survey weights:</p>
+<div id="computing-monthly-weights" class="section level2">
+<h2>Computing Monthly Weights</h2>
+<p>For monthly aggregate estimates (e.g., monthly employment counts),
+you need monthly-appropriate survey weights.</p>
+<div id="required-additional-variables" class="section level3">
+<h3>Required additional variables</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>V1028</code></td>
+<td>Original quarterly survey weight</td>
+</tr>
+<tr class="even">
+<td><code>V1008</code></td>
+<td>Household identifier (join key)</td>
+</tr>
+<tr class="odd">
+<td><code>V2003</code></td>
+<td>Person identifier (join key)</td>
+</tr>
+<tr class="even">
+<td><code>UF</code></td>
+<td>State code</td>
+</tr>
+<tr class="odd">
+<td><code>posest</code></td>
+<td>Post-stratification cell</td>
+</tr>
+<tr class="even">
+<td><code>posest_sxi</code></td>
+<td>Post-stratification group</td>
+</tr>
+</tbody>
+</table>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># Load full data with all required variables</span></span>
 <span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>pnadc_full <span class="ot">&lt;-</span> <span class="fu">read_dta</span>(<span class="st">&quot;PNADCtrimestralempilhada.dta&quot;</span>)</span>
 <span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a></span>
 <span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co"># Load monthly population totals</span></span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>monthly_pop <span class="ot">&lt;-</span> <span class="fu">read_dta</span>(<span class="st">&quot;pnadc_series_mensalizadas.dta&quot;</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>monthly_pop <span class="ot">&lt;-</span> <span class="fu">read_dta</span>(<span class="st">&quot;monthly_population_totals.dta&quot;</span>)</span>
 <span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a></span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co"># Run full mensalization</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co"># Run mensalization with weight computation</span></span>
 <span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">mensalizePNADC</span>(pnadc_full,</span>
 <span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  <span class="at">compute_weights =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>  <span class="at">monthly_totals =</span> monthly_pop,</span>
 <span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>  <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span>
 <span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a></span>
-<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co"># Use weight_monthly for estimates</span></span>
-<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>unemployment <span class="ot">&lt;-</span> result[, .(</span>
-<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>  <span class="at">unemployed =</span> <span class="fu">sum</span>(weight_monthly <span class="sc">*</span> (VD4002 <span class="sc">==</span> <span class="dv">2</span>), <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a>  <span class="at">labor_force =</span> <span class="fu">sum</span>(weight_monthly <span class="sc">*</span> (VD4001 <span class="sc">==</span> <span class="dv">1</span>), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a>), by <span class="ot">=</span> ref_month_yyyymm]</span>
-<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a></span>
-<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a>unemployment[, rate <span class="sc">:=</span> <span class="dv">100</span> <span class="sc">*</span> unemployed <span class="sc">/</span> labor_force]</span></code></pre></div>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co"># Use weight_monthly for monthly estimates</span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>monthly_pop <span class="ot">&lt;-</span> result[, .(</span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>  <span class="at">population =</span> <span class="fu">sum</span>(weight_monthly, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a>), by <span class="ot">=</span> ref_month_yyyymm]</span></code></pre></div>
+<p>The <code>weight_monthly</code> output is the <strong>final
+weight</strong> for general-purpose monthly analysis.</p>
+</div>
+</div>
+<div id="optional-theme-specific-sidra-calibration" class="section level2">
+<h2>Optional: Theme-Specific SIDRA Calibration</h2>
+<p>If you need your estimates to exactly match IBGE’s official SIDRA
+published series, use <code>calibrate_to_sidra()</code>
+<strong>after</strong> running <code>mensalizePNADC()</code>:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># First, get base weights</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">mensalizePNADC</span>(pnadc_full,</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="at">compute_weights =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  <span class="at">monthly_totals =</span> monthly_pop)</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co"># Then, calibrate specifically for unemployment analysis</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>unemployment_data <span class="ot">&lt;-</span> <span class="fu">calibrate_to_sidra</span>(result,</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="at">theme =</span> <span class="st">&quot;unemployment&quot;</span>,</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>  <span class="at">sidra_series =</span> sidra_targets)</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co"># Calculate unemployment rate (will match IBGE SIDRA exactly)</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>unemployment_data[, .(</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>  <span class="at">rate =</span> <span class="fu">sum</span>(weight_sidra <span class="sc">*</span> (VD4002 <span class="sc">==</span> <span class="dv">2</span>)) <span class="sc">/</span></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a>         <span class="fu">sum</span>(weight_sidra <span class="sc">*</span> (VD4001 <span class="sc">==</span> <span class="dv">1</span>)) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>), by <span class="ot">=</span> ref_month_yyyymm]</span></code></pre></div>
+<div id="why-separate-sidra-calibration" class="section level3">
+<h3>Why separate SIDRA calibration?</h3>
+<p>Different themes (unemployment, employment, income) require different
+Bayesian calibrations. The base <code>weight_monthly</code> from
+<code>mensalizePNADC()</code> is appropriate for most analyses, but if
+you need exact alignment with specific IBGE published series, choose the
+theme that matches your analysis:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Theme</th>
+<th>Use when analyzing</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>&quot;unemployment&quot;</code></td>
+<td>Unemployment rate</td>
+</tr>
+<tr class="even">
+<td><code>&quot;employment&quot;</code></td>
+<td>Employment levels by category</td>
+</tr>
+<tr class="odd">
+<td><code>&quot;labor_force&quot;</code></td>
+<td>Labor force participation</td>
+</tr>
+<tr class="even">
+<td><code>&quot;income&quot;</code></td>
+<td>Income and earnings</td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 <div id="understanding-the-output" class="section level2">
 <h2>Understanding the Output</h2>
@@ -534,28 +625,28 @@ observations</li>
 <div id="exception-quarters" class="section level3">
 <h3>Exception Quarters</h3>
 <p>Some quarters have non-standard IBGE timing rules:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">get_exception_quarters</span>()</span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co"># [1] &quot;2016t3&quot; &quot;2016t4&quot; &quot;2017t2&quot; &quot;2022t3&quot; &quot;2023t2&quot;</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">get_exception_quarters</span>()</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="co"># [1] &quot;2016t3&quot; &quot;2016t4&quot; &quot;2017t2&quot; &quot;2022t3&quot; &quot;2023t2&quot;</span></span></code></pre></div>
 </div>
 </div>
 <div id="using-modular-functions" class="section level2">
 <h2>Using Modular Functions</h2>
 <p>For more control, use the individual functions:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># Step 1: Just identify reference months</span></span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>months <span class="ot">&lt;-</span> <span class="fu">identify_reference_month</span>(pnadc)</span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co"># Step 2: Check determination rate by quarter</span></span>
-<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>months[, .(</span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="at">total =</span> .N,</span>
-<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  <span class="at">determined =</span> <span class="fu">sum</span>(<span class="sc">!</span><span class="fu">is.na</span>(ref_month_in_quarter)),</span>
-<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  <span class="at">rate =</span> <span class="fu">mean</span>(<span class="sc">!</span><span class="fu">is.na</span>(ref_month_in_quarter))</span>
-<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>), by <span class="ot">=</span> .(Ano, Trimestre)]</span>
-<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a></span>
-<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co"># Step 3: Calibrate weights (if needed)</span></span>
-<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>calibrated <span class="ot">&lt;-</span> <span class="fu">calibrate_monthly_weights</span>(merged_data, monthly_pop)</span>
-<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a></span>
-<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a><span class="co"># Step 4: Compute indicators</span></span>
-<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a>indicators <span class="ot">&lt;-</span> <span class="fu">compute_labor_indicators</span>(calibrated)</span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co"># Step 1: Just identify reference months</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>months <span class="ot">&lt;-</span> <span class="fu">identify_reference_month</span>(pnadc)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co"># Step 2: Check determination rate by quarter</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>months[, .(</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>  <span class="at">total =</span> .N,</span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>  <span class="at">determined =</span> <span class="fu">sum</span>(<span class="sc">!</span><span class="fu">is.na</span>(ref_month_in_quarter)),</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>  <span class="at">rate =</span> <span class="fu">mean</span>(<span class="sc">!</span><span class="fu">is.na</span>(ref_month_in_quarter))</span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>), by <span class="ot">=</span> .(Ano, Trimestre)]</span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="co"># Step 3: Calibrate weights (if needed)</span></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a>calibrated <span class="ot">&lt;-</span> <span class="fu">calibrate_monthly_weights</span>(merged_data, monthly_pop)</span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="co"># Step 4: Compute indicators</span></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a>indicators <span class="ot">&lt;-</span> <span class="fu">compute_labor_indicators</span>(calibrated)</span></code></pre></div>
 </div>
 <div id="tips-and-best-practices" class="section level2">
 <h2>Tips and Best Practices</h2>
@@ -567,11 +658,15 @@ month is enough.</p></li>
 unusually low for certain quarters, investigate the data.</p></li>
 <li><p><strong>Handle indeterminate observations</strong>: Decide
 whether to exclude them or use quarterly-level analysis.</p></li>
+<li><p><strong>Use <code>weight_monthly</code> for general
+analysis</strong>: The rake-weighted output is appropriate for most
+purposes.</p></li>
+<li><p><strong>Use <code>calibrate_to_sidra()</code> only when
+needed</strong>: Only use theme-specific calibration if you need exact
+alignment with specific IBGE SIDRA series.</p></li>
 <li><p><strong>Use data.table</strong>: The package is optimized for
 data.table. Converting from data.frame is automatic but working directly
 with data.table is faster.</p></li>
-<li><p><strong>Memory considerations</strong>: For very large datasets,
-consider processing in chunks or using the modular functions.</p></li>
 </ol>
 </div>
 <div id="further-reading" class="section level2">
@@ -580,7 +675,8 @@ consider processing in chunks or using the modular functions.</p></li>
 <li><a href="https://www.ibge.gov.br/estatisticas/sociais/trabalho/9171-pesquisa-nacional-por-amostra-de-domicilios-continua-mensal.html">IBGE
 PNADC Documentation</a></li>
 <li>Package function reference: <code>?mensalizePNADC</code>,
-<code>?identify_reference_month</code></li>
+<code>?identify_reference_month</code>,
+<code>?calibrate_to_sidra</code></li>
 </ul>
 </div>
 

@@ -8,14 +8,16 @@ NULL
 #' Day of Week (Stata-compatible)
 #'
 #' Returns the day of week for a date, matching Stata's `dow()` function.
+#' Uses fast integer arithmetic instead of format().
 #'
 #' @param date A Date object or vector of Dates
 #' @return Integer vector: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 #' @keywords internal
 #' @noRd
 dow <- function(date) {
-
-  as.integer(format(date, "%w"))
+  # R's origin is 1970-01-01 which was a Thursday (dow=4)
+  # Use modular arithmetic: (days_since_origin + 4) %% 7
+  (as.integer(date) + 4L) %% 7L
 }
 
 #' First Day of Month
@@ -42,29 +44,26 @@ first_of_month <- function(date) {
 #' @keywords internal
 #' @noRd
 make_date <- function(year, month, day) {
-
   # Handle vectorized input
-n <- max(length(year), length(month), length(day))
+  n <- max(length(year), length(month), length(day))
   year <- rep_len(year, n)
   month <- rep_len(month, n)
   day <- rep_len(day, n)
 
-  # Create date strings
-  date_str <- sprintf("%04d-%02d-%02d", year, month, day)
+  # Use ISOdate for faster date creation (returns POSIXct)
+  # This is faster than sprintf + as.Date for large vectors
+  result <- as.Date(ISOdate(year, month, day))
 
-  # Parse with NA for invalid dates
-  result <- as.Date(date_str, format = "%Y-%m-%d")
-
-  # Validate - dates that parsed but are wrong (e.g., Feb 30 -> Mar 2)
-  # should be NA
-  valid_year <- as.integer(format(result, "%Y"))
-  valid_month <- as.integer(format(result, "%m"))
-  valid_day <- as.integer(format(result, "%d"))
+  # ISOdate handles invalid dates by returning NA, but also wraps some
+  # (e.g., month=13 -> next year). Check for wrapping.
+  valid_year <- fast_year(result)
+  valid_month <- fast_month(result)
+  valid_day <- fast_mday(result)
 
   mismatch <- !is.na(result) & (valid_year != year | valid_month != month | valid_day != day)
   result[mismatch] <- NA
 
-result
+  result
 }
 
 #' Handle February 29 Birthdays
@@ -88,8 +87,14 @@ make_birthday <- function(birth_month, birth_day, year) {
   result <- make_date(year, birth_month, birth_day)
 
   # For Feb 29 in non-leap years, use March 1
-  feb29 <- birth_month == 2L & birth_day == 29L & is.na(result)
-  result[feb29] <- make_date(year[feb29], 3L, 1L)
+  # Handle NA values safely
+  feb29 <- !is.na(birth_month) & !is.na(birth_day) &
+           birth_month == 2L & birth_day == 29L & is.na(result)
+
+  if (any(feb29, na.rm = TRUE)) {
+    feb29_idx <- which(feb29)
+    result[feb29_idx] <- make_date(year[feb29_idx], 3L, 1L)
+  }
 
   result
 }
@@ -110,12 +115,38 @@ is_leap_year <- function(year) {
 #'
 #' Returns the three months of a quarter.
 #'
-#' @param quarter Integer quarter (1-4)
+#' @param quarter Integer quarter (1-4), must be scalar
 #' @return Integer vector of length 3 with month numbers
 #' @keywords internal
 #' @noRd
 quarter_months <- function(quarter) {
+  # This function is designed for scalar input
+  # For vectorized use, call with quarter[1] or use quarter_first_month() / quarter_month_n()
+  if (length(quarter) != 1) {
+    stop("quarter_months() expects a scalar, got length ", length(quarter))
+  }
   (quarter - 1L) * 3L + 1L:3L
+}
+
+#' Get First Month of Quarter (vectorized)
+#'
+#' @param quarter Integer vector of quarters (1-4)
+#' @return Integer vector of first month numbers
+#' @keywords internal
+#' @noRd
+quarter_first_month <- function(quarter) {
+  (quarter - 1L) * 3L + 1L
+}
+
+#' Get N-th Month of Quarter (vectorized)
+#'
+#' @param quarter Integer vector of quarters (1-4)
+#' @param n Which month in quarter (1, 2, or 3)
+#' @return Integer vector of month numbers
+#' @keywords internal
+#' @noRd
+quarter_month_n <- function(quarter, n) {
+  (quarter - 1L) * 3L + n
 }
 
 #' First Day of Quarter
@@ -153,9 +184,57 @@ yyyymm <- function(year, month) {
 #' @keywords internal
 #' @noRd
 date_to_yyyymm <- function(date) {
-  year <- as.integer(format(date, "%Y"))
-  month <- as.integer(format(date, "%m"))
+  year <- fast_year(date)
+  month <- fast_month(date)
   yyyymm(year, month)
+}
+
+#' Fast Year Extraction
+#'
+#' Extract year from Date using data.table if available, otherwise format().
+#'
+#' @param date Date vector
+#' @return Integer vector of years
+#' @keywords internal
+#' @noRd
+fast_year <- function(date) {
+  if (requireNamespace("data.table", quietly = TRUE)) {
+    data.table::year(date)
+  } else {
+    as.integer(format(date, "%Y"))
+  }
+}
+
+#' Fast Month Extraction
+#'
+#' Extract month from Date using data.table if available, otherwise format().
+#'
+#' @param date Date vector
+#' @return Integer vector of months
+#' @keywords internal
+#' @noRd
+fast_month <- function(date) {
+  if (requireNamespace("data.table", quietly = TRUE)) {
+    data.table::month(date)
+  } else {
+    as.integer(format(date, "%m"))
+  }
+}
+
+#' Fast Day Extraction
+#'
+#' Extract day of month from Date using data.table if available, otherwise format().
+#'
+#' @param date Date vector
+#' @return Integer vector of days
+#' @keywords internal
+#' @noRd
+fast_mday <- function(date) {
+  if (requireNamespace("data.table", quietly = TRUE)) {
+    data.table::mday(date)
+  } else {
+    as.integer(format(date, "%d"))
+  }
 }
 
 #' First Saturday of Month (with minimum days constraint)
@@ -164,8 +243,9 @@ date_to_yyyymm <- function(date) {
 #' `min_days` in the reference week within that month. This implements IBGE's
 #' "Parada Tecnica" rule.
 #'
-#' The reference week is Saturday through Friday. For the first week of a month
-#' to be valid, it must have enough days within that month.
+#' The reference week ends on Saturday. If Saturday falls on day X of the month,
+#' then X days of that week are within the month (days 1 through X). For the
+#' first week to be valid, X must be >= min_days.
 #'
 #' @param year Integer year
 #' @param month Integer month (1-12)
@@ -188,21 +268,22 @@ first_valid_saturday <- function(year, month, min_days = 4L) {
   days_to_saturday <- (6L - first_dow) %% 7L
   first_saturday_day <- 1L + days_to_saturday
 
-  # How many days of that week are in this month?
-  # The week is Saturday (first_saturday_day) through Friday (first_saturday_day + 6)
-  # Days in month from Saturday: min(first_saturday_day + 6, days_in_month) - first_saturday_day + 1
-  # But we only care about days from the 1st: so it's first_saturday_day days
-
-  # Actually, simpler: if first_saturday_day <= (7 - min_days + 1), there are enough days
-  # With min_days = 4: first_saturday_day <= 4 means Saturday is day 1,2,3,4
-  #   Day 1: 7 days in month, Day 2: 6 days, Day 3: 5 days, Day 4: 4 days (ok)
-  # With min_days = 3: first_saturday_day <= 5 means Saturday is day 1,2,3,4,5
-  #   Day 5: 3 days (ok)
-
-  threshold <- 8L - min_days  # 4 for min_days=4, 5 for min_days=3
+  # How many days of the reference week (ending on Saturday) are in this month?
+  # If Saturday is on day X, then X days (1 through X) are in the month.
+  # We need X >= min_days for the week to be valid.
+  #
+  # Examples for min_days = 4:
+  #   If Saturday is day 7: 7 >= 4, valid
+  #   If Saturday is day 4: 4 >= 4, valid
+  #   If Saturday is day 3: 3 < 4, skip to next week (day 10)
+  #   If Saturday is day 1: 1 < 4, skip to next week (day 8)
+  #
+  # Examples for min_days = 3:
+  #   If Saturday is day 3: 3 >= 3, valid
+  #   If Saturday is day 2: 2 < 3, skip to next week (day 9)
 
   # If first Saturday has enough days, use it; otherwise use second Saturday
-  ifelse(first_saturday_day <= threshold, first_saturday_day, first_saturday_day + 7L)
+  ifelse(first_saturday_day >= min_days, first_saturday_day, first_saturday_day + 7L)
 }
 
 #' First Saturday After or On a Date
@@ -228,7 +309,7 @@ first_saturday_on_or_after <- function(date) {
 #' @keywords internal
 #' @noRd
 month_in_quarter <- function(date) {
-  month <- as.integer(format(date, "%m"))
+  month <- fast_month(date)
   ((month - 1L) %% 3L) + 1L
 }
 

@@ -51,7 +51,7 @@
 #'
 #'   If \code{output = "crosswalk"} (default):
 #'   A data.table with join keys and new time variables:
-#'   \itemize
+#'   \itemize{
 #'     \item Join keys: \code{Ano}, \code{Trimestre}, \code{UPA}, \code{V1008}, \code{V1014}, \code{V2003}
 #'     \item \code{ref_month}: Reference month as Date
 #'     \item \code{ref_month_in_quarter}: Position in quarter (1, 2, 3) or NA
@@ -63,7 +63,7 @@
 #'   Full input data with all computed columns added.
 #'
 #'   If \code{output = "aggregates"}:
-#'   Monthly aggregated labor indicators.
+#'   Monthly aggregated indicators.
 #'
 #' @details
 #' ## Reference Month Identification
@@ -81,19 +81,19 @@
 #'
 #' When \code{compute_weights = TRUE}, the function:
 #' \enumerate{
-#'   \item Redistributes quarterly weights to months using hierarchical calibration
+#'   \item Redistributes quarterly weights to months using hierarchical rake weighting
 #'   \item Smooths monthly aggregates to remove quarterly artifacts
-#'   \item Applies Bayesian adjustment to match individual weights to targets
 #' }
+#'
+#' The resulting \code{weight_monthly} is the **final** weight for general-purpose
+#' monthly analysis. No Bayesian adjustment is applied.
+#'
+#' For theme-specific calibration to match IBGE SIDRA series (e.g., unemployment
+#' rate, employment levels), use \code{\link{calibrate_to_sidra}} separately.
 #'
 #' Additional required columns for weight computation:
 #' \itemize{
-#'   \item Survey design: \code{V1028}, \code{UF}, \code{Estrato}, \code{posest}, \code{posest_sxi}
-#'   \item Demographics: \code{V2007}, \code{V2010}
-#'   \item Labor force: \code{VD4001}, \code{VD4002}, \code{VD4003}, \code{VD4005}
-#'   \item Employment: \code{VD4009}, \code{VD4010}, \code{VD4012}
-#'   \item Income: \code{VD4016}, \code{VD4017}, \code{VD4019}, \code{VD4020}
-#'   \item Optional: \code{V4019} (CNPJ, for detailed employer/self-employed categories)
+#'   \item Survey design: \code{V1028}, \code{V1008}, \code{V2003}, \code{UF}, \code{posest}, \code{posest_sxi}
 #' }
 #'
 #' @examples
@@ -115,18 +115,22 @@
 #'   by = c("Ano", "Trimestre", "UPA", "V1008", "V1014", "V2003"))
 #'
 #'
-#' # Full pipeline with monthly weights
+#' # With monthly weights for general analysis
 #' pnadc_full <- haven::read_dta("PNADCtrimestralempilhada.dta")
-#' monthly_pop <- haven::read_dta("pnadc_series_mensalizadas.dta")
+#' monthly_pop <- haven::read_dta("monthly_population_totals.dta")
 #'
 #' result <- mensalizePNADC(pnadc_full,
 #'   compute_weights = TRUE,
 #'   monthly_totals = monthly_pop)
+#'
+#' # Use weight_monthly for any monthly aggregate
+#' result[, .(pop = sum(weight_monthly)), by = ref_month_yyyymm]
 #' }
 #'
 #' @seealso
 #' \code{\link{identify_reference_month}} for just reference month identification
 #' \code{\link{calibrate_monthly_weights}} for weight calibration details
+#' \code{\link{calibrate_to_sidra}} for theme-specific Bayesian calibration
 #' \code{\link{compute_labor_indicators}} for computing indicators from results
 #'
 #' @export
@@ -145,9 +149,11 @@ mensalizePNADC <- function(data,
     stop("monthly_totals is required when compute_weights = TRUE")
   }
 
+  # Determine number of steps for progress messages
+  n_steps <- if (compute_weights) 3L else 1L
+
   # Step 1: Identify reference months
-  if (verbose) message("Step 1/", ifelse(compute_weights, "4", "1"),
-                        ": Identifying reference months...")
+  if (verbose) message("Step 1/", n_steps, ": Identifying reference months...")
 
   crosswalk <- identify_reference_month(data)
 
@@ -170,56 +176,31 @@ mensalizePNADC <- function(data,
     }
   }
 
-  # Steps 2-4: Full weight computation pipeline
+  # Steps 2-3: Weight computation pipeline (without Bayesian adjustment)
 
-  # Merge reference months with full data
-  if (verbose) message("Step 2/4: Calibrating monthly weights...")
+  # Step 2: Calibrate weights using rake weighting
+  if (verbose) message("Step 2/", n_steps, ": Calibrating monthly weights (rake weighting)...")
 
   dt <- ensure_data_table(data, copy = TRUE)
   key_cols <- intersect(join_key_vars(), names(dt))
   dt <- merge(dt, crosswalk, by = key_cols, all.x = TRUE)
 
-  # Calibrate weights
+  # Calibrate weights using hierarchical rake weighting
   dt <- calibrate_monthly_weights(dt, monthly_totals)
 
-  if (verbose) message("Step 3/4: Smoothing monthly aggregates...")
+  # Step 3: Smooth monthly aggregates
+  if (verbose) message("Step 3/", n_steps, ": Smoothing monthly aggregates...")
 
-  # Create indicator variables and aggregate
-  dt <- create_all_indicator_vars(dt)
+  # Aggregate and smooth to get final monthly weights
+  # The smoothing step adjusts weights so monthly series don't show artificial quarterly patterns
+  dt <- smooth_calibrated_weights(dt)
 
-  indicator_vars <- c(
-    "populacao", "pop14mais", "popocup", "popdesocup", "popnaforca", "popforadaforca",
-    "empregprivcomcart", "empregprivsemcart", "domesticocomcart", "domesticosemcart",
-    "empregpublcomcart", "empregpublsemcart", "estatutmilitar",
-    "empregador", "contapropria", "trabfamauxiliar",
-    "agropecuaria", "industria", "construcao", "comercio", "transporte",
-    "alojaliment", "infcomfinimobadm", "adminpublica", "outroservico", "servicodomestico",
-    "contribuinteprev", "subocuphoras", "forcapotencial", "desalentado"
-  )
-
-  # Add CNPJ variants if available
-  if ("V4019" %in% names(dt)) {
-    indicator_vars <- c(indicator_vars,
-                        "empregadorcomcnpj", "empregadorsemcnpj",
-                        "contapropriacomcnpj", "contapropriasemcnpj")
+  # Rename to final output name
+  if ("weight_smoothed" %in% names(dt)) {
+    data.table::setnames(dt, "weight_smoothed", "weight_monthly")
+  } else if ("weight_calibrated" %in% names(dt)) {
+    data.table::setnames(dt, "weight_calibrated", "weight_monthly")
   }
-
-  # Aggregate monthly
-  aggregates <- dt[!is.na(ref_month_in_quarter), {
-    result <- list(n_obs = .N)
-    for (v in intersect(indicator_vars, names(.SD))) {
-      result[[paste0("z_", v)]] <- sum(get(v) * weight_calibrated, na.rm = TRUE)
-    }
-    result
-  }, by = ref_month_yyyymm]
-
-  # Smooth aggregates
-  smoothed <- smooth_monthly_aggregates(aggregates)
-
-  if (verbose) message("Step 4/4: Applying Bayesian weight adjustment...")
-
-  # Bayesian adjustment
-  dt <- adjust_weights_bayesian(dt, smoothed)
 
   if (verbose) {
     n_with_weights <- sum(!is.na(dt$weight_monthly))
@@ -232,6 +213,7 @@ mensalizePNADC <- function(data,
     # Minimal crosswalk with weights
     output_cols <- c(key_cols, "ref_month", "ref_month_in_quarter",
                      "ref_month_yyyymm", "weight_monthly")
+    output_cols <- intersect(output_cols, names(dt))
     result <- dt[, ..output_cols]
     class(result) <- c("pnadc_crosswalk", class(result))
     attr(result, "determination_rate") <- det_rate
@@ -239,7 +221,66 @@ mensalizePNADC <- function(data,
   } else if (output == "microdata") {
     return(dt)
   } else {
-    # Return smoothed aggregates
-    return(smoothed)
+    # Return monthly aggregates
+    aggregates <- compute_monthly_aggregates(dt)
+    return(aggregates)
   }
+}
+
+#' Smooth Calibrated Weights
+#'
+#' Apply smoothing to calibrated weights to remove artificial quarterly patterns.
+#'
+#' @param dt data.table with weight_calibrated column
+#' @return data.table with weight_smoothed column added
+#' @keywords internal
+#' @noRd
+smooth_calibrated_weights <- function(dt) {
+  # Aggregate to monthly totals
+  monthly_totals <- dt[!is.na(ref_month_in_quarter), .(
+    pop_calibrated = sum(weight_calibrated, na.rm = TRUE)
+  ), by = ref_month_yyyymm]
+
+  # Apply smoothing to remove quarterly artifacts
+  smoothed <- smooth_monthly_aggregates(monthly_totals)
+
+  if ("m_populacao" %in% names(smoothed)) {
+    # Merge smoothed totals back
+    dt <- merge(dt, smoothed[, .(ref_month_yyyymm, m_populacao)],
+                by = "ref_month_yyyymm", all.x = TRUE)
+
+    # Compute monthly weight totals for calibration
+    dt[, pop_month := sum(weight_calibrated, na.rm = TRUE), by = ref_month_yyyymm]
+
+    # Scale individual weights to match smoothed monthly totals
+    # m_populacao is in thousands
+    dt[!is.na(m_populacao) & pop_month > 0,
+       weight_smoothed := weight_calibrated * (m_populacao * 1000 / pop_month)]
+
+    # For months without smoothed values, keep calibrated weight
+    dt[is.na(weight_smoothed), weight_smoothed := weight_calibrated]
+
+    # Clean up
+    dt[, c("m_populacao", "pop_month") := NULL]
+  } else {
+    # If smoothing failed, just use calibrated weights
+    dt[, weight_smoothed := weight_calibrated]
+  }
+
+  dt
+}
+
+#' Compute Monthly Aggregates
+#'
+#' Compute monthly aggregated indicators from weighted microdata.
+#'
+#' @param dt data.table with weight_monthly column
+#' @return data.table with monthly aggregates
+#' @keywords internal
+#' @noRd
+compute_monthly_aggregates <- function(dt) {
+  dt[!is.na(ref_month_in_quarter), .(
+    n_obs = .N,
+    population = sum(weight_monthly, na.rm = TRUE)
+  ), by = ref_month_yyyymm]
 }

@@ -51,7 +51,7 @@ Depends on \code{output} parameter:
 
 If \code{output = "crosswalk"} (default):
 A data.table with join keys and new time variables:
-\itemize
+\itemize{
 \item Join keys: \code{Ano}, \code{Trimestre}, \code{UPA}, \code{V1008}, \code{V1014}, \code{V2003}
 \item \code{ref_month}: Reference month as Date
 \item \code{ref_month_in_quarter}: Position in quarter (1, 2, 3) or NA
@@ -63,7 +63,7 @@ If \code{output = "microdata"}:
 Full input data with all computed columns added.
 
 If \code{output = "aggregates"}:
-Monthly aggregated labor indicators.
+Monthly aggregated indicators.
 }
 \description{
 This function processes stacked quarterly PNADC microdata to:
@@ -95,19 +95,19 @@ Typically 85-90\% of observations can be assigned a definite reference month.
 
 When \code{compute_weights = TRUE}, the function:
 \enumerate{
-\item Redistributes quarterly weights to months using hierarchical calibration
+\item Redistributes quarterly weights to months using hierarchical rake weighting
 \item Smooths monthly aggregates to remove quarterly artifacts
-\item Applies Bayesian adjustment to match individual weights to targets
 }
+
+The resulting \code{weight_monthly} is the \strong{final} weight for general-purpose
+monthly analysis. No Bayesian adjustment is applied.
+
+For theme-specific calibration to match IBGE SIDRA series (e.g., unemployment
+rate, employment levels), use \code{\link{calibrate_to_sidra}} separately.
 
 Additional required columns for weight computation:
 \itemize{
-\item Survey design: \code{V1028}, \code{UF}, \code{Estrato}, \code{posest}, \code{posest_sxi}
-\item Demographics: \code{V2007}, \code{V2010}
-\item Labor force: \code{VD4001}, \code{VD4002}, \code{VD4003}, \code{VD4005}
-\item Employment: \code{VD4009}, \code{VD4010}, \code{VD4012}
-\item Income: \code{VD4016}, \code{VD4017}, \code{VD4019}, \code{VD4020}
-\item Optional: \code{V4019} (CNPJ, for detailed employer/self-employed categories)
+\item Survey design: \code{V1028}, \code{V1008}, \code{V2003}, \code{UF}, \code{posest}, \code{posest_sxi}
 }
 }
 }
@@ -130,18 +130,22 @@ monthly <- dplyr::left_join(original, crosswalk,
   by = c("Ano", "Trimestre", "UPA", "V1008", "V1014", "V2003"))
 
 
-# Full pipeline with monthly weights
+# With monthly weights for general analysis
 pnadc_full <- haven::read_dta("PNADCtrimestralempilhada.dta")
-monthly_pop <- haven::read_dta("pnadc_series_mensalizadas.dta")
+monthly_pop <- haven::read_dta("monthly_population_totals.dta")
 
 result <- mensalizePNADC(pnadc_full,
   compute_weights = TRUE,
   monthly_totals = monthly_pop)
+
+# Use weight_monthly for any monthly aggregate
+result[, .(pop = sum(weight_monthly)), by = ref_month_yyyymm]
 }
 
 }
 \seealso{
 \code{\link{identify_reference_month}} for just reference month identification
 \code{\link{calibrate_monthly_weights}} for weight calibration details
+\code{\link{calibrate_to_sidra}} for theme-specific Bayesian calibration
 \code{\link{compute_labor_indicators}} for computing indicators from results
 }

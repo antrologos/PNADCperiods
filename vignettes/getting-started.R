@@ -61,21 +61,35 @@ knitr::opts_chunk$set(
 # pnadc_full <- read_dta("PNADCtrimestralempilhada.dta")
 # 
 # # Load monthly population totals
-# monthly_pop <- read_dta("pnadc_series_mensalizadas.dta")
+# monthly_pop <- read_dta("monthly_population_totals.dta")
 # 
-# # Run full mensalization
+# # Run mensalization with weight computation
 # result <- mensalizePNADC(pnadc_full,
 #   compute_weights = TRUE,
 #   monthly_totals = monthly_pop,
 #   verbose = TRUE)
 # 
-# # Use weight_monthly for estimates
-# unemployment <- result[, .(
-#   unemployed = sum(weight_monthly * (VD4002 == 2), na.rm = TRUE),
-#   labor_force = sum(weight_monthly * (VD4001 == 1), na.rm = TRUE)
+# # Use weight_monthly for monthly estimates
+# monthly_pop <- result[, .(
+#   population = sum(weight_monthly, na.rm = TRUE)
 # ), by = ref_month_yyyymm]
+
+## ----sidra-calibration--------------------------------------------------------
+# # First, get base weights
+# result <- mensalizePNADC(pnadc_full,
+#   compute_weights = TRUE,
+#   monthly_totals = monthly_pop)
 # 
-# unemployment[, rate := 100 * unemployed / labor_force]
+# # Then, calibrate specifically for unemployment analysis
+# unemployment_data <- calibrate_to_sidra(result,
+#   theme = "unemployment",
+#   sidra_series = sidra_targets)
+# 
+# # Calculate unemployment rate (will match IBGE SIDRA exactly)
+# unemployment_data[, .(
+#   rate = sum(weight_sidra * (VD4002 == 2)) /
+#          sum(weight_sidra * (VD4001 == 1)) * 100
+# ), by = ref_month_yyyymm]
 
 ## ----exceptions---------------------------------------------------------------
 # get_exception_quarters()
