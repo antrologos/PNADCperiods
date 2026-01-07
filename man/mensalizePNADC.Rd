@@ -7,7 +7,6 @@
 mensalizePNADC(
   data,
   compute_weights = FALSE,
-  monthly_totals = NULL,
   output = c("crosswalk", "microdata", "aggregates"),
   verbose = TRUE
 )
@@ -28,14 +27,8 @@ For monthly weight computation (\code{compute_weights = TRUE}), additional
 columns are required. See Details.}
 
 \item{compute_weights}{Logical. If TRUE, compute monthly survey weights in
-addition to identifying reference months. Default is FALSE.}
-
-\item{monthly_totals}{A data.frame with monthly population totals for calibration.
-Required if \code{compute_weights = TRUE}. Must contain:
-\itemize{
-\item \code{ref_month_yyyymm} or \code{anomesexato}: Month in YYYYMM format
-\item \code{m_populacao}: Monthly population in thousands
-}}
+addition to identifying reference months. Default is FALSE. Requires the
+\code{sidrar} package to fetch population data from IBGE SIDRA API.}
 
 \item{output}{Character. What to return:
 \itemize{
@@ -95,6 +88,7 @@ Typically 85-90\% of observations can be assigned a definite reference month.
 
 When \code{compute_weights = TRUE}, the function:
 \enumerate{
+\item Fetches monthly population from IBGE SIDRA API (table 6022)
 \item Redistributes quarterly weights to months using hierarchical rake weighting
 \item Smooths monthly aggregates to remove quarterly artifacts
 }
@@ -111,6 +105,12 @@ Additional required columns for weight computation:
 }
 }
 }
+\section{Dependencies}{
+
+When \code{compute_weights = TRUE}, the \code{sidrar} package is required
+to fetch population data. Install with: \code{install.packages("sidrar")}
+}
+
 \examples{
 \dontrun{
 # Basic usage: identify reference months only
@@ -131,12 +131,10 @@ monthly <- dplyr::left_join(original, crosswalk,
 
 
 # With monthly weights for general analysis
+# (requires sidrar package and internet connection)
 pnadc_full <- haven::read_dta("PNADCtrimestralempilhada.dta")
-monthly_pop <- haven::read_dta("monthly_population_totals.dta")
 
-result <- mensalizePNADC(pnadc_full,
-  compute_weights = TRUE,
-  monthly_totals = monthly_pop)
+result <- mensalizePNADC(pnadc_full, compute_weights = TRUE)
 
 # Use weight_monthly for any monthly aggregate
 result[, .(pop = sum(weight_monthly)), by = ref_month_yyyymm]

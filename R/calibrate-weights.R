@@ -129,6 +129,12 @@ calibrate_monthly_weights <- function(data, monthly_totals, n_cells = 4L) {
 #' @noRd
 create_calibration_cells <- function(dt) {
 
+  # Ensure numeric types for stratification variables (PNADC data may have character cols)
+  if (is.character(dt$V2009)) dt[, V2009 := as.numeric(V2009)]
+  if (is.character(dt$posest_sxi)) dt[, posest_sxi := as.integer(posest_sxi)]
+  if (is.character(dt$posest)) dt[, posest := as.integer(posest)]
+  if (is.character(dt$UF)) dt[, UF := as.integer(UF)]
+
   # Celula 1: Age groups
   # 0 = 0-13, 1 = 14-29, 2 = 30-59, 3 = 60+
   dt[, celula1 := data.table::fcase(

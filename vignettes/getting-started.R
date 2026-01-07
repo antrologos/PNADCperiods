@@ -59,27 +59,23 @@ knitr::opts_chunk$set(
 ## ----monthly-weights----------------------------------------------------------
 # # Load full data with all required variables
 # pnadc_full <- read_dta("PNADCtrimestralempilhada.dta")
-# 
-# # Load monthly population totals
-# monthly_pop <- read_dta("monthly_population_totals.dta")
-# 
+#
 # # Run mensalization with weight computation
+# # (auto-fetches monthly population from SIDRA API)
 # result <- mensalizePNADC(pnadc_full,
 #   compute_weights = TRUE,
-#   monthly_totals = monthly_pop,
 #   verbose = TRUE)
-# 
+#
 # # Use weight_monthly for monthly estimates
 # monthly_pop <- result[, .(
 #   population = sum(weight_monthly, na.rm = TRUE)
 # ), by = ref_month_yyyymm]
 
 ## ----sidra-calibration--------------------------------------------------------
-# # First, get base weights
+# # First, get base weights (auto-fetches from SIDRA)
 # result <- mensalizePNADC(pnadc_full,
-#   compute_weights = TRUE,
-#   monthly_totals = monthly_pop)
-# 
+#   compute_weights = TRUE)
+#
 # # Then, calibrate specifically for unemployment analysis
 # unemployment_data <- calibrate_to_sidra(result,
 #   theme = "unemployment",

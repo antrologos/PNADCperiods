@@ -29,14 +29,8 @@
 #'   columns are required. See Details.
 #'
 #' @param compute_weights Logical. If TRUE, compute monthly survey weights in
-#'   addition to identifying reference months. Default is FALSE.
-#'
-#' @param monthly_totals A data.frame with monthly population totals for calibration.
-#'   Required if \code{compute_weights = TRUE}. Must contain:
-#'   \itemize{
-#'     \item \code{ref_month_yyyymm} or \code{anomesexato}: Month in YYYYMM format
-#'     \item \code{m_populacao}: Monthly population in thousands
-#'   }
+#'   addition to identifying reference months. Default is FALSE. Requires the
+#'   \code{sidrar} package to fetch population data from IBGE SIDRA API.
 #'
 #' @param output Character. What to return:
 #'   \itemize{
@@ -81,6 +75,7 @@
 #'
 #' When \code{compute_weights = TRUE}, the function:
 #' \enumerate{
+#'   \item Fetches monthly population from IBGE SIDRA API (table 6022)
 #'   \item Redistributes quarterly weights to months using hierarchical rake weighting
 #'   \item Smooths monthly aggregates to remove quarterly artifacts
 #' }
@@ -95,6 +90,10 @@
 #' \itemize{
 #'   \item Survey design: \code{V1028}, \code{V1008}, \code{V2003}, \code{UF}, \code{posest}, \code{posest_sxi}
 #' }
+#'
+#' @section Dependencies:
+#' When \code{compute_weights = TRUE}, the \code{sidrar} package is required
+#' to fetch population data. Install with: \code{install.packages("sidrar")}
 #'
 #' @examples
 #' \dontrun{
@@ -116,12 +115,10 @@
 #'
 #'
 #' # With monthly weights for general analysis
+#' # (requires sidrar package and internet connection)
 #' pnadc_full <- haven::read_dta("PNADCtrimestralempilhada.dta")
-#' monthly_pop <- haven::read_dta("monthly_population_totals.dta")
 #'
-#' result <- mensalizePNADC(pnadc_full,
-#'   compute_weights = TRUE,
-#'   monthly_totals = monthly_pop)
+#' result <- mensalizePNADC(pnadc_full, compute_weights = TRUE)
 #'
 #' # Use weight_monthly for any monthly aggregate
 #' result[, .(pop = sum(weight_monthly)), by = ref_month_yyyymm]
@@ -136,7 +133,6 @@
 #' @export
 mensalizePNADC <- function(data,
                             compute_weights = FALSE,
-                            monthly_totals = NULL,
                             output = c("crosswalk", "microdata", "aggregates"),
                             verbose = TRUE) {
 
@@ -145,12 +141,8 @@ mensalizePNADC <- function(data,
   checkmate::assert_logical(compute_weights, len = 1)
   checkmate::assert_logical(verbose, len = 1)
 
-  if (compute_weights && is.null(monthly_totals)) {
-    stop("monthly_totals is required when compute_weights = TRUE")
-  }
-
   # Determine number of steps for progress messages
-  n_steps <- if (compute_weights) 3L else 1L
+  n_steps <- if (compute_weights) 4L else 1L
 
   # Step 1: Identify reference months
   if (verbose) message("Step 1/", n_steps, ": Identifying reference months...")
@@ -176,20 +168,30 @@ mensalizePNADC <- function(data,
     }
   }
 
-  # Steps 2-3: Weight computation pipeline (without Bayesian adjustment)
+  # Steps 2-4: Weight computation pipeline (without Bayesian adjustment)
 
-  # Step 2: Calibrate weights using rake weighting
-  if (verbose) message("Step 2/", n_steps, ": Calibrating monthly weights (rake weighting)...")
+  # Step 2: Fetch monthly population from SIDRA
+  if (verbose) message("Step 2/", n_steps, ": Fetching monthly population from SIDRA...")
+
+  monthly_totals <- fetch_monthly_population(verbose = verbose)
+
+  # Step 3: Calibrate weights using rake weighting
+  if (verbose) message("Step 3/", n_steps, ": Calibrating monthly weights (rake weighting)...")
 
   dt <- ensure_data_table(data, copy = TRUE)
+
+  # Ensure consistent types for join keys (PNADC data often has character columns)
+  if (is.character(dt$Ano)) dt[, Ano := as.integer(Ano)]
+  if (is.character(dt$Trimestre)) dt[, Trimestre := as.integer(Trimestre)]
+
   key_cols <- intersect(join_key_vars(), names(dt))
   dt <- merge(dt, crosswalk, by = key_cols, all.x = TRUE)
 
   # Calibrate weights using hierarchical rake weighting
   dt <- calibrate_monthly_weights(dt, monthly_totals)
 
-  # Step 3: Smooth monthly aggregates
-  if (verbose) message("Step 3/", n_steps, ": Smoothing monthly aggregates...")
+  # Step 4: Smooth monthly aggregates
+  if (verbose) message("Step 4/", n_steps, ": Smoothing monthly aggregates...")
 
   # Aggregate and smooth to get final monthly weights
   # The smoothing step adjusts weights so monthly series don't show artificial quarterly patterns

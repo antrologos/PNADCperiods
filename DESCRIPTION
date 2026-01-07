@@ -27,6 +27,7 @@ Imports:
     data.table (>= 1.14.0),
     checkmate (>= 2.0.0)
 Suggests:
+    sidrar,
     dplyr,
     haven,
     testthat (>= 3.0.0),

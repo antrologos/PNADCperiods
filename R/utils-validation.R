@@ -29,6 +29,8 @@ join_key_vars <- function() {
 #' Required Variables for Weight Calibration
 #'
 #' Returns the additional column names required for computing monthly weights.
+#' Note: This is for rake weighting only. Labor force variables (VD4001, etc.)
+#' are only needed for theme-specific calibration via calibrate_to_sidra().
 #'
 #' @return Character vector of required column names
 #' @keywords internal
@@ -36,15 +38,8 @@ join_key_vars <- function() {
 required_vars_weights <- function() {
   c(
     # Survey design
-    "V1028", "UF", "Estrato", "posest", "posest_sxi",
-    # Demographics
-    "V2007", "V2010",
-    # Labor force status
-    "VD4001", "VD4002", "VD4003", "VD4005",
-    # Employment details
-    "VD4009", "VD4010", "VD4012",
-    # Income
-    "VD4016", "VD4017", "VD4019", "VD4020"
+    "V1028", "UF", "posest", "posest_sxi"
+    # V2009 (age) is already required for ref_month identification
   )
 }
 
@@ -96,18 +91,6 @@ validate_pnadc <- function(data, check_weights = FALSE, stop_on_error = TRUE) {
     missing_wt <- setdiff(required_wt, names(data))
     if (length(missing_wt) > 0) {
       issues$missing_weights <- missing_wt
-    }
-
-    # Check for VD4004 or VD4004A (underemployment - changed over time)
-    has_vd4004 <- "VD4004" %in% names(data)
-    has_vd4004a <- "VD4004A" %in% names(data)
-    if (!has_vd4004 && !has_vd4004a) {
-      issues$missing_underemployment <- "Neither VD4004 nor VD4004A found"
-    }
-
-    # V4019 (CNPJ) is optional but useful for post-2015 data
-    if (!"V4019" %in% names(data)) {
-      issues$warning_cnpj <- "V4019 (CNPJ) not found - will use simplified employer/self-employed categories"
     }
   }
 

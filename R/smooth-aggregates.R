@@ -45,7 +45,7 @@
 #' }
 #'
 #' @examples
-#' \dontrun
+#' \dontrun{
 #' # After calibrating weights and aggregating
 #' aggregates <- aggregate_monthly_indicators(calibrated_data)
 #' smoothed <- smooth_monthly_aggregates(aggregates)
