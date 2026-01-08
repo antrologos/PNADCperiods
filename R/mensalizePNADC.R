@@ -154,20 +154,32 @@ mensalizePNADC <- function(data,
   checkmate::assert_logical(compute_weights, len = 1)
   checkmate::assert_logical(verbose, len = 1)
 
-  # Determine number of steps for progress messages
-  n_steps <- if (compute_weights) 4L else 1L
+  # Determine number of steps for progress bar
+  # Basic: 8 steps (identify_reference_month internal steps)
+  # With weights: 8 + 3 = 11 steps (add SIDRA fetch, calibrate, smooth)
+  n_steps <- if (compute_weights) 11L else 8L
 
-  # Step 1: Identify reference months
-  if (verbose) message("Step 1/", n_steps, ": Identifying reference months...")
+  # Initialize progress bar
+  if (verbose) {
+    cat("Processing PNADC data...\n")
+    pb <- txtProgressBar(min = 0, max = n_steps, style = 3)
+  }
 
-  crosswalk <- identify_reference_month(data)
+  # Step 1: Identify reference months (handles steps 1-8 internally)
+  # Pass verbose=FALSE to avoid double progress display
+  crosswalk <- identify_reference_month(data, verbose = FALSE)
 
   det_rate <- attr(crosswalk, "determination_rate")
   if (verbose) {
-    message("  Determination rate: ", sprintf("%.1f%%", det_rate * 100))
+    setTxtProgressBar(pb, 8)
   }
 
   if (!compute_weights) {
+    if (verbose) {
+      close(pb)
+      cat(sprintf("  Determination rate: %.1f%%\n", det_rate * 100))
+    }
+
     if (output == "crosswalk") {
       return(crosswalk)
     } else if (output == "microdata") {
@@ -181,16 +193,14 @@ mensalizePNADC <- function(data,
     }
   }
 
-  # Steps 2-4: Weight computation pipeline (without Bayesian adjustment)
+  # Steps 9-11: Weight computation pipeline (without Bayesian adjustment)
 
-  # Step 2: Fetch monthly population from SIDRA
-  if (verbose) message("Step 2/", n_steps, ": Fetching monthly population from SIDRA...")
+  # Step 9: Fetch monthly population from SIDRA
+  monthly_totals <- fetch_monthly_population(verbose = FALSE)
 
-  monthly_totals <- fetch_monthly_population(verbose = verbose)
+  if (verbose) setTxtProgressBar(pb, 9)
 
-  # Step 3: Calibrate weights using rake weighting
-  if (verbose) message("Step 3/", n_steps, ": Calibrating monthly weights (rake weighting)...")
-
+  # Step 10: Calibrate weights using rake weighting
   dt <- ensure_data_table(data, copy = TRUE)
 
   # Ensure consistent types for join keys (PNADC data often has character columns)
@@ -201,12 +211,11 @@ mensalizePNADC <- function(data,
   dt <- merge(dt, crosswalk, by = key_cols, all.x = TRUE)
 
   # Calibrate weights using hierarchical rake weighting
-  dt <- calibrate_monthly_weights(dt, monthly_totals)
+  dt <- calibrate_monthly_weights(dt, monthly_totals, verbose = FALSE)
 
-  # Step 4: Smooth monthly aggregates
-  if (verbose) message("Step 4/", n_steps, ": Smoothing monthly aggregates...")
+  if (verbose) setTxtProgressBar(pb, 10)
 
-  # Aggregate and smooth to get final monthly weights
+  # Step 11: Smooth monthly aggregates
   # The smoothing step adjusts weights so monthly series don't show artificial quarterly patterns
   dt <- smooth_calibrated_weights(dt)
 
@@ -218,9 +227,12 @@ mensalizePNADC <- function(data,
   }
 
   if (verbose) {
+    setTxtProgressBar(pb, 11)
+    close(pb)
+    cat(sprintf("  Determination rate: %.1f%%\n", det_rate * 100))
     n_with_weights <- sum(!is.na(dt$weight_monthly))
-    message("  Observations with monthly weights: ",
-            format(n_with_weights, big.mark = ","))
+    cat(sprintf("  Observations with monthly weights: %s\n",
+                format(n_with_weights, big.mark = ",")))
   }
 
   # Return based on output type

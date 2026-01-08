@@ -40,8 +40,6 @@ indicators from weighted data}
 
 \describe{
 \item{\code{\link{validate_pnadc}}}{Validates input data has required columns}
-\item{\code{\link{get_exception_quarters}}}{Returns quarters with non-standard
-IBGE timing rules}
 }
 }
 

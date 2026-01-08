@@ -33,8 +33,6 @@
 #' @section Utility Functions:
 #' \describe{
 #'   \item{\code{\link{validate_pnadc}}}{Validates input data has required columns}
-#'   \item{\code{\link{get_exception_quarters}}}{Returns quarters with non-standard
-#'     IBGE timing rules}
 #' }
 #'
 #' @section Background:
@@ -83,17 +81,22 @@ utils::globalVariables(c(
   "V2007", "V2008", "V20081", "V20082", "V2009", "V2010",
   "V1028", "UF", "Estrato", "posest", "posest_sxi",
   "VD4001", "VD4002", "VD4003", "VD4004", "VD4004A", "VD4005",
-
-"VD4009", "VD4010", "VD4012",
+  "VD4009", "VD4010", "VD4012",
   "VD4016", "VD4017", "VD4019", "VD4020",
   "V4019",
   # Computed variables
   "ref_month", "ref_month_in_quarter", "ref_month_yyyymm",
-  "quarter_id", "birthday", "first_sat_after_birthday",
+  "birthday", "first_sat_after_birthday",
   "visit_before_birthday", "month1", "month2", "month3",
   "first_sat_m1", "first_sat_m2", "first_sat_m3",
+  "alt_sat_m1", "alt_sat_m2", "alt_sat_m3",
   "date_min", "date_max", "month_min_pos", "month_max_pos",
+  "alt_date_min", "alt_date_max", "alt_month_min_pos", "alt_month_max_pos",
   "upa_month_min", "upa_month_max",
+  "alt_upa_month_min", "alt_upa_month_max",
+  "upa_month_min_final", "upa_month_max_final",
+  "requires_exception", "requires_exc_m1", "requires_exc_m2", "requires_exc_m3",
+  "trim_exc_m1", "trim_exc_m2", "trim_exc_m3",
   "celula1", "celula2", "celula3", "celula4",
   "weight_current", "weight_calibrated", "weight_monthly",
   "pop_quarter", "pop_month", "n_cells_quarter", "n_cells_month",

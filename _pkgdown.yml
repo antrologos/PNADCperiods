@@ -49,7 +49,6 @@ reference:
   desc: Helper and validation functions
   contents:
   - validate_pnadc
-  - get_exception_quarters
 
 home:
   links:

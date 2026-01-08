@@ -28,10 +28,12 @@ Tested on 55 quarters (2012Q1 - 2025Q3) with 28,395,273 observations:
 
 | Metric | Result |
 |--------|--------|
-| Overall determination rate | **95.83%** |
-| Processing time (basic mode) | 6.3 minutes |
-| Processing time (with weights) | 8.1 minutes |
+| Overall determination rate | **97.0%** |
+| Processing time (basic mode) | ~14-16 minutes |
+| Processing time (with weights) | ~20 minutes |
 | Best period (2013-2019) | 96-99% determination |
+
+**Note**: Results are **identical to the original Stata implementation** by Marcos Hecksher.
 
 ## Installation
 
@@ -42,12 +44,12 @@ devtools::install_github("antrologos/mensalizePNADC")
 
 ## Important: Use Stacked Data
 
-The algorithm achieves **95.83% determination rate** when processing **stacked multi-quarter data**. If you process quarters individually, you'll only get ~65-75% determination.
+The algorithm achieves **97.0% determination rate** when processing **stacked multi-quarter data**. If you process quarters individually, you'll only get ~65-75% determination.
 
 | Processing Mode | Determination Rate |
 |-----------------|-------------------|
 | Per-quarter (single quarter) | 65-75% |
-| Stacked (multi-quarter) | **95.83%** |
+| Stacked (multi-quarter) | **97.0%** |
 
 **Recommended**: Stack at least 2 years of quarterly data before calling `mensalizePNADC()`.
 
@@ -55,7 +57,7 @@ The algorithm achieves **95.83% determination rate** when processing **stacked m
 
 ## Algorithm Overview: Visual Diagram
 
-The reference month identification follows a 6-step pipeline. Here's the complete flow:
+The reference month identification follows a 7-step pipeline. Here's the complete flow:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -125,18 +127,34 @@ INPUTS (per observation):
 │  Combine constraints from ALL quarters → dramatically improves accuracy:    │
 │                                                                             │
 │    Per-quarter only:  ~65-75% determination                                 │
-│    Cross-quarter:     ~95.83% determination                                 │
+│    Cross-quarter:     ~97.0% determination                                  │
 └─────────────────────────────────────────────────────────────────────────────┘
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ STEP 6: Handle Exception Quarters                                           │
+│ STEP 6: Dynamic Exception Detection (NEW)                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  For quarters with non-standard timing (2016t3, 2016t4, 2017t2, 2022t3,     │
-│  2023t2), apply relaxed rule: ≥3 days instead of ≥4 days.                   │
+│  Algorithm DYNAMICALLY detects which quarters need relaxed timing rules:    │
+│                                                                             │
+│  1. Calculate positions using STANDARD rules (≥4 days, day ≤3 threshold)   │
+│  2. Calculate positions using ALTERNATIVE rules (≥3 days, day ≤2)          │
+│  3. Detect: if standard produces min>max but alternative would work        │
+│  4. Detect PER-MONTH: which month (1, 2, or 3) needs the exception         │
+│  5. Propagate: if ANY UPA needs exception → apply to ALL in that quarter   │
+│                                                                             │
+│  Known exception quarters: 2016t3, 2016t4, 2017t2, 2022t3, 2023t2          │
 └─────────────────────────────────────────────────────────────────────────────┘
                                      │
                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ STEP 7: Final Month Assignment                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  After applying exceptions and recalculating:                               │
+│  If upa_month_min == upa_month_max → Reference month DETERMINED             │
+│  Otherwise → remains NA (indeterminate)                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ OUTPUT                                                                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -188,13 +206,13 @@ cat("Quarters:", uniqueN(pnadc[, .(Ano, Trimestre)]), "\n")
 ```{r get-crosswalk}
 crosswalk <- mensalizePNADC(pnadc)
 # Step 1/1: Identifying reference months...
-#   Determination rate: 95.8%
+#   Determination rate: 97.0%
 
 print(crosswalk)
 # PNADC Reference Month Crosswalk
 # -------------------------------
 # Observations: 28,395,273
-# Determination rate: 95.8%
+# Determination rate: 97.0%
 # Date range: 201201 - 202509
 #
 # Join keys: Ano, Trimestre, UPA, V1008, V1014, V2003
@@ -533,7 +551,7 @@ A household that is ambiguous in Q1 (could be month 1 or 2) might have a birthda
 │ IMPACT ON DETERMINATION RATE:                                      │
 │                                                                     │
 │   Per-quarter processing (each quarter alone):    ~65-75%          │
-│   Stacked multi-quarter (cross-quarter):          ~95.83%          │
+│   Stacked multi-quarter (cross-quarter):          ~97.0%           │
 │                                                                     │
 │   Improvement: +25-30 percentage points!                            │
 └─────────────────────────────────────────────────────────────────────┘
@@ -543,34 +561,57 @@ A household that is ambiguous in Q1 (could be month 1 or 2) might have a birthda
 
 ---
 
-### Step 6: Handle Exception Quarters
+### Step 6: Dynamic Exception Detection (NEW)
 
-**Goal**: Apply relaxed rules for quarters where IBGE used non-standard scheduling.
+**Goal**: Automatically detect which quarters need relaxed timing rules based on the data itself.
 
-**Background**: In some quarters, IBGE's technical breaks crossed month boundaries in unusual ways. The standard rule (≥4 days) may produce impossible results for these quarters.
+**Background**: In some quarters, IBGE's technical breaks crossed month boundaries in unusual ways. The standard rule (≥4 days) may produce impossible results for these quarters. Rather than using a hardcoded list, the algorithm **dynamically detects** which quarters need exceptions.
 
-**Exception quarters**:
+**How dynamic detection works**:
 
-```{r exceptions}
-get_exception_quarters()
-# [1] "2016t3" "2016t4" "2017t2" "2022t3" "2023t2"
+The algorithm calculates month positions using both rules simultaneously:
+
+| Rule | First Saturday | Day Threshold |
+|------|---------------|---------------|
+| Standard | ≥4 days in month | day ≤ 3 |
+| Alternative | ≥3 days in month | day ≤ 2 |
+
+**Detection logic**:
+
+```
+For each UPA-V1014:
+  1. Calculate upa_month_min/max using STANDARD rules
+  2. Calculate alt_upa_month_min/max using ALTERNATIVE rules
+  3. If standard produces min > max (impossible) BUT alternative works:
+     → This quarter requires an exception
+  4. Determine WHICH month within the quarter needs the exception:
+     - requires_exc_m1: Exception needed for month 1
+     - requires_exc_m2: Exception needed for month 2
+     - requires_exc_m3: Exception needed for month 3
+  5. PROPAGATE: If ANY UPA in the quarter needs exception for a month,
+     apply that exception to ALL observations in that quarter
 ```
 
-**Relaxed rule**: For observations still indeterminate after Step 5 in exception quarters, the algorithm:
+**Known exception quarters** (detected automatically): 2016t3, 2016t4, 2017t2, 2022t3, 2023t2
 
-1. Recalculates first valid Saturdays with **min_days = 3** (instead of 4)
-2. Recalculates date ranges and applies birthday constraints
-3. Recalculates month positions with adjusted boundary handling (day ≤ 2 instead of ≤ 3)
-4. Re-aggregates to UPA-Panel level
-5. If now determined, uses this result; otherwise remains NA
+**Per-month granularity**: Exceptions are detected and applied at the month level within each quarter. For example, 2016t3 might need an exception for month 2 but not for months 1 or 3.
 
-**Example**: In 2016t3, a Saturday that falls on day 3 of a month would be skipped under the standard rule (3 < 4) but accepted under the exception rule (3 ≥ 3).
+---
+
+### Step 7: Final Month Assignment
+
+**Goal**: Assign the final reference month after applying dynamic exceptions.
+
+After recalculating with the appropriate rules for each quarter-month:
+
+- If `upa_month_min == upa_month_max` → Reference month is **DETERMINED**
+- If `upa_month_min != upa_month_max` → Reference month remains **NA** (indeterminate)
 
 ---
 
 ### Summary: What Makes Observations Indeterminate?
 
-After all 6 steps, approximately **4.2% of observations** remain indeterminate (ref_month_in_quarter = NA). Common reasons:
+After all 7 steps, approximately **3.0% of observations** remain indeterminate (ref_month_in_quarter = NA). Common reasons:
 
 | Reason | Description |
 |--------|-------------|
@@ -627,7 +668,7 @@ result <- mensalizePNADC(pnadc_full,
   compute_weights = TRUE,
   verbose = TRUE)
 # Step 1/4: Identifying reference months...
-#   Determination rate: 95.8%
+#   Determination rate: 97.0%
 # Step 2/4: Fetching monthly population from SIDRA...
 # Step 3/4: Calibrating monthly weights (rake weighting)...
 # Step 4/4: Smoothing monthly aggregates...
@@ -724,9 +765,9 @@ The package is optimized for large datasets:
 
 | Dataset Size | Rows | Time (basic) | Time (weights) |
 |--------------|------|--------------|----------------|
-| 1 quarter | ~570K | ~5 sec | ~8 sec |
-| 1 year | ~2.3M | ~26 sec | ~34 sec |
-| 14 years (2012-2025) | 28.4M | 6.3 min | 8.1 min |
+| 1 quarter | ~570K | ~20 sec | ~30 sec |
+| 1 year | ~2.3M | ~1.5 min | ~2 min |
+| 14 years (2012-2025) | 28.4M | ~14-16 min | ~20 min |
 
 Tips for best performance:
 
@@ -738,7 +779,7 @@ Tips for best performance:
 
 ## Tips and Best Practices
 
-1. **Process multiple quarters together**: The algorithm benefits from cross-quarter aggregation. Processing 2012-2025 together gives ~96% determination vs ~70% per-quarter.
+1. **Process multiple quarters together**: The algorithm benefits from cross-quarter aggregation. Processing 2012-2025 together gives ~97% determination vs ~70% per-quarter.
 
 2. **Start with reference month identification**: You don't always need monthly weights. Often just knowing the reference month is enough.
 

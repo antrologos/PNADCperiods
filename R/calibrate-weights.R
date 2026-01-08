@@ -64,12 +64,15 @@
 #' result <- calibrate_monthly_weights(merged, monthly_pop)
 #' }
 #'
+#' @param verbose Logical. Print progress messages? Default TRUE.
+#'
 #' @seealso \code{\link{identify_reference_month}}, \code{\link{adjust_weights_bayesian}}
 #'
 #' @export
-calibrate_monthly_weights <- function(data, monthly_totals, n_cells = 4L) {
+calibrate_monthly_weights <- function(data, monthly_totals, n_cells = 4L, verbose = TRUE) {
 
   checkmate::assert_int(n_cells, lower = 1L, upper = 4L)
+  checkmate::assert_logical(verbose, len = 1)
 
   # Validate inputs
   validate_pnadc(data, check_weights = TRUE, stop_on_error = TRUE)

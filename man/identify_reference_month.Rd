@@ -78,6 +78,3 @@ result[, .(
 }
 
 }
-\seealso{
-\code{\link{get_exception_quarters}} for the list of exception quarters
-}

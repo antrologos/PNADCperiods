@@ -191,50 +191,41 @@ date_to_yyyymm <- function(date) {
 
 #' Fast Year Extraction
 #'
-#' Extract year from Date using data.table if available, otherwise format().
+#' Extract year from Date using data.table's optimized function.
+#' Note: data.table is a package dependency, so no need to check availability.
 #'
 #' @param date Date vector
 #' @return Integer vector of years
 #' @keywords internal
 #' @noRd
 fast_year <- function(date) {
-  if (requireNamespace("data.table", quietly = TRUE)) {
-    data.table::year(date)
-  } else {
-    as.integer(format(date, "%Y"))
-  }
+  data.table::year(date)
 }
 
 #' Fast Month Extraction
 #'
-#' Extract month from Date using data.table if available, otherwise format().
+#' Extract month from Date using data.table's optimized function.
+#' Note: data.table is a package dependency, so no need to check availability.
 #'
 #' @param date Date vector
 #' @return Integer vector of months
 #' @keywords internal
 #' @noRd
 fast_month <- function(date) {
-  if (requireNamespace("data.table", quietly = TRUE)) {
-    data.table::month(date)
-  } else {
-    as.integer(format(date, "%m"))
-  }
+  data.table::month(date)
 }
 
 #' Fast Day Extraction
 #'
-#' Extract day of month from Date using data.table if available, otherwise format().
+#' Extract day of month from Date using data.table's optimized function.
+#' Note: data.table is a package dependency, so no need to check availability.
 #'
 #' @param date Date vector
 #' @return Integer vector of days
 #' @keywords internal
 #' @noRd
 fast_mday <- function(date) {
-  if (requireNamespace("data.table", quietly = TRUE)) {
-    data.table::mday(date)
-  } else {
-    as.integer(format(date, "%d"))
-  }
+  data.table::mday(date)
 }
 
 #' First Saturday of Month (with minimum days constraint)

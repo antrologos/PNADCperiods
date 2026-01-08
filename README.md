@@ -14,8 +14,9 @@ The `mensalizePNADC` package identifies reference months in Brazil's quarterly P
 
 **Key Features:**
 
-- **High accuracy**: 95.83% determination rate on 28.4 million observations (2012-2025)
-- **Fast processing**: 6.3 minutes for 28.4 million rows (basic mode), 8.1 minutes with weight calibration
+- **High accuracy**: **97.0%** determination rate on 28.4 million observations (2012-2025) — **identical to Stata**
+- **Dynamic exception detection**: Automatically detects quarters needing relaxed timing rules
+- **Fast processing**: ~14 minutes for 28.4 million rows (basic mode)
 - **Minimal dependencies**: Requires `data.table` and `checkmate`; `sidrar` needed only for weight calibration
 - **Flexible output**: Returns a crosswalk for easy joins with original data
 
@@ -40,7 +41,7 @@ pnadc <- fread("pnadc_stacked.csv",
 # Get reference month crosswalk
 crosswalk <- mensalizePNADC(pnadc)
 # Step 1/1: Identifying reference months...
-#   Determination rate: 95.8%
+#   Determination rate: 97.0%
 
 # Join with original data
 result <- merge(original_data, crosswalk,
@@ -52,12 +53,12 @@ result[, .(n = .N), by = ref_month_yyyymm]
 
 ## Important: Use Stacked Data for Best Results
 
-The mensalization algorithm achieves **95.83% determination rate** when processing **stacked multi-quarter data**. If you process quarters individually, you'll only get ~65-75% determination.
+The mensalization algorithm achieves **97.0% determination rate** when processing **stacked multi-quarter data**. If you process quarters individually, you'll only get ~65-75% determination.
 
 | Processing Mode | Determination Rate |
 |-----------------|-------------------|
 | Per-quarter (single quarter) | 65-75% |
-| Stacked (multi-quarter) | **95.83%** |
+| Stacked (multi-quarter) | **97.0%** |
 
 This is by design: PNADC uses a rotating panel where households are interviewed in the same relative month position each quarter (always month 1, always month 2, or always month 3). The algorithm combines birthday constraints from all quarters to narrow down which month the household belongs to.
 
@@ -121,11 +122,25 @@ PNADC is a **rotating panel**: the same UPA-V1014 is interviewed in the **same r
 The algorithm aggregates constraints across ALL quarters for each UPA-V1014, not just within a single quarter. This dramatically improves determination rates:
 
 - **Per-quarter**: Only uses birthday constraints from that quarter (~70% determination)
-- **Cross-quarter**: Combines constraints from all visits (~96% determination)
+- **Cross-quarter**: Combines constraints from all visits (~97% determination)
 
-#### Step 6: Handle Exception Quarters
+#### Step 6: Dynamic Exception Detection (NEW)
 
-Some quarters have non-standard timing rules (technical breaks that cross month boundaries). For quarters 2016t3, 2016t4, 2017t2, 2022t3, and 2023t2, a relaxed rule (minimum 3 days instead of 4) is applied if the standard rule fails to determine the month.
+The algorithm now **dynamically detects** which quarters need relaxed timing rules based on the data itself, matching the original Stata implementation exactly:
+
+1. Calculate month positions using **standard rules** (≥4 days in month, day ≤3 threshold)
+2. Calculate month positions using **alternative rules** (≥3 days in month, day ≤2 threshold)
+3. Detect exceptions: if standard rules produce impossible results (min > max) but alternative would work
+4. Detect per-month: which specific month within the quarter needs the exception (month 1, 2, or 3)
+5. Propagate: if ANY UPA in a quarter needs an exception for a month, apply to ALL observations
+
+This replaces the previous hardcoded list of exception quarters and produces **identical results** to the Stata implementation across all 55 quarters (2012-2025).
+
+**Known exception quarters** (for documentation): 2016t3, 2016t4, 2017t2, 2022t3, 2023t2
+
+#### Step 7: Final Month Assignment
+
+After applying exceptions and recalculating, if `upa_month_min == upa_month_max`, the reference month is uniquely determined.
 
 ---
 
@@ -226,7 +241,6 @@ The output `weight_monthly` is calibrated to match IBGE's official monthly popul
 | `calibrate_monthly_weights()` | Rake weighting for monthly weights |
 | `fetch_monthly_population()` | Fetch population from SIDRA API |
 | `validate_pnadc()` | Input data validation |
-| `get_exception_quarters()` | List quarters with non-standard timing |
 
 ---
 
@@ -238,8 +252,8 @@ Tested on 55 quarters (2012Q1 - 2025Q3) with 28,395,273 total observations:
 
 | Mode | Loading | Processing | Total |
 |------|---------|------------|-------|
-| Basic (`compute_weights=FALSE`) | 17.4 sec | 361.2 sec | **6.3 minutes** |
-| Weights (`compute_weights=TRUE`) | 15.8 sec | 468.6 sec | **8.1 minutes** |
+| Basic (`compute_weights=FALSE`) | 17.4 sec | ~14 min | **~14 minutes** |
+| Weights (`compute_weights=TRUE`) | 17.4 sec | ~20 min | **~20 minutes** |
 
 ### Determination Rates by Period
 
@@ -254,8 +268,8 @@ Tested on 55 quarters (2012Q1 - 2025Q3) with 28,395,273 total observations:
 ### Overall Statistics
 
 - **Total observations**: 28,395,273
-- **Determined**: 27,211,667 (95.83%)
-- **Not determined**: 1,183,606 (4.17%)
+- **Determined**: 27,543,416 (97.0%)
+- **Not determined**: 851,857 (3.0%)
 
 ---
 
@@ -306,7 +320,7 @@ The `calibrate_to_sidra()` function will:
 ## Authors
 
 - **Marcos Hecksher** - Original methodology and Stata implementation
-- **Rogerio Barbosa** - R package author
+- **Rogerio Barbosa** - R package maintainer
 
 ## Documentation
 

@@ -45,17 +45,6 @@ test_that("identify_reference_month returns correct structure", {
   expect_s3_class(result, "pnadc_crosswalk")
 })
 
-test_that("get_exception_quarters returns known exceptions", {
-  exceptions <- get_exception_quarters()
-
-  expect_type(exceptions, "character")
-  expect_true("2016t3" %in% exceptions)
-  expect_true("2016t4" %in% exceptions)
-  expect_true("2017t2" %in% exceptions)
-  expect_true("2022t3" %in% exceptions)
-  expect_true("2023t2" %in% exceptions)
-})
-
 test_that("print.pnadc_crosswalk works", {
   test_data <- data.frame(
     Ano = 2023, Trimestre = 1,
