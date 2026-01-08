@@ -88,9 +88,8 @@ Where:
 }
 \examples{
 \dontrun{
-# First, get base weights
-crosswalk <- mensalizePNADC(pnadc_full, compute_weights = TRUE,
-                             monthly_totals = monthly_pop)
+# First, get base weights (auto-fetches population from SIDRA)
+crosswalk <- mensalizePNADC(pnadc_full, compute_weights = TRUE)
 
 # Then, calibrate for unemployment analysis
 unemployment_data <- calibrate_to_sidra(crosswalk, theme = "unemployment")

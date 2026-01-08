@@ -78,8 +78,9 @@ IBGE Manual Basico da Entrevista PNADC (methodology on "Parada Tecnica")
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/PLACEHOLDER/mensalizePNADC}
-  \item Report bugs at \url{https://github.com/PLACEHOLDER/mensalizePNADC/issues}
+  \item \url{https://antrologos.github.io/mensalizePNADC/}
+  \item \url{https://github.com/antrologos/mensalizePNADC}
+  \item Report bugs at \url{https://github.com/antrologos/mensalizePNADC/issues}
 }
 
 }

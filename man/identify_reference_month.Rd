@@ -4,7 +4,7 @@
 \alias{identify_reference_month}
 \title{Identify Reference Month in PNADC Data}
 \usage{
-identify_reference_month(data, exception_quarters = NULL)
+identify_reference_month(data, verbose = TRUE, .pb = NULL, .pb_offset = 0L)
 }
 \arguments{
 \item{data}{A data.frame or data.table with PNADC microdata. Required columns:
@@ -24,9 +24,14 @@ Optional but recommended for complete crosswalk:
 \item \code{V2003}: Person sequence within household
 }}
 
-\item{exception_quarters}{Character vector of quarters with relaxed timing rules,
-in format "YYYYtQ" (e.g., "2016t3"). If NULL (default), uses the built-in list
-of known exceptions: 2016t3, 2016t4, 2017t2, 2022t3, 2023t2.}
+\item{verbose}{Logical. If TRUE (default), display progress bar and step information.}
+
+\item{.pb}{Optional progress bar object created by \code{txtProgressBar}. If provided,
+the function updates this progress bar instead of creating its own. Used internally
+by \code{mensalizePNADC()} to show unified progress across all steps.}
+
+\item{.pb_offset}{Integer. Offset to add to progress bar updates when using an external
+progress bar. Default is 0.}
 }
 \value{
 A data.table with the original key columns plus:
@@ -46,22 +51,51 @@ The algorithm uses:
 \item IBGE's reference week timing rules (first Saturday with sufficient days in month)
 \item Respondent birthdates to constrain possible interview dates
 \item UPA-panel level aggregation (everyone in same sampling unit interviewed together)
+\item Dynamic exception detection (identifies quarters needing relaxed rules from the data)
 }
 }
 \details{
 Determines which month within each quarter corresponds to each survey
 observation based on IBGE's "Parada Tecnica" (technical break) rules.
+\subsection{Dynamic Exception Detection}{
 
-The determination rate (proportion of observations with identified reference month)
-is typically 85-90\%. Observations that cannot be determined are marked with NA.
+This function \strong{dynamically detects} which quarters need relaxed timing rules
+based on the data itself. This matches the original Stata implementation by
+Marcos Hecksher.
+
+The algorithm detects exceptions at the per-month level within each quarter:
+\itemize{
+\item Checks if standard rules produce impossible results (min > max)
+\item Checks if relaxed rules would resolve the issue
+\item Applies exception rules to entire quarter when any UPA requires it
+}
+}
+
+\subsection{Cross-Quarter Aggregation (Important!)}{
+
+\strong{For optimal determination rates (~96\%), input data should be stacked across
+multiple quarters} (ideally 2+ years). The algorithm leverages PNADC's rotating
+panel design where the same UPA-V1014 is interviewed in the same relative week
+across all quarterly visits.
+
+\itemize{
+\item \strong{Per-quarter processing}: ~65-75\% determination rate
+\item \strong{Multi-quarter stacked}: ~96\% determination rate
+}
+}
+
+\subsection{Processing Steps}{
 
 The function processes data in the following steps:
 \enumerate{
-\item Calculate first valid interview Saturday for each month in quarter
+\item Calculate first valid interview Saturday for each month in quarter (standard rule)
 \item For each person, calculate possible interview date range based on birthday constraints
 \item Convert date ranges to month-in-quarter positions
 \item Aggregate to UPA-panel level (all persons must agree)
-\item Handle exception quarters with relaxed timing rules
+\item Calculate alternative (exception) date ranges and positions
+\item Dynamically detect which quarters/months need exception rules
+\item Apply exception rules and recalculate final month positions
+}
 }
 }
 \examples{

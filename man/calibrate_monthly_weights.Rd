@@ -4,7 +4,7 @@
 \alias{calibrate_monthly_weights}
 \title{Calibrate Monthly Weights}
 \usage{
-calibrate_monthly_weights(data, monthly_totals, n_cells = 4L)
+calibrate_monthly_weights(data, monthly_totals, n_cells = 4L, verbose = TRUE)
 }
 \arguments{
 \item{data}{A data.frame or data.table with PNADC microdata including reference
@@ -25,6 +25,8 @@ Required columns include:
 
 \item{n_cells}{Integer. Number of hierarchical cell levels to use (1-4).
 Default is 4 (full hierarchy). Lower values are faster but less precise.}
+
+\item{verbose}{Logical. Print progress messages? Default TRUE.}
 }
 \value{
 A data.table with the input data plus:

@@ -57,6 +57,14 @@ For each indicator variable:
 \item Final smoothed value uses moving average of quarterly reference
 }
 }
+\examples{
+\dontrun{
+# After calibrating weights and aggregating
+aggregates <- aggregate_monthly_indicators(calibrated_data)
+smoothed <- smooth_monthly_aggregates(aggregates)
+}
+
+}
 \seealso{
 \code{\link{calibrate_monthly_weights}}, \code{\link{adjust_weights_bayesian}}
 }

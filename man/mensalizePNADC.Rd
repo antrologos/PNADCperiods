@@ -80,8 +80,22 @@ The algorithm determines which month each survey response refers to based on:
 \item Respondent birthdates (constrains possible interview dates)
 \item UPA-panel grouping (everyone interviewed together)
 }
+}
 
-Typically 85-90\% of observations can be assigned a definite reference month.
+\subsection{Cross-Quarter Aggregation (Important!)}{
+
+\strong{For optimal determination rates (~95\%), input data should be stacked across
+multiple quarters} (ideally 2+ years). The algorithm leverages PNADC's rotating
+panel design where the same UPA-V1014 is interviewed in the same relative week
+across all quarterly visits.
+
+\itemize{
+\item \strong{Per-quarter processing}: ~65-75\% determination rate
+\item \strong{Multi-quarter stacked}: ~95\% determination rate
+}
+
+The cross-quarter aggregation dramatically improves accuracy by combining
+birthday constraints from multiple interview rounds.
 }
 
 \subsection{Monthly Weight Computation}{
