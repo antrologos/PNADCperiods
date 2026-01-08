@@ -1,0 +1,49 @@
+url: https://antrologos.github.io/mensalizePNADC/
+
+template:
+  bootstrap: 5
+  bootswatch: flatly
+
+navbar:
+  structure:
+    left:  [intro, reference, articles]
+    right: [search, github]
+  components:
+    intro:
+      text: Get Started
+      href: articles/getting-started.html
+    articles:
+      text: Articles
+      menu:
+      - text: Getting Started
+        href: articles/getting-started.html
+
+reference:
+- title: Main Functions
+  desc: Core functions for mensalization
+  contents:
+  - mensalizePNADC
+  - identify_reference_month
+  - calibrate_monthly_weights
+
+- title: Data Fetching
+  desc: Functions for fetching external data
+  contents:
+  - fetch_monthly_population
+
+- title: Utilities
+  desc: Helper and validation functions
+  contents:
+  - validate_pnadc
+  - get_exception_quarters
+
+home:
+  links:
+  - text: Original methodology (Hecksher 2024)
+    href: https://www.ibge.gov.br/estatisticas/sociais/trabalho/9171-pesquisa-nacional-por-amostra-de-domicilios-continua-mensal.html
+
+authors:
+  Marcos Hecksher:
+    href: https://orcid.org/0000-0002-5449-6787
+  Rogerio Barbosa:
+    href: https://orcid.org/0000-0002-6796-4547

@@ -1,6 +1,12 @@
 # mensalizePNADC
 
+<!-- badges: start -->
+[![pkgdown](https://github.com/antrologos/mensalizePNADC/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/antrologos/mensalizePNADC/actions/workflows/pkgdown.yaml)
+<!-- badges: end -->
+
 Convert Brazil's quarterly PNADC survey data into monthly time series.
+
+📖 **[Full Documentation](https://antrologos.github.io/mensalizePNADC/)** — Detailed algorithm explanation with examples and diagrams
 
 ## Overview
 
@@ -301,6 +307,12 @@ The `calibrate_to_sidra()` function will:
 
 - **Marcos Hecksher** - Original methodology and Stata implementation
 - **Rogerio Barbosa** - R package author
+
+## Documentation
+
+- 📖 **[Online Documentation](https://antrologos.github.io/mensalizePNADC/)** — Full pkgdown website with function reference and vignettes
+- 📖 **[Getting Started Vignette](https://antrologos.github.io/mensalizePNADC/articles/getting-started.html)** — Detailed algorithm explanation with diagrams and examples
+- After installing, run `vignette("getting-started", package = "mensalizePNADC")` for the rendered version
 
 ## References
 
