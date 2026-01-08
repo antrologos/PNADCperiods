@@ -57,6 +57,19 @@ The algorithm identifies which month within each quarter each survey observation
 
 3. **Cross-quarter aggregation**: PNADC is a rotating panel survey where the same UPA-V1014 is always interviewed in the same relative month across quarters. This dramatically improves determination rates.
 
+## Important: Use Stacked Data for Best Results
+
+The mensalization algorithm achieves **~95% determination rate** when processing **stacked multi-quarter data**. If you process quarters individually, you'll only get ~65-75% determination.
+
+| Processing Mode | Determination Rate |
+|-----------------|-------------------|
+| Per-quarter (single quarter) | ~65-75% |
+| Stacked (multi-quarter) | **~95%** |
+
+This is by design: PNADC uses a rotating panel where households are interviewed in the same relative week each quarter. The algorithm combines birthday constraints from all quarters to narrow down the interview date.
+
+**Recommended**: Stack at least 2 years of quarterly data before calling `mensalizePNADC()`.
+
 ## Output Variables
 
 | Variable | Type | Description |

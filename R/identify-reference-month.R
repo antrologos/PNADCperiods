@@ -44,8 +44,22 @@
 #'   }
 #'
 #' @details
-#' The determination rate (proportion of observations with identified reference month)
-#' is typically 85-90%. Observations that cannot be determined are marked with NA.
+#' ## Cross-Quarter Aggregation (Important!)
+#'
+#' **For optimal determination rates (~95%), input data should be stacked across
+#' multiple quarters** (ideally 2+ years). The algorithm leverages PNADC's rotating
+#' panel design where the same UPA-V1014 is interviewed in the same relative week
+#' across all quarterly visits.
+#'
+#' \itemize{
+#'   \item **Per-quarter processing**: ~65-75% determination rate
+#'   \item **Multi-quarter stacked**: ~95% determination rate
+#' }
+#'
+#' The cross-quarter aggregation dramatically improves accuracy by combining
+#' birthday constraints from multiple interview rounds.
+#'
+#' ## Processing Steps
 #'
 #' The function processes data in the following steps:
 #' \enumerate{
