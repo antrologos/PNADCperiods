@@ -33,6 +33,11 @@
 #'     \item \code{V2003}: Person sequence within household
 #'   }
 #' @param verbose Logical. If TRUE (default), display progress bar and step information.
+#' @param .pb Optional progress bar object created by \code{txtProgressBar}. If provided,
+#'   the function updates this progress bar instead of creating its own. Used internally
+#'   by \code{mensalizePNADC()} to show unified progress across all steps.
+#' @param .pb_offset Integer. Offset to add to progress bar updates when using an external
+#'   progress bar. Default is 0.
 #'
 #' @return A data.table with the original key columns plus:
 #'   \itemize{
@@ -94,15 +99,26 @@
 #' }
 #'
 #' @export
-identify_reference_month <- function(data, verbose = TRUE) {
+identify_reference_month <- function(data, verbose = TRUE, .pb = NULL, .pb_offset = 0L) {
 
   # Validate input
   validate_pnadc(data, check_weights = FALSE)
 
   # Initialize progress bar (8 steps total)
-  if (verbose) {
+  # If external progress bar provided, use it; otherwise create our own
+  use_external_pb <- !is.null(.pb)
+  if (verbose && !use_external_pb) {
     cat("Identifying reference months...\n")
     pb <- txtProgressBar(min = 0, max = 8, style = 3)
+  } else if (use_external_pb) {
+    pb <- .pb
+  }
+
+  # Helper to update progress bar
+  update_pb <- function(step) {
+    if (verbose || use_external_pb) {
+      setTxtProgressBar(pb, step + .pb_offset)
+    }
   }
 
   # Convert to data.table (copy to avoid modifying original)
@@ -156,7 +172,7 @@ identify_reference_month <- function(data, verbose = TRUE) {
   # Merge pre-computed values back to main data
   dt <- merge(dt, unique_quarters, by = c("Ano", "Trimestre"), all.x = TRUE)
 
-  if (verbose) setTxtProgressBar(pb, 1)
+  update_pb(1)
 
   # ============================================================================
   # STEP 2: Calculate birthday and first Saturday after birthday
@@ -172,7 +188,7 @@ identify_reference_month <- function(data, verbose = TRUE) {
   dt[, visit_before_birthday := NA_integer_]
   dt[!is.na(V20082), visit_before_birthday := as.integer((Ano - V20082) - V2009)]
 
-  if (verbose) setTxtProgressBar(pb, 2)
+  update_pb(2)
 
   # ============================================================================
   # STEP 3: Calculate date bounds and month positions using STANDARD rules
@@ -199,7 +215,7 @@ identify_reference_month <- function(data, verbose = TRUE) {
   dt[, month_min_pos := calculate_month_position_min(date_min, Ano, Trimestre, day_threshold = 3L)]
   dt[, month_max_pos := calculate_month_position_max(date_max, Ano, Trimestre, day_threshold = 3L)]
 
-  if (verbose) setTxtProgressBar(pb, 3)
+  update_pb(3)
 
   # ============================================================================
   # STEP 4: Calculate date bounds and month positions using ALTERNATIVE rules
@@ -226,7 +242,7 @@ identify_reference_month <- function(data, verbose = TRUE) {
   dt[, alt_month_min_pos := calculate_month_position_min(alt_date_min, Ano, Trimestre, day_threshold = 2L)]
   dt[, alt_month_max_pos := calculate_month_position_max(alt_date_max, Ano, Trimestre, day_threshold = 2L)]
 
-  if (verbose) setTxtProgressBar(pb, 4)
+  update_pb(4)
 
   # ============================================================================
   # STEP 4b: SINGLE aggregation pass for BOTH standard and alternative positions
@@ -240,7 +256,7 @@ identify_reference_month <- function(data, verbose = TRUE) {
     alt_upa_month_max = min(alt_month_max_pos, na.rm = TRUE)
   ), by = .(UPA, V1014)]
 
-  if (verbose) setTxtProgressBar(pb, 5)
+  update_pb(5)
 
   # ============================================================================
   # STEP 5: Dynamically detect which quarters need exception rules
@@ -279,7 +295,7 @@ identify_reference_month <- function(data, verbose = TRUE) {
   dt[is.infinite(trim_exc_m2) | is.na(trim_exc_m2), trim_exc_m2 := 0L]
   dt[is.infinite(trim_exc_m3) | is.na(trim_exc_m3), trim_exc_m3 := 0L]
 
-  if (verbose) setTxtProgressBar(pb, 6)
+  update_pb(6)
 
   # ============================================================================
   # STEP 6: Apply exception rules and recalculate (OPTIMIZED: conditional)
@@ -334,7 +350,7 @@ identify_reference_month <- function(data, verbose = TRUE) {
     upa_month_max_final = min(month_max_pos, na.rm = TRUE)
   ), by = .(UPA, V1014)]
 
-  if (verbose) setTxtProgressBar(pb, 7)
+  update_pb(7)
 
   # ============================================================================
   # STEP 7: Assign reference month
@@ -370,8 +386,10 @@ identify_reference_month <- function(data, verbose = TRUE) {
   class(result) <- c("pnadc_crosswalk", class(result))
   attr(result, "determination_rate") <- mean(!is.na(result$ref_month_in_quarter))
 
-  if (verbose) {
-    setTxtProgressBar(pb, 8)
+  update_pb(8)
+
+  # Close progress bar and show summary (only if we created our own)
+  if (verbose && !use_external_pb) {
     close(pb)
     cat(sprintf("  Determination rate: %.1f%%\n", attr(result, "determination_rate") * 100))
   }

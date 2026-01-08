@@ -163,16 +163,15 @@ mensalizePNADC <- function(data,
   if (verbose) {
     cat("Processing PNADC data...\n")
     pb <- txtProgressBar(min = 0, max = n_steps, style = 3)
+  } else {
+    pb <- NULL
   }
 
-  # Step 1: Identify reference months (handles steps 1-8 internally)
-  # Pass verbose=FALSE to avoid double progress display
-  crosswalk <- identify_reference_month(data, verbose = FALSE)
+  # Step 1-8: Identify reference months
+  # Pass our progress bar so it shows granular progress
+  crosswalk <- identify_reference_month(data, verbose = FALSE, .pb = pb, .pb_offset = 0L)
 
   det_rate <- attr(crosswalk, "determination_rate")
-  if (verbose) {
-    setTxtProgressBar(pb, 8)
-  }
 
   if (!compute_weights) {
     if (verbose) {
