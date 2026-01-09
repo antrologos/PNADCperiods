@@ -26,7 +26,6 @@ reference:
   - mensalizePNADC-package
   - identify_reference_month
   - calibrate_monthly_weights
-  - print.pnadc_crosswalk
 
 - title: Weight Calibration
   desc: Functions for weight calibration and smoothing
@@ -49,6 +48,7 @@ reference:
   desc: Helper and validation functions
   contents:
   - validate_pnadc
+  - adjust_weights_bayesian
 
 home:
   links:
