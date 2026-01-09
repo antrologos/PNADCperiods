@@ -19,6 +19,7 @@ Description: Identifies reference months in Brazil's quarterly PNADC (Pesquisa
     weights.
 License: MIT + file LICENSE
 Encoding: UTF-8
+LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Depends:
@@ -33,7 +34,9 @@ Suggests:
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,
-    pkgdown
+    pkgdown,
+    ggplot2,
+    scales
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 URL: https://antrologos.github.io/mensalizePNADC/,
