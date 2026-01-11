@@ -34,23 +34,24 @@
 #'   \item{frequency}{Either "Quarterly" or "Monthly"}
 #' }
 #'
-#' **vignette_monthly_mw**: Minimum wage analysis series
+#' **vignette_monthly_mw_exact**: Exact minimum wage value tracking
 #' \describe{
-#'   \item{period}{Date of observation}
 #'   \item{ref_month_yyyymm}{Reference month in YYYYMM format}
-#'   \item{n_workers}{Number of formal private sector workers (weighted)}
-#'   \item{pct_at_mw_habitual}{Share earning within +/-5% of MW (habitual income)}
-#'   \item{pct_at_mw_effective}{Share earning within +/-5% of MW (effective income)}
-#'   \item{mw_value}{Minimum wage value in R$ for that month}
-#'   \item{mw_change}{Logical: TRUE if MW changed from previous month}
-#'   \item{is_adjustment_month}{Logical: TRUE if first month after MW adjustment}
+#'   \item{mw_value}{Exact MW value being tracked (e.g., 998, 1039)}
+#'   \item{pct_habitual}{Share earning exactly this MW value (habitual income)}
+#'   \item{pct_effective}{Share earning exactly this MW value (effective income)}
+#'   \item{n_workers}{Total formal private sector workers aged 18+ (weighted)}
+#'   \item{period}{Date of observation (15th of month)}
 #' }
 #'
-#' **vignette_mw_history**: Historical minimum wage values
+#' **vignette_mw_history**: Historical minimum wage values (month-by-month)
 #' \describe{
-#'   \item{start_date}{Date when new MW value took effect}
-#'   \item{mw_value}{Minimum wage value in R$}
+#'   \item{yyyymm}{Month in YYYYMM format}
+#'   \item{mw_value}{Minimum wage value in R$ for that month}
+#'   \item{mw_change}{Logical: TRUE if MW changed from previous month}
 #' }
+#'
+#' **vignette_mw_adjustment_months**: Vector of YYYYMM values for months when MW changed
 #'
 #' **vignette_metadata**: List with:
 #' \describe{
@@ -71,8 +72,8 @@
 #' # Check the quarterly unemployment series
 #' head(vignette_quarterly_total)
 #'
-#' # Check minimum wage analysis data
-#' head(vignette_monthly_mw)
+#' # Check exact minimum wage tracking data
+#' head(vignette_monthly_mw_exact)
 #'
 #' # Check metadata
 #' vignette_metadata$determination_rate
@@ -80,6 +81,7 @@
 #' @name vignette_series
 #' @aliases vignette_quarterly_total vignette_quarterly_gender vignette_quarterly_race
 #'   vignette_monthly_total vignette_monthly_gender vignette_monthly_race
-#'   vignette_monthly_mw vignette_mw_history vignette_metadata
+#'   vignette_monthly_mw_exact vignette_mw_history vignette_mw_adjustment_months
+#'   vignette_metadata
 #' @docType data
 NULL

@@ -435,126 +435,228 @@ One of the most compelling demonstrations of mensalization's value is capturing 
 - **Habitual income (VD4016)**: What the worker usually earns - refers to the **current** reference month
 - **Effective income (VD4017)**: What the worker actually received - refers to the **previous** month
 
-When the minimum wage increases (typically in January), **habitual income captures the change immediately**, while **effective income shows it with a one-month lag**. This timing difference is invisible in quarterly data but becomes clear with monthly mensalization.
+When the minimum wage increases, **habitual income captures the change immediately**, while **effective income shows it with a one-month lag**. This timing difference is invisible in quarterly data but becomes clear with monthly mensalization.
+
+### Methodology
+
+We track the proportion of workers earning **exactly** each historical minimum wage value (not a band):
+
+- **Population**: Formal private sector employees (VD4009 == 1), age >= 18
+- **All analyses weighted by `weight_monthly`** (adjusted sampling weights)
+- Each MW value (R$ 622, R$ 678, ..., R$ 1,518) is tracked as a separate series
 
 ```{r mw-analysis-setup, message=FALSE}
-# Load minimum wage data
-monthly_mw <- as.data.table(vignette_monthly_mw)
+# Load exact minimum wage tracking data
+mw_exact <- as.data.table(vignette_monthly_mw_exact)
 mw_history <- as.data.table(vignette_mw_history)
 
-# Create a long format for plotting
-mw_long <- melt(monthly_mw,
-                id.vars = c("period", "ref_month_yyyymm", "mw_value", "is_adjustment_month"),
-                measure.vars = c("pct_at_mw_habitual", "pct_at_mw_effective"),
+# Create long format for plotting
+mw_long <- melt(mw_exact,
+                id.vars = c("ref_month_yyyymm", "period", "mw_value", "n_workers"),
+                measure.vars = c("pct_habitual", "pct_effective"),
                 variable.name = "income_type",
                 value.name = "pct_at_mw")
 
-mw_long[, income_label := fifelse(income_type == "pct_at_mw_habitual",
-                                   "Habitual Income\n(current month)",
-                                   "Effective Income\n(previous month)")]
+mw_long[, income_label := fifelse(income_type == "pct_habitual",
+                                   "Habitual Income (current month)",
+                                   "Effective Income (previous month)")]
+
+# Get adjustment months for reference
+adj_months <- vignette_mw_adjustment_months
+adj_dates <- as.Date(paste0(adj_months %/% 100, "-", adj_months %% 100, "-15"))
 ```
 
-```{r mw-timeseries, fig.height=6, fig.width=10}
-# Get MW adjustment months for vertical lines
-adj_months <- monthly_mw[is_adjustment_month == TRUE, period]
+### The Big Picture: All MW Values (2012-2025)
 
-ggplot(mw_long, aes(x = period, y = pct_at_mw, color = income_label)) +
-  geom_line(linewidth = 0.8) +
+Each line shows the proportion of workers earning exactly one specific MW value. When MW changes, we see the old value decline while the new value rises.
+
+```{r mw-big-picture, fig.height=7, fig.width=12}
+# Color palette for MW values
+mw_values <- sort(unique(mw_exact$mw_value))
+n_colors <- length(mw_values)
+mw_colors <- setNames(
+  colorRampPalette(c("#2166ac", "#67a9cf", "#d1e5f0", "#fddbc7", "#ef8a62", "#b2182b"))(n_colors),
+  as.character(mw_values)
+)
+
+# Filter to show only MW values with meaningful presence (>0.1% at some point)
+mw_long_filtered <- mw_long[, max_pct := max(pct_at_mw), by = mw_value][max_pct > 0.001]
+
+ggplot(mw_long_filtered, aes(x = period, y = pct_at_mw,
+                              color = factor(mw_value), group = mw_value)) +
+  geom_line(linewidth = 0.6, alpha = 0.8) +
 
   # Mark MW adjustment months
-  geom_vline(xintercept = adj_months, linetype = "dashed", alpha = 0.4, color = "gray40") +
+  geom_vline(xintercept = adj_dates, linetype = "dashed", alpha = 0.3, color = "gray40") +
+
+  facet_wrap(~ income_label, ncol = 1) +
 
   scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
-  scale_color_manual(values = c("Habitual Income\n(current month)" = "steelblue",
-                                "Effective Income\n(previous month)" = "coral")) +
+  scale_color_manual(values = mw_colors, name = "MW Value (R$)") +
 
   labs(
-    title = "Share of Formal Workers Earning Minimum Wage (+/- 5%)",
-    subtitle = "Dashed lines mark MW adjustment months. Habitual income shows MW changes immediately; effective income shows 1-month lag.",
+    title = "Share of Formal Workers Earning Each Exact MW Value",
+    subtitle = "Each line = one MW value. Vertical lines = MW adjustments. Pattern shifted 1 month between panels.",
     x = NULL, y = "Share of Workers",
-    color = "Income Measure",
-    caption = "Source: PNADC/IBGE. Formal private sector employees only. MW values from IPEADATA."
+    caption = "Source: PNADC/IBGE. Formal private sector employees age 18+. All calculations use weight_monthly."
   ) +
   theme_minimal(base_size = 11) +
   theme(
     plot.title = element_text(face = "bold"),
-    legend.position = "bottom",
-    panel.grid.minor = element_blank()
-  )
+    legend.position = "right",
+    legend.key.size = unit(0.4, "cm"),
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold", size = 11)
+  ) +
+  guides(color = guide_legend(ncol = 2))
 ```
 
-### Focus: January 2020 MW Adjustment (R$ 998 to R$ 1,039)
+### Primary Example: First Transition (October 2012 - April 2013)
 
-The 2020 adjustment provides a clear example. In January 2020, the MW increased from R$ 998 to R$ 1,039. Let's zoom in:
+The cleanest demonstration of the one-month lag. In January 2013, MW increased from R$ 622 to R$ 678:
 
-```{r mw-2020-zoom, fig.height=5}
-# Focus on late 2019 to mid 2020
-mw_2020 <- mw_long[period >= "2019-09-01" & period <= "2020-06-01"]
+```{r mw-2013-transition, fig.height=5, fig.width=10}
+# Filter to the transition period
+mw_2013 <- mw_long[period >= "2012-10-15" & period <= "2013-04-15" &
+                   mw_value %in% c(622, 678)]
 
-# Get the specific adjustment month
-adj_2020 <- as.Date("2020-01-15")
+# Adjustment date
+adj_jan_2013 <- as.Date("2013-01-15")
 
-ggplot(mw_2020, aes(x = period, y = pct_at_mw, color = income_label)) +
-  geom_line(linewidth = 1) +
-  geom_point(size = 2) +
+ggplot(mw_2013, aes(x = period, y = pct_at_mw,
+                    color = factor(mw_value), linetype = factor(mw_value))) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2.5) +
 
   # Mark the adjustment
-  geom_vline(xintercept = adj_2020, linetype = "dashed", linewidth = 0.8) +
-  annotate("text", x = adj_2020, y = max(mw_2020$pct_at_mw) * 1.02,
-           label = "MW: R$ 998 -> R$ 1,039", size = 3, hjust = -0.05) +
+  geom_vline(xintercept = adj_jan_2013, linetype = "dashed", linewidth = 0.8, color = "gray40") +
+
+  facet_wrap(~ income_label, ncol = 2) +
 
   scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
   scale_x_date(date_breaks = "1 month", date_labels = "%b\n%Y") +
-  scale_color_manual(values = c("Habitual Income\n(current month)" = "steelblue",
-                                "Effective Income\n(previous month)" = "coral")) +
+  scale_color_manual(values = c("622" = "#b2182b", "678" = "#2166ac"),
+                     labels = c("622" = "R$ 622 (old)", "678" = "R$ 678 (new)"),
+                     name = "MW Value") +
+  scale_linetype_manual(values = c("622" = "solid", "678" = "solid"), guide = "none") +
 
   labs(
-    title = "MW Adjustment: January 2020",
-    subtitle = "Habitual income shows spike in January; effective income shows spike in February",
-    x = NULL, y = "Share at MW (+/- 5%)",
-    color = NULL,
-    caption = "Habitual income refers to current month; effective income refers to previous month."
+    title = "MW Transition: January 2013 (R$ 622 → R$ 678)",
+    subtitle = "Habitual income shows transition in January; Effective income shows same pattern in February",
+    x = NULL, y = "Share Earning Exact MW",
+    caption = "Vertical line = MW adjustment. Habitual income refers to current month; effective to previous month."
   ) +
   theme_minimal(base_size = 11) +
   theme(
     plot.title = element_text(face = "bold"),
     legend.position = "bottom",
-    panel.grid.minor = element_blank()
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold")
   )
 ```
 
-**Key insight**: In January 2020:
-- **Habitual income** immediately shows workers at the new MW (R$ 1,039)
-- **Effective income** still shows workers at the old MW (R$ 998) because it refers to December 2019
+**Key observation**:
+- In **January 2013**: Habitual income shows workers shifting from R$ 622 to R$ 678
+- In **February 2013**: Effective income shows the same shift (1-month lag)
 
-This one-month lag pattern repeats at every MW adjustment and demonstrates:
+### Special Case: Multi-Year Period with Mid-Year Adjustments (Oct 2019 - Apr 2023)
 
-1. **The importance of monthly data**: This pattern is completely smoothed away in quarterly data
-2. **Understanding income concepts**: Habitual vs effective income have different temporal references
-3. **Policy evaluation**: When assessing minimum wage impacts, the correct timing matters
+This period includes several interesting events:
+- January 2020: R$ 998 → R$ 1,039
+- February 2020: R$ 1,039 → R$ 1,045 (correction)
+- May 2023: R$ 1,302 → R$ 1,320 (mid-year adjustment)
 
-### MW Adjustment Events Summary
+```{r mw-2019-2023, fig.height=6, fig.width=12}
+# Filter to the multi-year period
+mw_special <- mw_long[period >= "2019-10-15" & period <= "2023-04-15" &
+                      mw_value %in% c(998, 1039, 1045, 1100, 1212, 1302, 1320)]
 
-```{r mw-table}
-# Calculate the jump in habitual vs effective income around each adjustment
-setorder(monthly_mw, period)
-monthly_mw[, hab_change := pct_at_mw_habitual - shift(pct_at_mw_habitual)]
-monthly_mw[, eff_change := pct_at_mw_effective - shift(pct_at_mw_effective)]
-monthly_mw[, hab_change_next := shift(pct_at_mw_habitual, type = "lead") - pct_at_mw_habitual]
-monthly_mw[, eff_change_next := shift(pct_at_mw_effective, type = "lead") - pct_at_mw_effective]
+# Adjustment dates in this period
+adj_special <- adj_dates[adj_dates >= "2019-10-15" & adj_dates <= "2023-04-15"]
 
-# Get adjustment months with the changes
-adj_summary <- monthly_mw[is_adjustment_month == TRUE & period >= "2013-01-01",
-                           .(Month = format(period, "%b %Y"),
-                             `MW Value (R$)` = mw_value,
-                             `Habitual Jump (p.p.)` = sprintf("%+.1f", hab_change * 100),
-                             `Effective Jump (p.p.)` = sprintf("%+.1f", eff_change * 100))]
+ggplot(mw_special, aes(x = period, y = pct_at_mw,
+                       color = factor(mw_value), group = mw_value)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 1.5, alpha = 0.7) +
 
-knitr::kable(adj_summary,
-             caption = "Minimum wage adjustments and immediate changes in share at MW",
-             align = c("l", "r", "r", "r"))
+  # Mark adjustment months
+  geom_vline(xintercept = adj_special, linetype = "dashed", alpha = 0.5, color = "gray40") +
+
+  facet_wrap(~ income_label, ncol = 1) +
+
+  scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
+  scale_x_date(date_breaks = "3 months", date_labels = "%b\n%Y") +
+  scale_color_brewer(palette = "Set1", name = "MW Value (R$)") +
+
+  labs(
+    title = "MW Transitions: October 2019 - April 2023",
+    subtitle = "Includes Feb 2020 correction (1039→1045) and May 2023 mid-year adjustment (1302→1320)",
+    x = NULL, y = "Share Earning Exact MW",
+    caption = "Vertical lines = MW adjustments. Pattern is consistently shifted 1 month between panels."
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "right",
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
 ```
+
+### Summary of Findings
+
+```{r mw-summary-table}
+# For each adjustment, compute the share at new MW in adjustment month
+# Habitual shows it immediately, effective shows it the next month
+
+# Get unique adjustment months from history
+adj_info <- mw_history[mw_change == TRUE]
+
+# For each adjustment, get the new MW value and compute shares
+summary_list <- lapply(seq_len(nrow(adj_info)), function(i) {
+  adj_yyyymm <- adj_info$yyyymm[i]
+  new_mw <- adj_info$mw_value[i]
+
+  # Current month data
+  curr <- mw_exact[ref_month_yyyymm == adj_yyyymm & mw_value == new_mw]
+
+  # Next month
+  next_yyyymm <- if (adj_yyyymm %% 100 == 12) {
+    (adj_yyyymm %/% 100 + 1) * 100 + 1
+  } else {
+    adj_yyyymm + 1
+  }
+  next_data <- mw_exact[ref_month_yyyymm == next_yyyymm & mw_value == new_mw]
+
+  if (nrow(curr) > 0 && nrow(next_data) > 0) {
+    data.table(
+      Month = format(as.Date(paste0(adj_yyyymm %/% 100, "-", adj_yyyymm %% 100, "-01")), "%b %Y"),
+      `New MW (R$)` = new_mw,
+      `Habitual (adj month)` = sprintf("%.1f%%", curr$pct_habitual * 100),
+      `Effective (adj month)` = sprintf("%.1f%%", curr$pct_effective * 100),
+      `Effective (+1 month)` = sprintf("%.1f%%", next_data$pct_effective * 100)
+    )
+  } else {
+    NULL
+  }
+})
+
+summary_dt <- rbindlist(summary_list[!sapply(summary_list, is.null)])
+
+knitr::kable(summary_dt,
+             caption = "MW Adjustments: Share at New MW Value. Habitual captures change immediately; Effective shows 1-month lag.",
+             align = c("l", "r", "r", "r", "r"))
+```
+
+### Conclusion
+
+The one-month lag between habitual and effective income at MW adjustments demonstrates:
+
+1. **Habitual income (VD4016)** captures wage changes in the **current reference month**
+2. **Effective income (VD4017)** reflects wages from the **previous month**
+3. This pattern is **invisible in quarterly data** but clear with monthly mensalization
+4. For policy evaluation of minimum wage impacts, the **correct timing matters**
 
 ---
 
