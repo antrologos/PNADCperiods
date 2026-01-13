@@ -36,7 +36,7 @@ The workflow covers three main tasks:
 2. **Stacking** multiple quarters into a single dataset (critical for high determination rates)
 3. **Applying mensalization** using the `mensalizePNADC` package
 
-This vignette is intended as the "first step" for users new to working with mensalized PNADC data. For details on the mensalization algorithm, see `vignette("getting-started")`. For examples of labor market analysis with mensalized data, see `vignette("applied-examples")`.
+If you already have PNADC data and want to learn the package API first, see [Get Started](getting-started.html). For algorithm details, see [How mensalizePNADC Works](how-it-works.html).
 
 ## Prerequisites
 
@@ -349,8 +349,9 @@ The full history provides approximately 28 million observations and achieves the
 
 Now that you have mensalized PNADC data, you can:
 
-- Learn about the algorithm in `vignette("getting-started")`
-- See analysis examples in `vignette("applied-examples")`
+- Follow the usage patterns in [Get Started](getting-started.html) with your real data
+- See analysis examples in [Applied Examples](applied-examples.html)
+- Learn about the algorithm in [How mensalizePNADC Works](how-it-works.html)
 - Visit the [package website](https://antrologos.github.io/mensalizePNADC/) for more resources
 
 For questions or issues, please open an issue on [GitHub](https://github.com/antrologos/mensalizePNADC/issues).

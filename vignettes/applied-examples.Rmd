@@ -52,7 +52,7 @@ This vignette demonstrates three compelling cases where monthly data reveals dyn
 
 ## Prerequisites
 
-To reproduce these analyses, you need stacked PNADC microdata spanning multiple quarters. The code below assumes you have already loaded and processed your data. See the [Download and Prepare vignette](download-and-prepare.html) for detailed instructions on data preparation. For a intituitive overview of the mensalization methodology, see the [Getting Started vignette](getting-started.html).
+To reproduce these analyses, you need stacked PNADC microdata spanning multiple quarters. The code below assumes you have already loaded and processed your data. See [Download and Prepare Data](download-and-prepare.html) for data preparation, or [Get Started](getting-started.html) for basic usage.
 
 ```{r libraries}
 # Load required packages
@@ -568,7 +568,7 @@ monthly_total <- result[!is.na(weight_monthly), .(
 ), by = ref_month_yyyymm]
 ```
 
-See the [Getting Started vignette](getting-started.html) for complete documentation of the algorithm and available functions.
+See [Get Started](getting-started.html) for complete documentation of the package functions.
 
 ---
 

@@ -15,12 +15,25 @@ navbar:
     articles:
       text: Articles
       menu:
-      - text: Getting Started
-        href: articles/getting-started.html
       - text: Download and Prepare Data
         href: articles/download-and-prepare.html
       - text: Applied Examples
         href: articles/applied-examples.html
+      - text: How mensalizePNADC Works
+        href: articles/how-it-works.html
+
+articles:
+- title: ~
+  navbar: ~
+  contents:
+  - getting-started
+
+- title: Guides
+  navbar: Articles
+  contents:
+  - download-and-prepare
+  - applied-examples
+  - how-it-works
 
 reference:
 - title: Main Functions
