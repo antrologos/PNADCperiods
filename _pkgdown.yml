@@ -19,6 +19,8 @@ navbar:
         href: articles/download-and-prepare.html
       - text: Applied Examples
         href: articles/applied-examples.html
+      - text: Complex Survey Design
+        href: articles/complex-survey-design.html
       - text: How mensalizePNADC Works
         href: articles/how-it-works.html
 
@@ -33,6 +35,7 @@ articles:
   contents:
   - download-and-prepare
   - applied-examples
+  - complex-survey-design
   - how-it-works
 
 reference:
