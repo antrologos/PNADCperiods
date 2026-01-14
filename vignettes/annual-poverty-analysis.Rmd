@@ -337,10 +337,13 @@ d[, `:=`(
   rendaAlugueis_pc   = sum(v5007a2) / n_members
 ), by = .(ano, trimestre, id_dom)]
 
-# Main income measure: habitual work + other household income
-d[, rendaDom_mista_pc := rendaTrab_ha_pc + rendaDom_base_pc]
+# Main income measure: per capita household income
+# NOTE: VD4048 already includes all income sources (work, transfers, other)
+# so we use it directly rather than adding VD4019 which would double-count work income
+d[, rendaDom_mista_pc := rendaDom_base_pc]
 
-# Counterfactual income (without emergency aid)
+# Counterfactual income (without emergency aid during 2020-2021)
+# Subtracts "other programs" (v5003a2 - includes Auxílio Emergencial) and Bolsa Família
 d[, rendaDom_semAux_pc := rendaDom_mista_pc - rendaOutProgs_pc - rendaBolsaFam_pc]
 ```
 
@@ -426,10 +429,10 @@ if (exists("deflator") && "CO3" %in% names(deflator)) {
 
 ### Helper Functions
 
-Before computing poverty measures, we define the FGT family of poverty indices and the Gini coefficient:
+Before computing poverty measures, we define the FGT family of poverty indices:
 
 ```{r helper-functions}
-# FGT poverty measure family
+# FGT poverty measure family (Foster-Greer-Thorbecke)
 # alpha = 0: Headcount ratio (share below line)
 # alpha = 1: Poverty gap (average shortfall)
 # alpha = 2: Squared poverty gap (sensitive to inequality among poor)
@@ -444,26 +447,6 @@ fgt <- function(x, z, w = NULL, alpha = 0) {
   fgt_val <- ifelse(x < z, g^alpha, 0)
 
   sum(w * fgt_val) / sum(w)
-}
-
-# Gini coefficient
-gini <- function(x, w = NULL) {
-  if (is.null(w)) w <- rep(1, length(x))
-
-  idx <- complete.cases(x, w) & x >= 0
-  x <- x[idx]; w <- w[idx]
-
-  ord <- order(x)
-  x <- x[ord]; w <- w[ord]
-
-  cum_x <- c(0, cumsum(x * w) / sum(x * w))
-  cum_p <- c(0, cumsum(w) / sum(w))
-
-  B <- cum_x[-1]
-  b <- cum_x[-length(cum_x)]
-  h <- diff(cum_p)
-
-  2 * (0.5 - sum(((B + b) * h) / 2))
 }
 ```
 
@@ -513,27 +496,7 @@ The figure reveals several key dynamics:
 
 4. **Post-Auxílio adjustment (2021)**: As emergency aid was reduced, poverty rates partially rebounded.
 
-### Example 2: Monthly Gini Coefficient
-
-Track income inequality at monthly frequency:
-
-```{r example-gini}
-# Add Gini to monthly aggregates
-monthly_poverty[, gini := d_monthly[ref_month_yyyymm == .BY[[1]],
-                                     gini(rendaDom_mista_pc, peso)],
-                by = ref_month_yyyymm]
-
-# Counterfactual Gini (without emergency aid)
-monthly_poverty[, gini_semAux := d_monthly[ref_month_yyyymm == .BY[[1]],
-                                            gini(rendaDom_semAux_pc, peso)],
-                by = ref_month_yyyymm]
-```
-
-![Monthly Gini Coefficient: Brazil, 2015-2024](figures/annual-poverty-analysis/fig-monthly-gini.png){width=100%}
-
-The Gini coefficient shows inequality **compression** during the Auxílio Emergencial period (2020-2021). The dashed line shows what inequality would have been without emergency transfers---substantially higher. This demonstrates that the emergency aid program was highly progressive, benefiting lower-income households proportionally more.
-
-### Example 3: Survey Design (Brief)
+### Example 2: Survey Design (Brief)
 
 For proper inference, use complex survey design with monthly weights:
 
@@ -563,7 +526,7 @@ confint(poverty_estimate)
 
 For detailed guidance on variance estimation with monthly weights, including the replication weights approach, see the [Complex Survey Design](complex-survey-design.html) vignette.
 
-### Example 4: Smoothing
+### Example 3: Smoothing
 
 The raw monthly series may show quarterly artifacts from IBGE's rotating panel design. The `smooth_monthly_aggregates()` function can help remove these patterns:
 
@@ -611,7 +574,6 @@ For most research purposes, discrepancies of 1-2 percentage points are acceptabl
 |---------|-------------|--------------|
 | **COVID poverty spike** | Averaged across year | Visible March-April 2020 |
 | **Auxílio timing** | Effect blurred | Clear May 2020 onset |
-| **Inequality compression** | Annual average only | Month-by-month path |
 | **Recovery dynamics** | Single 2021 estimate | Monthly trajectory |
 | **Seasonal patterns** | Invisible | December income spikes |
 
@@ -619,7 +581,7 @@ For most research purposes, discrepancies of 1-2 percentage points are acceptabl
 
 - **Event studies**: Analyzing policy changes or economic shocks with precise timing
 - **Policy evaluation**: Measuring immediate effects of interventions (e.g., cash transfers)
-- **Seasonal analysis**: Identifying within-year patterns in poverty and inequality
+- **Seasonal analysis**: Identifying within-year patterns in poverty
 - **Nowcasting**: Producing more timely poverty estimates
 
 ### Limitations
