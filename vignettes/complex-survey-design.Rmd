@@ -77,7 +77,7 @@ This is why you need standard errors: they transform raw numbers into actionable
 
 ```{r packages}
 # Core packages
-library(mensalizePNADC)
+library(PNADCperiods)
 library(data.table)
 
 # Survey analysis
@@ -99,7 +99,7 @@ To implement complex survey analysis, your PNADC data needs specific design vari
 | `UPA` | Primary Sampling Unit (census tract) | Strategy 1 |
 | `V1028` | Original IBGE weight | Both strategies |
 | `V1028001`-`V1028200` | Bootstrap replication weights | Strategy 2 |
-| `weight_monthly` | Monthly weight from `mensalizePNADC()` | Both strategies |
+| `weight_monthly` | Monthly weight from `pnadc_apply_periods()` | Both strategies |
 
 ### Loading and Preparing Data
 
@@ -113,8 +113,14 @@ To implement complex survey analysis, your PNADC data needs specific design vari
 
 pnadc <- fread("path/to/your/pnadc_full_stacked.csv")
 
-# Apply mensalization with weight computation
-pnadc <- mensalizePNADC(pnadc, compute_weights = TRUE, keep_all = TRUE)
+# Step 1: Build crosswalk (identify reference periods)
+crosswalk <- pnadc_identify_periods(pnadc)
+
+# Step 2: Apply crosswalk and calibrate weights
+pnadc <- pnadc_apply_periods(pnadc, crosswalk,
+                              weight_var = "V1028",
+                              anchor = "quarter",
+                              calibrate = TRUE)
 
 # Filter to determined observations (those with monthly weights)
 pnadc_monthly <- pnadc[!is.na(weight_monthly)]
@@ -657,7 +663,7 @@ print(participation_srvyr)
 
 ## Summary
 
-This vignette demonstrated two approaches for computing standard errors with monthly PNADC weights:
+This vignette demonstrated two approaches for computing standard errors with monthly PNADC weights from `PNADCperiods`:
 
 1. **Strategy 1 (Linearization)**: Use `Estrato` as strata, `UPA` as PSU, and `weight_monthly` as the weight in a standard survey design. Fast, simple, works for most statistics.
 

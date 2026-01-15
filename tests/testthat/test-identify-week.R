@@ -204,7 +204,7 @@ test_that("ref_week_iso_yyyyww matches ref_week", {
 
   if (!is.na(result$ref_week[1]) && !is.na(result$ref_week_iso_yyyyww[1])) {
     # Convert ref_week back to yyyyww and compare
-    expected_yyyyww <- date_to_yyyyww(result$ref_week[1])
+    expected_yyyyww <- PNADCperiods:::date_to_yyyyww(result$ref_week[1])
     expect_equal(result$ref_week_iso_yyyyww[1], expected_yyyyww)
   }
 })

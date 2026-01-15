@@ -4,15 +4,17 @@
 #' @keywords internal
 NULL
 
-#' Required Variables for Reference Month Identification
+#' Required Variables for Reference Period Identification
 #'
-#' Returns the minimum required column names for identifying reference months.
+#' Returns the minimum required column names for identifying reference periods
+#' (month, fortnight, and week).
 #'
 #' @return Character vector of required column names
 #' @keywords internal
 #' @noRd
 required_vars_ref_month <- function() {
-  c("Ano", "Trimestre", "UPA", "V1014", "V2008", "V20081", "V20082", "V2009")
+  # V1008 is required for week identification (household-level aggregation)
+  c("Ano", "Trimestre", "UPA", "V1008", "V1014", "V2008", "V20081", "V20082", "V2009")
 }
 
 #' Required Variables for Join Keys

@@ -35,8 +35,8 @@
 #' @author Rogerio Barbosa \email{rogerio.barbosa@@iesp.uerj.br}
 #'
 #' @import data.table
-#' @importFrom checkmate assert_data_frame assert_int assert_logical assert_string assert_character
-#' @importFrom stats median
+#' @importFrom checkmate assert_data_frame assert_int assert_logical assert_string assert_character assert_choice
+#' @importFrom stats median na.omit lm predict
 #' @importFrom utils head setTxtProgressBar txtProgressBar
 #' @keywords internal
 "_PACKAGE"
@@ -70,8 +70,8 @@ utils::globalVariables(c(
   "ref_fortnight", "ref_fortnight_in_quarter", "ref_fortnight_yyyyff",
   "fortnight_min_pos", "fortnight_max_pos", "fortnight_min_yyyyff", "fortnight_max_yyyyff",
   "alt_fortnight_min_pos", "alt_fortnight_max_pos",
-  "upa_fortnight_min", "upa_fortnight_max",
-  "alt_upa_fortnight_min", "alt_upa_fortnight_max",
+  "hh_fortnight_min", "hh_fortnight_max",
+  "alt_hh_fortnight_min", "alt_hh_fortnight_max",
   "determined_fortnight",
   # Computed variables - reference week identification
   "ref_week", "ref_week_in_quarter", "ref_week_yyyyww",
@@ -108,5 +108,13 @@ utils::globalVariables(c(
   ".SD", ".N", ".I", "..output_cols", ".",
   # Calibration variables
   "v1032", "v2009", "uf", "..xw_cols",
-  "n_months_in_year", "pop_year", "n_years_in_month", "year"
+  "n_months_in_year", "pop_year", "n_years_in_month", "year",
+  # Unified calibration variables
+  "anchor_year", "target_pop", "i.target_pop",
+  "n_cells_anchor", "n_cells_period", "pop_anchor", "pop_period",
+  "ref_week_iso_yyyyww",
+  # Smoothing variables
+  "period_pos", "i.pos", "cell_pop", "pop_smoothed", "pop_lag", "pop_lead",
+  "smooth_factor", "i.smooth_factor", "pop_orig", "pop_new", "final_factor",
+  "i.final_factor"
 ))

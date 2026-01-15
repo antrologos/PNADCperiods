@@ -63,8 +63,7 @@
 #' @note
 #' **Important**: This function is designed for **quarterly** PNADC data where all 5
 #' panel visits are present. For **annual** PNADC analysis (visit-specific data),
-#' use \code{\link{mensalize_annual_pnadc}} instead, which properly calibrates
-#' the annual weight \code{V1032} to monthly population totals.
+#' use \code{\link{pnadc_apply_periods}} with \code{anchor = "year"} instead.
 #'
 #' @examples
 #' \dontrun{
@@ -76,7 +75,7 @@
 #' result <- calibrate_monthly_weights(merged, monthly_pop)
 #' }
 #'
-#' @seealso \code{\link{identify_reference_month}}, \code{\link{mensalizePNADC}}
+#' @seealso \code{\link{identify_reference_month}}, \code{\link{pnadc_apply_periods}}
 #'
 #' @export
 calibrate_monthly_weights <- function(data, monthly_totals, n_cells = 4L,
@@ -86,7 +85,7 @@ calibrate_monthly_weights <- function(data, monthly_totals, n_cells = 4L,
   checkmate::assert_logical(keep_all, len = 1)
   checkmate::assert_logical(verbose, len = 1)
 
-  # Note: PNADC data validation is done in mensalizePNADC() for fail-fast behavior.
+  # Note: PNADC data validation is done in pnadc_apply_periods() for fail-fast behavior.
   # Only validate monthly_totals here since it's not validated upstream.
   validate_monthly_totals(monthly_totals, stop_on_error = TRUE)
 

@@ -35,7 +35,7 @@
 #' @param verbose Logical. If TRUE (default), display progress bar and step information.
 #' @param .pb Optional progress bar object created by \code{txtProgressBar}. If provided,
 #'   the function updates this progress bar instead of creating its own. Used internally
-#'   by \code{mensalizePNADC()} to show unified progress across all steps.
+#'   by \code{pnadc_identify_periods()} to show unified progress across all steps.
 #' @param .pb_offset Integer. Offset to add to progress bar updates when using an external
 #'   progress bar. Default is 0.
 #'
@@ -100,7 +100,7 @@
 #' @export
 identify_reference_month <- function(data, verbose = TRUE, .pb = NULL, .pb_offset = 0L) {
 
-  # Note: Validation is done in mensalizePNADC() for fail-fast behavior.
+  # Note: Validation is done in pnadc_identify_periods() for fail-fast behavior.
   # When called directly, caller is responsible for valid input.
 
   # Initialize progress bar (8 steps total)
@@ -284,6 +284,12 @@ identify_reference_month <- function(data, verbose = TRUE, .pb = NULL, .pb_offse
     alt_upa_month_min = max(alt_month_min_pos, na.rm = TRUE),
     alt_upa_month_max = min(alt_month_max_pos, na.rm = TRUE)
   ), by = .(UPA, V1014)]
+
+  # Handle infinite values from all-NA groups (max returns -Inf, min returns Inf)
+  dt[is.infinite(upa_month_min), upa_month_min := NA_integer_]
+  dt[is.infinite(upa_month_max), upa_month_max := NA_integer_]
+  dt[is.infinite(alt_upa_month_min), alt_upa_month_min := NA_integer_]
+  dt[is.infinite(alt_upa_month_max), alt_upa_month_max := NA_integer_]
 
   # OPTIMIZATION: Remove date columns - no longer needed after aggregation
   # (alternative positions are now aggregated into upa_month_* columns)

@@ -36,10 +36,12 @@
 #' @param verbose Logical. If TRUE (default), print progress messages.
 #'
 #' @return A data.table with the input data plus:
-#'   \itemize{
-#'     \item Reference period columns: \code{ref_month}, \code{ref_fortnight}, \code{ref_week}, etc.
-#'     \item Determination flags: \code{determined_month}, \code{determined_fortnight}, \code{determined_week}
-#'     \item \code{weight_monthly}, \code{weight_fortnight}, or \code{weight_weekly} (if calibrate=TRUE)
+#'   \describe{
+#'     \item{ref_month, ref_fortnight, ref_week}{Reference period as Date}
+#'     \item{ref_month_in_quarter, etc.}{Position within quarter (1-3, 1-6, 1-14)}
+#'     \item{ref_month_yyyymm, ref_fortnight_yyyyff, ref_week_yyyyww}{Integer period codes}
+#'     \item{determined_month, determined_fortnight, determined_week}{Logical determination flags}
+#'     \item{weight_monthly, weight_fortnight, or weight_weekly}{Calibrated weights (if calibrate=TRUE)}
 #'   }
 #'
 #' @details
@@ -140,18 +142,47 @@ pnadc_apply_periods <- function(data,
 
   # Convert to data.table
   dt <- ensure_data_table(data, copy = TRUE)
-  xw <- ensure_data_table(crosswalk, copy = FALSE)
+  xw <- ensure_data_table(crosswalk, copy = TRUE)  # Copy to allow type coercion
+
+  # Ensure consistent types for join keys
+  # PNADC data may have character or integer columns depending on source
+  type_coerce_cols <- c("Ano", "Trimestre", "UPA", "V1008", "V1014")
+  for (col in type_coerce_cols) {
+    if (col %in% names(dt) && col %in% names(xw)) {
+      # Coerce both to integer for consistent joins
+      if (!is.integer(dt[[col]])) {
+        dt[, (col) := as.integer(get(col))]
+      }
+      if (!is.integer(xw[[col]])) {
+        xw[, (col) := as.integer(get(col))]
+      }
+    }
+  }
 
   # Check join keys exist
-  join_keys <- c("UPA", "V1014")
-  missing_data <- setdiff(join_keys, names(dt))
+  # Crosswalk is at household-quarter level for fortnights/weeks
+  join_keys <- c("Ano", "Trimestre", "UPA", "V1008", "V1014")
+  available_keys <- intersect(join_keys, names(xw))
+
+  # Crosswalk must have at least UPA and V1014 (minimal keys)
+  minimal_keys <- c("UPA", "V1014")
+  missing_in_xw <- setdiff(minimal_keys, names(xw))
+  if (length(missing_in_xw) > 0) {
+    stop(sprintf("Crosswalk missing required columns: %s", paste(missing_in_xw, collapse = ", ")))
+  }
+
+  # Data must have at least UPA and V1014 (minimal keys for month-only join)
+  missing_data <- setdiff(available_keys, names(dt))
   if (length(missing_data) > 0) {
-    stop(sprintf("Data missing join key columns: %s", paste(missing_data, collapse = ", ")))
+    # Check if minimal keys are present
+    missing_minimal <- setdiff(minimal_keys, names(dt))
+    if (length(missing_minimal) > 0) {
+      stop(sprintf("Data missing required join key columns: %s", paste(missing_minimal, collapse = ", ")))
+    }
+    # Can still join on available keys
+    available_keys <- intersect(available_keys, names(dt))
   }
-  missing_xw <- setdiff(join_keys, names(xw))
-  if (length(missing_xw) > 0) {
-    stop(sprintf("Crosswalk missing join key columns: %s", paste(missing_xw, collapse = ", ")))
-  }
+  join_keys <- available_keys
 
   # Check weight variable exists
   if (!weight_var %in% names(dt)) {
@@ -166,7 +197,7 @@ pnadc_apply_periods <- function(data,
 
   # Select crosswalk columns to merge
   xw_cols <- intersect(
-    c("UPA", "V1014",
+    c("Ano", "Trimestre", "UPA", "V1008", "V1014",
       "ref_month", "ref_month_in_quarter", "ref_month_yyyymm", "determined_month",
       "ref_fortnight", "ref_fortnight_in_quarter", "ref_fortnight_yyyyff", "determined_fortnight",
       "ref_week", "ref_week_in_quarter", "ref_week_yyyyww", "determined_week"),
@@ -468,12 +499,18 @@ calibrate_to_external_totals <- function(dt, target_totals, ref_var) {
     stop("Target totals must have a population column (m_populacao, f_populacao, w_populacao, population, or pop)")
   }
 
-  # Find the ref column in targets
-  ref_col_map <- c(
+  # Find the ref column in targets - use list for multiple possible column names
+  ref_col_map <- list(
     "ref_month_yyyymm" = c("ref_month_yyyymm", "anomesexato", "yyyymm"),
     "ref_fortnight_yyyyff" = c("ref_fortnight_yyyyff", "yyyyff"),
     "ref_week_yyyyww" = c("ref_week_yyyyww", "ref_week_iso_yyyyww", "yyyyww")
   )
+
+  # Check if ref_var is in the map
+  if (!ref_var %in% names(ref_col_map)) {
+    stop(sprintf("Unknown reference variable: %s. Expected one of: %s",
+                 ref_var, paste(names(ref_col_map), collapse = ", ")))
+  }
 
   tt_ref_col <- NULL
   for (candidate in ref_col_map[[ref_var]]) {
@@ -483,7 +520,8 @@ calibrate_to_external_totals <- function(dt, target_totals, ref_var) {
     }
   }
   if (is.null(tt_ref_col)) {
-    stop(sprintf("Target totals must have a column matching %s", ref_var))
+    stop(sprintf("Target totals must have a column matching %s. Expected one of: %s",
+                 ref_var, paste(ref_col_map[[ref_var]], collapse = ", ")))
   }
 
   # Rename for join if needed
@@ -511,12 +549,94 @@ calibrate_to_external_totals <- function(dt, target_totals, ref_var) {
 
 #' Smooth Calibrated Weights
 #'
+#' Applies a moving average adjustment to calibrated weights to remove
+#' quarterly artifacts that arise from the survey's quarterly design.
+#'
+#' The smoothing algorithm:
+#' 1. Groups observations by calibration cell and reference period
+#' 2. Computes period-specific adjustment factors based on neighboring periods
+#' 3. Applies a 3-period moving average to smooth the adjustment factors
+#' 4. Adjusts weights to preserve total population within each anchor period
+#'
+#' @param dt data.table with calibrated weights
+#' @param ref_var Name of reference period variable (e.g., "ref_month_yyyymm")
+#' @return data.table with smoothed weights in weight_current column
 #' @keywords internal
 #' @noRd
 smooth_calibrated_weights <- function(dt, ref_var) {
-  # Simple smoothing - can be enhanced later
 
-  # For now, just return as-is (the original smoothing was complex)
+  # Skip if insufficient periods for smoothing
+  n_periods <- data.table::uniqueN(dt[[ref_var]])
+  if (n_periods < 3L) {
+    return(dt)
+  }
+
+  # Calculate total population by period before smoothing
+  original_pop <- dt[, .(pop_orig = sum(weight_current, na.rm = TRUE)), by = ref_var]
+
+  # Calculate adjustment factors by cell and period
+  # Weight ratio: cell weight / total cell weight across all periods
+  dt[, pop_current := sum(weight_current, na.rm = TRUE), by = c("celula4", ref_var)]
+
+  # Get unique periods sorted
+  periods <- sort(unique(dt[[ref_var]]))
+  n_periods <- length(periods)
+
+  # Create lookup for period position
+  period_lookup <- data.table::data.table(
+    period = periods,
+    pos = seq_along(periods)
+  )
+  data.table::setnames(period_lookup, "period", ref_var)
+
+  # Join position to data
+  dt[period_lookup, on = ref_var, period_pos := i.pos]
+
+  # Compute smoothed population by cell-period using 3-period moving average
+  cell_period_pop <- dt[, .(cell_pop = sum(weight_current, na.rm = TRUE)),
+                         by = c("celula4", "period_pos")]
+  data.table::setkey(cell_period_pop, celula4, period_pos)
+
+  # For each cell, compute moving average
+  cell_period_pop[, `:=`(
+    pop_lag = data.table::shift(cell_pop, 1L, type = "lag"),
+    pop_lead = data.table::shift(cell_pop, 1L, type = "lead")
+  ), by = celula4]
+
+  # Moving average: (lag + current + lead) / 3
+  # At boundaries, use available values
+  cell_period_pop[, pop_smoothed := data.table::fcase(
+    !is.na(pop_lag) & !is.na(pop_lead), (pop_lag + cell_pop + pop_lead) / 3,
+    !is.na(pop_lag), (pop_lag + cell_pop) / 2,
+    !is.na(pop_lead), (cell_pop + pop_lead) / 2,
+    default = cell_pop
+  )]
+
+  # Calculate smoothing factor for each cell-period
+  # Avoid division issues: both cell_pop and pop_smoothed must be positive
+  cell_period_pop[cell_pop > 0 & pop_smoothed > 0, smooth_factor := pop_smoothed / cell_pop]
+  cell_period_pop[cell_pop <= 0 | pop_smoothed <= 0 | is.na(smooth_factor), smooth_factor := 1]
+
+  # Join smoothing factor back to main data
+  dt[cell_period_pop, on = c("celula4", "period_pos"), smooth_factor := i.smooth_factor]
+
+  # Apply smoothing factor
+  dt[!is.na(smooth_factor) & !is.na(weight_current),
+     weight_current := weight_current * smooth_factor]
+
+  # Recalibrate to preserve original period totals
+  new_pop <- dt[, .(pop_new = sum(weight_current, na.rm = TRUE)), by = ref_var]
+  pop_adjust <- original_pop[new_pop, on = ref_var]
+  pop_adjust[pop_new > 0, final_factor := pop_orig / pop_new]
+  pop_adjust[pop_new <= 0 | is.na(final_factor), final_factor := 1]
+
+  dt[pop_adjust, on = ref_var, final_factor := i.final_factor]
+  dt[!is.na(final_factor) & !is.na(weight_current),
+     weight_current := weight_current * final_factor]
+
+  # Clean up temporary columns
+  dt[, c("pop_current", "period_pos", "smooth_factor", "final_factor") := NULL]
+
   dt
 }
 

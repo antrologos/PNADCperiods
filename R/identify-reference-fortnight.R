@@ -22,6 +22,7 @@
 #'     \item \code{Ano}: Survey year
 #'     \item \code{Trimestre}: Quarter (1-4)
 #'     \item \code{UPA}: Primary Sampling Unit
+#'     \item \code{V1008}: Household sequence within UPA
 #'     \item \code{V1014}: Panel identifier
 #'     \item \code{V2008}: Birth day (1-31)
 #'     \item \code{V20081}: Birth month (1-12)
@@ -55,16 +56,23 @@
 #'
 #' ## Expected Determination Rate
 #'
-#' Fortnight determination rate (~85-90%) is intermediate between:
+#' Fortnight determination rate is typically low (~2-5%) because:
 #' \itemize{
-#'   \item Monthly rate (~97%) - coarser granularity
-#'   \item Weekly rate (~50-75%) - finer granularity
+#'   \item Unlike months, fortnights cannot aggregate across quarters
+#'   \item Birthday constraints typically narrow the date range by only a few weeks
+#'   \item A 15-day fortnight window is difficult to pinpoint without cross-quarter data
 #' }
 #'
 #' The algorithm determines fortnight when the interview date range falls
 #' entirely within a single 15-day period.
 #'
-#' @keywords internal
+#' \strong{Note}: The month algorithm achieves ~97% determination by aggregating
+#' at UPA-V1014 level across ALL quarters (leveraging the panel design where
+#' the same units are interviewed in consistent relative positions). Fortnights
+#' and weeks cannot use this cross-quarter aggregation because their positions
+#' are not consistent across panel visits.
+#'
+#' @export
 identify_reference_fortnight <- function(data, verbose = TRUE, .pb = NULL, .pb_offset = 0L) {
 
   # Initialize progress bar (7 steps total)
@@ -215,17 +223,25 @@ identify_reference_fortnight <- function(data, verbose = TRUE, .pb = NULL, .pb_o
   update_pb(4)
 
   # ============================================================================
-  # STEP 5: Aggregate to UPA-panel level ACROSS ALL QUARTERS
+  # STEP 5: Aggregate to household level WITHIN QUARTER
+  # Unlike months (which have consistent position across panel visits),
+  # fortnights do NOT aggregate across quarters - only within quarter.
   # ============================================================================
 
-  data.table::setkey(dt, UPA, V1014)
+  data.table::setkey(dt, Ano, Trimestre, UPA, V1008)
 
   dt[, `:=`(
-    upa_fortnight_min = max(fortnight_min_pos, na.rm = TRUE),
-    upa_fortnight_max = min(fortnight_max_pos, na.rm = TRUE),
-    alt_upa_fortnight_min = max(alt_fortnight_min_pos, na.rm = TRUE),
-    alt_upa_fortnight_max = min(alt_fortnight_max_pos, na.rm = TRUE)
-  ), by = .(UPA, V1014)]
+    hh_fortnight_min = max(fortnight_min_pos, na.rm = TRUE),
+    hh_fortnight_max = min(fortnight_max_pos, na.rm = TRUE),
+    alt_hh_fortnight_min = max(alt_fortnight_min_pos, na.rm = TRUE),
+    alt_hh_fortnight_max = min(alt_fortnight_max_pos, na.rm = TRUE)
+  ), by = .(Ano, Trimestre, UPA, V1008)]
+
+  # Handle infinite values from all-NA groups (max returns -Inf, min returns Inf)
+  dt[is.infinite(hh_fortnight_min), hh_fortnight_min := NA_integer_]
+  dt[is.infinite(hh_fortnight_max), hh_fortnight_max := NA_integer_]
+  dt[is.infinite(alt_hh_fortnight_min), alt_hh_fortnight_min := NA_integer_]
+  dt[is.infinite(alt_hh_fortnight_max), alt_hh_fortnight_max := NA_integer_]
 
   # Clean up alternative date columns
   dt[, c("alt_date_min", "alt_date_max",
@@ -239,8 +255,8 @@ identify_reference_fortnight <- function(data, verbose = TRUE, .pb = NULL, .pb_o
 
   # Check if standard rules produce impossible result
   dt[, requires_exception := (
-    upa_fortnight_min > upa_fortnight_max &
-    alt_upa_fortnight_min <= alt_upa_fortnight_max
+    hh_fortnight_min > hh_fortnight_max &
+    alt_hh_fortnight_min <= alt_hh_fortnight_max
   )]
 
   # Propagate exception to entire quarter
@@ -253,14 +269,14 @@ identify_reference_fortnight <- function(data, verbose = TRUE, .pb = NULL, .pb_o
 
   if (has_any_exception) {
     dt[exc_condition, `:=`(
-      upa_fortnight_min = alt_upa_fortnight_min,
-      upa_fortnight_max = alt_upa_fortnight_max
+      hh_fortnight_min = alt_hh_fortnight_min,
+      hh_fortnight_max = alt_hh_fortnight_max
     )]
   }
 
   # Clean up
   dt[, c("requires_exception", "trim_has_exception",
-         "alt_upa_fortnight_min", "alt_upa_fortnight_max") := NULL]
+         "alt_hh_fortnight_min", "alt_hh_fortnight_max") := NULL]
 
   update_pb(6)
 
@@ -270,9 +286,9 @@ identify_reference_fortnight <- function(data, verbose = TRUE, .pb = NULL, .pb_o
 
   # Assign if min == max
   dt[, ref_fortnight_in_quarter := NA_integer_]
-  dt[upa_fortnight_min == upa_fortnight_max &
-       upa_fortnight_min >= 1L & upa_fortnight_max <= 6L,
-     ref_fortnight_in_quarter := upa_fortnight_min]
+  dt[hh_fortnight_min == hh_fortnight_max &
+       hh_fortnight_min >= 1L & hh_fortnight_max <= 6L,
+     ref_fortnight_in_quarter := hh_fortnight_min]
 
   # Calculate YYYYFF (1-24 per year)
   dt[, ref_fortnight_yyyyff := NA_integer_]
@@ -299,13 +315,13 @@ identify_reference_fortnight <- function(data, verbose = TRUE, .pb = NULL, .pb_o
     "date_min", "date_max",
     "fortnight_min_pos", "fortnight_max_pos",
     "fortnight_min_yyyyff", "fortnight_max_yyyyff",
-    "upa_fortnight_min", "upa_fortnight_max"
+    "hh_fortnight_min", "hh_fortnight_max"
   )
   dt[, (intersect(temp_cols, names(dt))) := NULL]
   gc()
 
-  # Select output columns
-  key_cols <- intersect(c("UPA", "V1014"), names(dt))
+  # Select output columns - include quarter/household keys for within-quarter aggregation
+  key_cols <- intersect(c("Ano", "Trimestre", "UPA", "V1008", "V1014"), names(dt))
   output_cols <- c(key_cols, "ref_fortnight", "ref_fortnight_in_quarter", "ref_fortnight_yyyyff")
 
   result <- unique(dt[, ..output_cols])

@@ -58,7 +58,7 @@ To reproduce these analyses, you need stacked PNADC microdata spanning multiple 
 
 ```{r libraries}
 # Load required packages
-library(mensalizePNADC)
+library(PNADCperiods)
 library(data.table)
 library(ggplot2)
 library(scales)
@@ -138,7 +138,7 @@ quarterly_total[, period := as.Date(paste0(Ano, "-", (Trimestre - 1) * 3 + 2, "-
 
 ### Step 4: Create Monthly Series
 
-Monthly aggregates use `weight_monthly` from mensalizePNADC:
+Monthly aggregates use `weight_monthly` from PNADCperiods:
 
 ```{r create-monthly}
 # Filter to observations with determined reference month
@@ -584,14 +584,17 @@ To reproduce the analyses in this vignette:
 3. Apply mensalization:
 
 ```{r reproduce, eval=FALSE}
-library(mensalizePNADC)
+library(PNADCperiods)
 library(data.table)
 
 # Load your stacked PNADC data
 pnadc <- fread("your_pnadc_stacked.csv")
 
-# Apply mensalization with weight computation
-result <- mensalizePNADC(pnadc, compute_weights = TRUE)
+# Build crosswalk and apply with weight computation
+crosswalk <- pnadc_identify_periods(pnadc)
+result <- pnadc_apply_periods(pnadc, crosswalk,
+                               weight_var = "V1028",
+                               anchor = "quarter")
 
 # Compute monthly series
 monthly_total <- result[!is.na(weight_monthly), .(

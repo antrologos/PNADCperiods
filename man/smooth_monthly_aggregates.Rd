@@ -67,5 +67,5 @@ smoothed <- smooth_monthly_aggregates(monthly_agg)
 
 }
 \seealso{
-\code{\link{calibrate_monthly_weights}}, \code{\link{mensalizePNADC}}
+\code{\link{calibrate_monthly_weights}}, \code{\link{pnadc_apply_periods}}
 }

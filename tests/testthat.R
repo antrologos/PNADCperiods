@@ -7,6 +7,6 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
-library(mensalizePNADC)
+library(PNADCperiods)
 
-test_check("mensalizePNADC")
+test_check("PNADCperiods")

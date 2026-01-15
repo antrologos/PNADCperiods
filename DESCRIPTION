@@ -39,6 +39,6 @@ Suggests:
     scales
 Config/testthat/edition: 3
 VignetteBuilder: knitr
-URL: https://antrologos.github.io/PNADCperiods/,
-    https://github.com/antrologos/PNADCperiods
-BugReports: https://github.com/antrologos/PNADCperiods/issues
+URL: https://antrologos.github.io/mensalizePNADC/,
+    https://github.com/antrologos/mensalizePNADC
+BugReports: https://github.com/antrologos/mensalizePNADC/issues

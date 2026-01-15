@@ -28,7 +28,7 @@ Optional but recommended for complete crosswalk:
 
 \item{.pb}{Optional progress bar object created by \code{txtProgressBar}. If provided,
 the function updates this progress bar instead of creating its own. Used internally
-by \code{mensalizePNADC()} to show unified progress across all steps.}
+by \code{pnadc_identify_periods()} to show unified progress across all steps.}
 
 \item{.pb_offset}{Integer. Offset to add to progress bar updates when using an external
 progress bar. Default is 0.}

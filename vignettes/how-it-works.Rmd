@@ -1,8 +1,8 @@
 ---
-title: "How mensalizePNADC Works"
+title: "How PNADCperiods Works"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{How mensalizePNADC Works}
+  %\VignetteIndexEntry{How PNADCperiods Works}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -17,9 +17,9 @@ knitr::opts_chunk$set(
 
 ## Introduction
 
-This vignette explains **how the mensalizePNADC algorithm works**: the methodology behind identifying reference months and computing monthly weights. For practical usage examples, see the [Get Started](getting-started.html) vignette.
+This vignette explains **how the PNADCperiods algorithm works**: the methodology behind identifying reference months and computing monthly weights. For practical usage examples, see the [Get Started](getting-started.html) vignette.
 
-The `mensalizePNADC` package converts Brazil's quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data into monthly time series. It provides two main capabilities:
+The `PNADCperiods` package converts Brazil's quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data into monthly time series. It provides two main capabilities:
 
 1. **Reference month identification**: Determines which month within each quarter each survey observation refers to
 2. **Monthly weight computation**: Adjusts survey weights for monthly (instead of quarterly) estimates
@@ -45,7 +45,7 @@ The `mensalizePNADC` package converts Brazil's quarterly PNADC (Pesquisa Naciona
 | `V20082` | Birth year (or 9999 for unknown) |
 | `V2009` | Age |
 
-**Additional (for `compute_weights = TRUE`):**
+**Additional (for `calibrate = TRUE` in `pnadc_apply_periods()`):**
 
 | Variable | Description |
 |----------|-------------|
@@ -68,9 +68,11 @@ The `mensalizePNADC` package converts Brazil's quarterly PNADC (Pesquisa Naciona
 
 | Function | Description |
 |----------|-------------|
-| `mensalizePNADC()` | Main function: identify months + optional weights |
-| `mensalize_annual_pnadc()` | Merge crosswalk with annual data + calibrate V1032 weights |
+| `pnadc_identify_periods()` | Main function: build crosswalk with months/fortnights/weeks |
+| `pnadc_apply_periods()` | Apply crosswalk + calibrate weights (quarterly or annual) |
 | `identify_reference_month()` | Just reference month identification |
+| `identify_reference_fortnight()` | Fortnight (quinzena) identification |
+| `identify_reference_week()` | Week identification |
 | `calibrate_monthly_weights()` | Rake weighting for monthly weights (quarterly data) |
 | `smooth_monthly_aggregates()` | Remove quarterly artifacts from series |
 | `fetch_monthly_population()` | Fetch population from SIDRA API |
@@ -98,7 +100,7 @@ PNADC has two main data releases that require different approaches:
 | **Weight variable** | V1028 (quarterly weight) | V1032 (annual/visit-specific weight) |
 | **Panel coverage** | All 5 rotation groups mixed | One specific visit (e.g., visit 1 or visit 5) |
 | **Monthly observations** | ~20% from each visit | 100% from single visit |
-| **Function** | `mensalizePNADC()` | `mensalize_annual_pnadc()` |
+| **Function** | `pnadc_apply_periods(..., anchor="quarter")` | `pnadc_apply_periods(..., anchor="year")` |
 
 **Why does this matter?**
 
@@ -141,7 +143,7 @@ Cross-quarter aggregation:
 Result: ALL 5 quarters → ref_month_in_quarter = 2
 ```
 
-**Recommended**: Stack at least 2 years of quarterly data before calling `mensalizePNADC()`.
+**Recommended**: Stack at least 2 years of quarterly data before calling `pnadc_identify_periods()`.
 
 ---
 
@@ -509,7 +511,7 @@ For monthly aggregate estimates, you need monthly-appropriate survey weights.
 
 ### How Weight Calibration Works
 
-When `compute_weights = TRUE`, the package:
+When `calibrate = TRUE` in `pnadc_apply_periods()`, the package:
 
 **1. Fetches monthly population from SIDRA API** (table 6022)
 
@@ -544,8 +546,15 @@ Final scaling ensures monthly weighted totals match SIDRA population (~206 milli
 # Load full data with all required variables
 pnadc_full <- fread("pnadc_stacked_full.csv")
 
-# Run mensalization with weight computation
-result <- mensalizePNADC(pnadc_full, compute_weights = TRUE, verbose = TRUE)
+# Step 1: Build crosswalk
+crosswalk <- pnadc_identify_periods(pnadc_full, verbose = TRUE)
+
+# Step 2: Apply crosswalk and calibrate weights
+result <- pnadc_apply_periods(pnadc_full, crosswalk,
+                               weight_var = "V1028",
+                               anchor = "quarter",
+                               calibrate = TRUE,
+                               verbose = TRUE)
 
 # Use weight_monthly for monthly estimates
 monthly_pop <- result[, .(
@@ -558,16 +567,20 @@ monthly_pop <- result[, .(
 By default (`keep_all = TRUE`), all input rows are returned, with `weight_monthly = NA` for indeterminate observations:
 
 ```{r keep-all-example}
-# Default: returns all rows (indeterminate have weight_monthly = NA)
-result <- mensalizePNADC(pnadc_full, compute_weights = TRUE)
+# Build crosswalk and apply (returns all rows by default)
+crosswalk <- pnadc_identify_periods(pnadc_full)
+result <- pnadc_apply_periods(pnadc_full, crosswalk,
+                               weight_var = "V1028",
+                               anchor = "quarter")
+
 nrow(result) == nrow(pnadc_full)  # TRUE - all rows returned
 sum(is.na(result$weight_monthly))  # ~3% of rows have NA weights
 
 # Use na.rm = TRUE when aggregating
 monthly_pop <- result[, .(pop = sum(weight_monthly, na.rm = TRUE)), by = ref_month_yyyymm]
 
-# Alternative: returns only determined rows
-result_determined <- mensalizePNADC(pnadc_full, compute_weights = TRUE, keep_all = FALSE)
+# Filter to determined rows for analysis
+result_determined <- result[!is.na(ref_month_in_quarter)]
 nrow(result_determined) < nrow(pnadc_full)  # TRUE (~97% of rows)
 ```
 
@@ -591,7 +604,7 @@ The quarterly weight calibration (`calibrate_monthly_weights()`) makes assumptio
 
 ### How Annual Weight Calibration Works
 
-The `mensalize_annual_pnadc()` function follows this algorithm:
+For annual data, `pnadc_apply_periods()` with `anchor = "year"` follows this algorithm:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -646,16 +659,17 @@ The key insight: Within each cell-year, the V1032 weights sum to that cell's ann
 # Step 1: Create crosswalk from quarterly data
 # (birthday variables are in quarterly data, not annual)
 quarterly_data <- fread("pnadc_quarterly_stacked.csv")
-crosswalk <- mensalizePNADC(quarterly_data, compute_weights = TRUE)
+crosswalk <- pnadc_identify_periods(quarterly_data)
 
 # Step 2: Load annual data with income variables
 annual_data <- fread("pnadc_annual_visit1_stacked.csv")
 
 # Step 3: Apply crosswalk and calibrate annual weights
-result <- mensalize_annual_pnadc(
-  annual_data = annual_data,
-  crosswalk = crosswalk,
-  calibrate_weights = TRUE,  # Use V1032 → weight_monthly
+result <- pnadc_apply_periods(
+  annual_data, crosswalk,
+  weight_var = "V1032",
+  anchor = "year",
+  calibrate = TRUE,
   verbose = TRUE
 )
 
@@ -763,5 +777,5 @@ calibrated <- calibrate_monthly_weights(merged_data, pop_data)
 - [Applied Examples](applied-examples.html) - See the algorithm in action with COVID, recession, and minimum wage validation
 - [Annual Poverty Analysis](annual-poverty-analysis.html) - Monthly poverty analysis with annual PNADC income data
 - [IBGE PNADC Documentation](https://www.ibge.gov.br/estatisticas/sociais/trabalho/9171-pesquisa-nacional-por-amostra-de-domicilios-continua-mensal.html)
-- Package function reference: `?mensalizePNADC`, `?mensalize_annual_pnadc`
+- Package function reference: `?pnadc_identify_periods`, `?pnadc_apply_periods`
 - Source code: [GitHub repository](https://github.com/antrologos/mensalizePNADC)

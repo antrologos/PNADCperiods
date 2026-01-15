@@ -98,7 +98,7 @@
 #' @export
 identify_reference_week <- function(data, verbose = TRUE, .pb = NULL, .pb_offset = 0L) {
 
-  # Note: Validation is done in semanalizePNADC() for fail-fast behavior.
+  # Note: Validation is done in pnadc_identify_periods() for fail-fast behavior.
   # When called directly, caller is responsible for valid input.
 
   # Initialize progress bar (7 steps total)
@@ -272,6 +272,12 @@ identify_reference_week <- function(data, verbose = TRUE, .pb = NULL, .pb_offset
     alt_hh_week_min = max(alt_week_min_yyyyww, na.rm = TRUE),
     alt_hh_week_max = min(alt_week_max_yyyyww, na.rm = TRUE)
   ), by = .(Ano, Trimestre, UPA, V1008)]
+
+  # Handle infinite values from all-NA groups (max returns -Inf, min returns Inf)
+  dt[is.infinite(hh_week_min), hh_week_min := NA_integer_]
+  dt[is.infinite(hh_week_max), hh_week_max := NA_integer_]
+  dt[is.infinite(alt_hh_week_min), alt_hh_week_min := NA_integer_]
+  dt[is.infinite(alt_hh_week_max), alt_hh_week_max := NA_integer_]
 
   # Clean up alternative date columns
   dt[, c("alt_date_min", "alt_date_max", "alt_week_min_yyyyww", "alt_week_max_yyyyww") := NULL]

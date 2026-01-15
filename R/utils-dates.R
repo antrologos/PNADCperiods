@@ -77,21 +77,44 @@ make_date <- function(year, month, day) {
     m <- month[valid]
     d <- day[valid]
 
-    # OPTIMIZATION: Use integer offset indexing instead of character lookup
-    year_base <- .YEAR_BASE[y - .YEAR_BASE_START + 1L]
+    # Check for years outside lookup table range (2000-2050)
+    # Mark out-of-range years as invalid
+    in_range <- y >= 2000L & y <= 2050L
+    if (!all(in_range)) {
+      # Warn once about out-of-range years
+      n_out <- sum(!in_range)
+      warning(sprintf(
+        "make_date(): %d year(s) outside supported range (2000-2050). These will return NA.",
+        n_out
+      ), call. = FALSE)
 
-    # Leap year check (vectorized)
-    is_leap <- (y %% 4L == 0L & y %% 100L != 0L) | (y %% 400L == 0L)
+      # Update valid mask to exclude out-of-range years
+      valid_idx <- which(valid)
+      valid[valid_idx[!in_range]] <- FALSE
 
-    # Month offset using data.table::fifelse for speed
-    month_offset <- data.table::fifelse(
-      is_leap,
-      .MONTH_OFFSET_LEAP[m],
-      .MONTH_OFFSET_REGULAR[m]
-    )
+      # Subset to only in-range values
+      y <- y[in_range]
+      m <- m[in_range]
+      d <- d[in_range]
+    }
 
-    # Total days since epoch
-    result[valid] <- year_base + month_offset + d - 1L
+    if (length(y) > 0) {
+      # OPTIMIZATION: Use integer offset indexing instead of character lookup
+      year_base <- .YEAR_BASE[y - .YEAR_BASE_START + 1L]
+
+      # Leap year check (vectorized)
+      is_leap <- (y %% 4L == 0L & y %% 100L != 0L) | (y %% 400L == 0L)
+
+      # Month offset using data.table::fifelse for speed
+      month_offset <- data.table::fifelse(
+        is_leap,
+        .MONTH_OFFSET_LEAP[m],
+        .MONTH_OFFSET_REGULAR[m]
+      )
+
+      # Total days since epoch
+      result[valid] <- year_base + month_offset + d - 1L
+    }
   }
 
   structure(result, class = "Date")

@@ -38,7 +38,7 @@ This vignette requires the following packages:
 
 ```{r prerequisites}
 # Core packages
-library(mensalizePNADC)
+library(PNADCperiods)
 library(data.table)
 library(fst)
 
@@ -189,7 +189,7 @@ For poverty analysis, we recommend **dropping observations without determined re
 First, load stacked quarterly PNADC data and run the mensalization algorithm:
 
 ```{r create-crosswalk}
-library(mensalizePNADC)
+library(PNADCperiods)
 library(data.table)
 library(fst)
 
@@ -218,11 +218,9 @@ quarterly_data <- rbindlist(
   fill = TRUE
 )
 
-# Run mensalization with weight computation
-crosswalk <- mensalizePNADC(
+# Build the crosswalk (identifies reference periods)
+crosswalk <- pnadc_identify_periods(
   quarterly_data,
-  compute_weights = TRUE,
-  keep_all = FALSE,
   verbose = TRUE
 )
 
@@ -289,14 +287,16 @@ annual_data <- rbindlist(
 Now merge the mensalization results with the annual income data and calibrate weights:
 
 ```{r merge-crosswalk}
-# Merge crosswalk with annual data and calibrate V1032 weights
-d <- mensalize_annual_pnadc(
-  annual_data = annual_data,
-  crosswalk = crosswalk,
-  calibrate_weights = TRUE,
+# Apply crosswalk to annual data and calibrate V1032 weights
+d <- pnadc_apply_periods(
+  annual_data,
+  crosswalk,
+  weight_var = "V1032",
+  anchor = "year",
+  calibrate = TRUE,
   verbose = TRUE
 )
-#> Merging crosswalk with annual data...
+#> Applying crosswalk...
 #> Match rate: 97.0%
 #> Calibrating weights...
 #>   Fetching monthly population from SIDRA...
@@ -307,7 +307,7 @@ mean(!is.na(d$ref_month_in_quarter))
 #> [1] 0.97
 ```
 
-> **Why use `mensalize_annual_pnadc()` instead of manual merge?**
+> **Why use `pnadc_apply_periods(..., anchor = "year")` instead of manual merge?**
 >
 > The quarterly crosswalk produces `weight_monthly` by calibrating the quarterly
 > weight **V1028**, which assumes all 5 rotation groups are present in each quarter
@@ -317,7 +317,7 @@ mean(!is.na(d$ref_month_in_quarter))
 > so using V1028-based weights would severely misrepresent the population---each
 > observation would be weighted as if it represents only 1/5 of its demographic cell.
 >
-> `mensalize_annual_pnadc()` properly calibrates the **annual weight V1032** to monthly
+> `pnadc_apply_periods()` with `anchor = "year"` properly calibrates the **annual weight V1032** to monthly
 > SIDRA population totals using hierarchical rake weighting. This ensures that:
 >
 > - Weights sum to correct monthly population totals

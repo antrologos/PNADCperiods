@@ -64,6 +64,6 @@ pop <- fetch_monthly_population(201301, 201912)
 
 }
 \seealso{
-\code{\link{mensalizePNADC}} which uses this function when
-\code{compute_weights = TRUE}
+\code{\link{pnadc_apply_periods}} which uses this function when
+\code{calibrate = TRUE}
 }

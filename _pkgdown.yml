@@ -23,7 +23,7 @@ navbar:
         href: articles/annual-poverty-analysis.html
       - text: Complex Survey Design
         href: articles/complex-survey-design.html
-      - text: How mensalizePNADC Works
+      - text: How PNADCperiods Works
         href: articles/how-it-works.html
 
 articles:
@@ -43,17 +43,23 @@ articles:
 
 reference:
 - title: Main Functions
-  desc: Core functions for mensalization
+  desc: Core functions for reference period identification
   contents:
-  - mensalizePNADC
-  - mensalizePNADC-package
+  - pnadc_identify_periods
+  - pnadc_apply_periods
+  - PNADCperiods-package
+
+- title: Internal Identification
+  desc: Internal functions for period identification
+  contents:
   - identify_reference_month
-  - mensalize_annual_pnadc
-  - calibrate_monthly_weights
+  - identify_reference_fortnight
+  - identify_reference_week
 
 - title: Weight Calibration
   desc: Functions for weight calibration and smoothing
   contents:
+  - calibrate_monthly_weights
   - smooth_monthly_aggregates
 
 - title: Data Fetching
