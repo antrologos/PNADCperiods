@@ -78,5 +78,8 @@ utils::globalVariables(c(
   "i.ref_month", "i.ref_month_in_quarter", "i.ref_month_yyyymm",
   "i.m_populacao",
   # data.table special symbols and output column reference
-  ".SD", ".N", ".I", "..output_cols", "."
+  ".SD", ".N", ".I", "..output_cols", ".",
+  # Annual data calibration variables
+  "v1032", "v2009", "uf", "..xw_cols",
+  "n_months_in_year", "pop_year", "n_years_in_month", "year"
 ))

@@ -172,6 +172,8 @@ For poverty analysis, we recommend **dropping observations without determined re
 | `v1032` | Survey weight | Design |
 | `uf` | State | Geography |
 | `estrato` | Survey stratum | Design |
+| `posest` | Post-stratum | Calibration |
+| `posest_sxi` | Post-stratum auxiliary | Calibration |
 
 > **Why VD5008?** IBGE pre-calculates this variable to include all income sources
 > (labor, transfers, pensions, other) and divides by household size. Using VD5008
@@ -241,6 +243,17 @@ visit_selection <- data.table(
   ano = 2015:2024,
   visita = c(1, 1, 1, 1, 1, 5, 5, 1, 1, 1)  # 2020-2021 use visit 5
 )
+```
+
+> **Why Visit 5 for 2020-2021?**
+>
+> During COVID-19, IBGE suspended in-person data collection. Visit 1 interviews
+> for 2020-2021 have significant quality issues or are unavailable entirely.
+> Visit 5 interviews were conducted later under improved conditions and are
+> the standard choice for COVID-era income and poverty analysis. This follows
+> IBGE's own recommendations for annual income analysis during this period.
+
+```{r load-annual-data-continued}
 
 # Build file paths
 annual_files <- visit_selection[, .(
@@ -253,8 +266,8 @@ annual_vars <- c(
   "ano", "trimestre", "upa", "v1008", "v1014", "v2003",
   # Demographics
   "v2005", "v2007", "v2009", "v2010", "uf", "estrato",
-  # Weights
-  "v1032",
+  # Weights and calibration
+  "v1032", "posest", "posest_sxi",
   # Household per capita income (IBGE pre-calculated)
   "vd5008"
 )
@@ -271,34 +284,48 @@ annual_data <- rbindlist(
 )
 ```
 
-### Step 3: Merge Crosswalk with Annual Data
+### Step 3: Merge Crosswalk with Annual Data and Calibrate Weights
 
-Now merge the mensalization results with the annual income data:
+Now merge the mensalization results with the annual income data and calibrate weights:
 
 ```{r merge-crosswalk}
-# Standardize column names
-setnames(crosswalk, names(crosswalk), tolower(names(crosswalk)))
-
-# Join keys
-join_keys <- c("ano", "trimestre", "upa", "v1008", "v1014", "v2003")
-
-# Set keys for efficient merge
-setkeyv(crosswalk, join_keys)
-setkeyv(annual_data, join_keys)
-
-# Merge
-d <- merge(
-  annual_data,
-  crosswalk[, c(join_keys, "ref_month", "ref_month_in_quarter",
-                "ref_month_yyyymm", "weight_monthly"), with = FALSE],
-  by = join_keys,
-  all.x = TRUE
+# Merge crosswalk with annual data and calibrate V1032 weights
+d <- mensalize_annual_pnadc(
+  annual_data = annual_data,
+  crosswalk = crosswalk,
+  calibrate_weights = TRUE,
+  verbose = TRUE
 )
+#> Merging crosswalk with annual data...
+#> Match rate: 97.0%
+#> Calibrating weights...
+#>   Fetching monthly population from SIDRA...
+#>   Calibrated 28,456,123 observations
 
 # Check match rate
 mean(!is.na(d$ref_month_in_quarter))
 #> [1] 0.97
 ```
+
+> **Why use `mensalize_annual_pnadc()` instead of manual merge?**
+>
+> The quarterly crosswalk produces `weight_monthly` by calibrating the quarterly
+> weight **V1028**, which assumes all 5 rotation groups are present in each quarter
+> (~20% of observations from each panel visit).
+>
+> Annual data contains only **one visit** per household (e.g., visit 1 or visit 5),
+> so using V1028-based weights would severely misrepresent the population---each
+> observation would be weighted as if it represents only 1/5 of its demographic cell.
+>
+> `mensalize_annual_pnadc()` properly calibrates the **annual weight V1032** to monthly
+> SIDRA population totals using hierarchical rake weighting. This ensures that:
+>
+> - Weights sum to correct monthly population totals
+> - Demographic cells are balanced within each year
+> - Results are comparable to official IBGE statistics
+>
+> For technical details on how annual weight calibration differs from quarterly,
+> see the [How It Works](how-it-works.html#mensalizing-annual-pnadc-data) vignette.
 
 ### Step 4: Construct Per Capita Income
 
@@ -406,7 +433,7 @@ Calculate monthly poverty rates using the FGT family:
 # Filter to determined observations
 d_monthly <- d[!is.na(ref_month_yyyymm)]
 
-# Use monthly weight
+# Use calibrated monthly weight (from mensalize_annual_pnadc())
 d_monthly[, peso := weight_monthly]
 
 # Compute monthly poverty statistics

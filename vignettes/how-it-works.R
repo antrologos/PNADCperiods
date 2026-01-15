@@ -30,6 +30,28 @@ knitr::opts_chunk$set(
 # result_determined <- mensalizePNADC(pnadc_full, compute_weights = TRUE, keep_all = FALSE)
 # nrow(result_determined) < nrow(pnadc_full)  # TRUE (~97% of rows)
 
+## ----annual-workflow----------------------------------------------------------
+# # Step 1: Create crosswalk from quarterly data
+# # (birthday variables are in quarterly data, not annual)
+# quarterly_data <- fread("pnadc_quarterly_stacked.csv")
+# crosswalk <- mensalizePNADC(quarterly_data, compute_weights = TRUE)
+# 
+# # Step 2: Load annual data with income variables
+# annual_data <- fread("pnadc_annual_visit1_stacked.csv")
+# 
+# # Step 3: Apply crosswalk and calibrate annual weights
+# result <- mensalize_annual_pnadc(
+#   annual_data = annual_data,
+#   crosswalk = crosswalk,
+#   calibrate_weights = TRUE,  # Use V1032 → weight_monthly
+#   verbose = TRUE
+# )
+# 
+# # Step 4: Use weight_monthly for monthly income/poverty analysis
+# monthly_income <- result[, .(
+#   mean_income = weighted.mean(vd5008, weight_monthly, na.rm = TRUE)
+# ), by = ref_month_yyyymm]
+
 ## ----modular------------------------------------------------------------------
 # # Step 1: Just identify reference months
 # months <- identify_reference_month(pnadc)

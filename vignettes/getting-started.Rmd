@@ -282,6 +282,8 @@ For the full algorithm explanation, see [How mensalizePNADC Works](how-it-works.
 
 - **Analysis examples**: See [Applied Examples](applied-examples.html) for real-world labor market analysis comparing monthly vs quarterly data, including COVID unemployment and minimum wage validation.
 
+- **Annual PNADC data**: Working with annual income data? See [Monthly Poverty Analysis with Annual PNADC Data](annual-poverty-analysis.html) for the workflow using `mensalize_annual_pnadc()`.
+
 - **Function reference**: Browse the [Reference](../reference/index.html) for documentation of all exported functions.
 
 ---
@@ -293,8 +295,9 @@ For the full algorithm explanation, see [How mensalizePNADC Works](how-it-works.
 | Function | Description |
 |----------|-------------|
 | `mensalizePNADC()` | Main function: identify months + optional weights |
+| `mensalize_annual_pnadc()` | Merge crosswalk with annual data + calibrate V1032 weights |
 | `identify_reference_month()` | Just reference month identification |
-| `calibrate_monthly_weights()` | Rake weighting for monthly weights |
+| `calibrate_monthly_weights()` | Rake weighting for monthly weights (quarterly data) |
 | `smooth_monthly_aggregates()` | Remove quarterly artifacts from series |
 | `fetch_monthly_population()` | Fetch population from SIDRA API |
 | `validate_pnadc()` | Input data validation |

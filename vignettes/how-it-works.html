@@ -427,14 +427,18 @@ for monthly (instead of quarterly) estimates</li>
 <td>Original quarterly survey weight</td>
 </tr>
 <tr class="even">
+<td><code>V1032</code></td>
+<td>Original annual survey weight (for annual data only)</td>
+</tr>
+<tr class="odd">
 <td><code>UF</code></td>
 <td>State code</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>posest</code></td>
 <td>Post-stratification cell</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>posest_sxi</code></td>
 <td>Post-stratification group</td>
 </tr>
@@ -500,22 +504,26 @@ indeterminate</td>
 <td>Main function: identify months + optional weights</td>
 </tr>
 <tr class="even">
+<td><code>mensalize_annual_pnadc()</code></td>
+<td>Merge crosswalk with annual data + calibrate V1032 weights</td>
+</tr>
+<tr class="odd">
 <td><code>identify_reference_month()</code></td>
 <td>Just reference month identification</td>
 </tr>
-<tr class="odd">
-<td><code>calibrate_monthly_weights()</code></td>
-<td>Rake weighting for monthly weights</td>
-</tr>
 <tr class="even">
+<td><code>calibrate_monthly_weights()</code></td>
+<td>Rake weighting for monthly weights (quarterly data)</td>
+</tr>
+<tr class="odd">
 <td><code>smooth_monthly_aggregates()</code></td>
 <td>Remove quarterly artifacts from series</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>fetch_monthly_population()</code></td>
 <td>Fetch population from SIDRA API</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>validate_pnadc()</code></td>
 <td>Input data validation</td>
 </tr>
@@ -556,6 +564,75 @@ indeterminate</td>
 </table>
 <hr />
 </div>
+</div>
+<div id="quarterly-vs.-annual-pnadc-data" class="section level2">
+<h2>Quarterly vs. Annual PNADC Data</h2>
+<p>PNADC has two main data releases that require different
+approaches:</p>
+<table>
+<colgroup>
+<col width="22%" />
+<col width="41%" />
+<col width="36%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Aspect</th>
+<th>Quarterly Data</th>
+<th>Annual Data</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Primary focus</strong></td>
+<td>Labor market (employment, unemployment)</td>
+<td>Income and poverty</td>
+</tr>
+<tr class="even">
+<td><strong>Key income variable</strong></td>
+<td>Limited (labor income only)</td>
+<td>VD5008 (comprehensive household income)</td>
+</tr>
+<tr class="odd">
+<td><strong>Weight variable</strong></td>
+<td>V1028 (quarterly weight)</td>
+<td>V1032 (annual/visit-specific weight)</td>
+</tr>
+<tr class="even">
+<td><strong>Panel coverage</strong></td>
+<td>All 5 rotation groups mixed</td>
+<td>One specific visit (e.g., visit 1 or visit 5)</td>
+</tr>
+<tr class="odd">
+<td><strong>Monthly observations</strong></td>
+<td>~20% from each visit</td>
+<td>100% from single visit</td>
+</tr>
+<tr class="even">
+<td><strong>Function</strong></td>
+<td><code>mensalizePNADC()</code></td>
+<td><code>mensalize_annual_pnadc()</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why does this matter?</strong></p>
+<ul>
+<li><strong>Reference month identification</strong> works the same for
+both data types (birthday constraints don’t depend on weight
+variables)</li>
+<li><strong>Weight calibration</strong> is fundamentally different:
+<ul>
+<li>Quarterly weights (V1028) assume all 5 rotation groups are
+present</li>
+<li>Annual weights (V1032) are calibrated for visit-specific
+estimates</li>
+<li>Using quarterly <code>weight_monthly</code> with annual data would
+misrepresent the population</li>
+</ul></li>
+</ul>
+<p>For income and poverty analysis using annual PNADC data, see the <a href="annual-poverty-analysis.html">Annual Poverty Analysis</a>
+vignette.</p>
+<hr />
 </div>
 <div id="why-stacked-data-matters" class="section level2">
 <h2>Why Stacked Data Matters</h2>
@@ -1086,29 +1163,215 @@ observations:</p>
 <hr />
 </div>
 </div>
+<div id="mensalizing-annual-pnadc-data" class="section level2">
+<h2>Mensalizing Annual PNADC Data</h2>
+<p>Annual PNADC data (with comprehensive income variables like VD5008)
+requires a different approach than quarterly data.</p>
+<div id="why-annual-data-needs-different-weight-calibration" class="section level3">
+<h3>Why Annual Data Needs Different Weight Calibration</h3>
+<p>The quarterly weight calibration
+(<code>calibrate_monthly_weights()</code>) makes assumptions that don’t
+hold for annual data:</p>
+<table>
+<colgroup>
+<col width="30%" />
+<col width="37%" />
+<col width="32%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Assumption</th>
+<th>Quarterly Data</th>
+<th>Annual Data</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Panel composition</strong></td>
+<td>All 5 rotation groups present</td>
+<td>Only 1 specific visit</td>
+</tr>
+<tr class="even">
+<td><strong>Starting weight</strong></td>
+<td>V1028 (quarterly weight)</td>
+<td>V1032 (annual weight)</td>
+</tr>
+<tr class="odd">
+<td><strong>Calibration anchor</strong></td>
+<td>Quarterly totals</td>
+<td>Yearly totals</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The problem</strong>: If you use quarterly
+<code>weight_monthly</code> directly with annual data, each observation
+would be weighted as if it represents only 20% of its demographic cell
+(since quarterly data has 5 rotation groups). Annual data has 100% from
+a single visit, so this approach severely underweights the
+population.</p>
+</div>
+<div id="how-annual-weight-calibration-works" class="section level3">
+<h3>How Annual Weight Calibration Works</h3>
+<p>The <code>mensalize_annual_pnadc()</code> function follows this
+algorithm:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────────┐
+│                 ANNUAL WEIGHT CALIBRATION PIPELINE                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+STEP 1: Merge crosswalk with annual data
+        ├── Annual data: contains V1032 weight, income variables (VD5008)
+        └── Crosswalk: contains ref_month_in_quarter from quarterly data
+
+STEP 2: Create demographic cells (same as quarterly)
+        ├── celula1: Age groups (0-13, 14-29, 30-59, 60+)
+        ├── celula2: Post-stratum group + age
+        ├── celula3: State (UF) + celula2
+        └── celula4: Post-stratum (posest) + celula2
+
+STEP 3: Hierarchical rake reweighting (DIFFERENT from quarterly)
+        ├── KEY DIFFERENCE: Use YEARLY totals as anchor (not quarterly)
+        │
+        │   For each (cell, year):
+        │     pop_year = sum(V1032)
+        │     n_months = number of months in cell-year
+        │     expected_monthly = pop_year / n_months
+        │
+        │   For each (cell, month):
+        │     pop_month = sum(weight_current)
+        │     adjustment = expected_monthly / pop_month
+        │     weight_new = weight_current * adjustment
+        │
+        └── Repeat for all 4 cell levels (hierarchical raking)
+
+STEP 4: Final calibration to SIDRA monthly population totals (same as quarterly)
+        └── Ensures weights sum to official monthly population (~206 million)
+
+OUTPUT: weight_monthly (calibrated for annual data)</code></pre>
+</div>
+<div id="comparison-quarterly-vs.-annual-calibration" class="section level3">
+<h3>Comparison: Quarterly vs. Annual Calibration</h3>
+<table>
+<colgroup>
+<col width="14%" />
+<col width="45%" />
+<col width="40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Step</th>
+<th>Quarterly Approach</th>
+<th>Annual Approach</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Starting weight</strong></td>
+<td>V1028</td>
+<td>V1032</td>
+</tr>
+<tr class="even">
+<td><strong>Anchor for raking</strong></td>
+<td>Quarterly totals</td>
+<td>Yearly totals</td>
+</tr>
+<tr class="odd">
+<td><strong>Redistribution</strong></td>
+<td>Quarter → 3 months</td>
+<td>Year → 12 months</td>
+</tr>
+<tr class="even">
+<td><strong>Final calibration</strong></td>
+<td>SIDRA monthly population</td>
+<td>SIDRA monthly population</td>
+</tr>
+</tbody>
+</table>
+<p>The key insight: Within each cell-year, the V1032 weights sum to that
+cell’s annual population. We redistribute that total evenly across the
+months where that cell appears, then calibrate to SIDRA totals.</p>
+</div>
+<div id="usage-example-1" class="section level3">
+<h3>Usage Example</h3>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="co"># Step 1: Create crosswalk from quarterly data</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="co"># (birthday variables are in quarterly data, not annual)</span></span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a>quarterly_data <span class="ot">&lt;-</span> <span class="fu">fread</span>(<span class="st">&quot;pnadc_quarterly_stacked.csv&quot;</span>)</span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a>crosswalk <span class="ot">&lt;-</span> <span class="fu">mensalizePNADC</span>(quarterly_data, <span class="at">compute_weights =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a></span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a><span class="co"># Step 2: Load annual data with income variables</span></span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a>annual_data <span class="ot">&lt;-</span> <span class="fu">fread</span>(<span class="st">&quot;pnadc_annual_visit1_stacked.csv&quot;</span>)</span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a></span>
+<span id="cb16-9"><a href="#cb16-9" tabindex="-1"></a><span class="co"># Step 3: Apply crosswalk and calibrate annual weights</span></span>
+<span id="cb16-10"><a href="#cb16-10" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">mensalize_annual_pnadc</span>(</span>
+<span id="cb16-11"><a href="#cb16-11" tabindex="-1"></a>  <span class="at">annual_data =</span> annual_data,</span>
+<span id="cb16-12"><a href="#cb16-12" tabindex="-1"></a>  <span class="at">crosswalk =</span> crosswalk,</span>
+<span id="cb16-13"><a href="#cb16-13" tabindex="-1"></a>  <span class="at">calibrate_weights =</span> <span class="cn">TRUE</span>,  <span class="co"># Use V1032 → weight_monthly</span></span>
+<span id="cb16-14"><a href="#cb16-14" tabindex="-1"></a>  <span class="at">verbose =</span> <span class="cn">TRUE</span></span>
+<span id="cb16-15"><a href="#cb16-15" tabindex="-1"></a>)</span>
+<span id="cb16-16"><a href="#cb16-16" tabindex="-1"></a></span>
+<span id="cb16-17"><a href="#cb16-17" tabindex="-1"></a><span class="co"># Step 4: Use weight_monthly for monthly income/poverty analysis</span></span>
+<span id="cb16-18"><a href="#cb16-18" tabindex="-1"></a>monthly_income <span class="ot">&lt;-</span> result[, .(</span>
+<span id="cb16-19"><a href="#cb16-19" tabindex="-1"></a>  <span class="at">mean_income =</span> <span class="fu">weighted.mean</span>(vd5008, weight_monthly, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb16-20"><a href="#cb16-20" tabindex="-1"></a>), by <span class="ot">=</span> ref_month_yyyymm]</span></code></pre></div>
+</div>
+<div id="covid-era-visit-selection" class="section level3">
+<h3>COVID-Era Visit Selection</h3>
+<p>For annual data, you must choose which panel visit to use. During
+COVID-19 (2020-2021), visit 1 was often unavailable:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Period</th>
+<th>Recommended Visit</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>2015-2019</td>
+<td>Visit 1</td>
+<td>Standard practice</td>
+</tr>
+<tr class="even">
+<td>2020-2021</td>
+<td>Visit 5</td>
+<td>COVID-era data collection issues</td>
+</tr>
+<tr class="odd">
+<td>2022-2024</td>
+<td>Visit 1</td>
+<td>Post-pandemic normalization</td>
+</tr>
+</tbody>
+</table>
+<p>For a complete example of poverty analysis with annual data, see the
+<a href="annual-poverty-analysis.html">Annual Poverty Analysis</a>
+vignette.</p>
+<hr />
+</div>
+</div>
 <div id="advanced-usage" class="section level2">
 <h2>Advanced Usage</h2>
 <div id="using-modular-functions" class="section level3">
 <h3>Using Modular Functions</h3>
 <p>For more control, use the individual functions:</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="co"># Step 1: Just identify reference months</span></span>
-<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>months <span class="ot">&lt;-</span> <span class="fu">identify_reference_month</span>(pnadc)</span>
-<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a></span>
-<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="co"># Step 2: Check determination rate by quarter</span></span>
-<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>months[, .(</span>
-<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>  <span class="at">total =</span> .N,</span>
-<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>  <span class="at">determined =</span> <span class="fu">sum</span>(<span class="sc">!</span><span class="fu">is.na</span>(ref_month_in_quarter)),</span>
-<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>  <span class="at">rate =</span> <span class="fu">round</span>(<span class="fu">mean</span>(<span class="sc">!</span><span class="fu">is.na</span>(ref_month_in_quarter)) <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">1</span>)</span>
-<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a>), by <span class="ot">=</span> .(Ano, Trimestre)]</span>
-<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a></span>
-<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a><span class="co"># Step 3: Validate input data</span></span>
-<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a>validation <span class="ot">&lt;-</span> <span class="fu">validate_pnadc</span>(pnadc, <span class="at">stop_on_error =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a></span>
-<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a><span class="co"># Step 4: Fetch population data from SIDRA-IBGE manually</span></span>
-<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a>pop_data <span class="ot">&lt;-</span> <span class="fu">fetch_monthly_population</span>(<span class="at">verbose =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a></span>
-<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a><span class="co"># Step 5: Calibrate weights separately</span></span>
-<span id="cb15-18"><a href="#cb15-18" tabindex="-1"></a>calibrated <span class="ot">&lt;-</span> <span class="fu">calibrate_monthly_weights</span>(merged_data, pop_data)</span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="co"># Step 1: Just identify reference months</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>months <span class="ot">&lt;-</span> <span class="fu">identify_reference_month</span>(pnadc)</span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="co"># Step 2: Check determination rate by quarter</span></span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a>months[, .(</span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a>  <span class="at">total =</span> .N,</span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a>  <span class="at">determined =</span> <span class="fu">sum</span>(<span class="sc">!</span><span class="fu">is.na</span>(ref_month_in_quarter)),</span>
+<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a>  <span class="at">rate =</span> <span class="fu">round</span>(<span class="fu">mean</span>(<span class="sc">!</span><span class="fu">is.na</span>(ref_month_in_quarter)) <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">1</span>)</span>
+<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a>), by <span class="ot">=</span> .(Ano, Trimestre)]</span>
+<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a></span>
+<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a><span class="co"># Step 3: Validate input data</span></span>
+<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a>validation <span class="ot">&lt;-</span> <span class="fu">validate_pnadc</span>(pnadc, <span class="at">stop_on_error =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a></span>
+<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a><span class="co"># Step 4: Fetch population data from SIDRA-IBGE manually</span></span>
+<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a>pop_data <span class="ot">&lt;-</span> <span class="fu">fetch_monthly_population</span>(<span class="at">verbose =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb17-16"><a href="#cb17-16" tabindex="-1"></a></span>
+<span id="cb17-17"><a href="#cb17-17" tabindex="-1"></a><span class="co"># Step 5: Calibrate weights separately</span></span>
+<span id="cb17-18"><a href="#cb17-18" tabindex="-1"></a>calibrated <span class="ot">&lt;-</span> <span class="fu">calibrate_monthly_weights</span>(merged_data, pop_data)</span></code></pre></div>
 <hr />
 </div>
 </div>
@@ -1235,7 +1498,7 @@ don’t always need monthly weights. Often just knowing the reference
 month is enough.</p></li>
 <li><p><strong>Check determination rates by year</strong>: Rates should
 be 96-99% for 2013-2019. Lower rates may indicate data issues.</p>
-<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>crosswalk[, .(<span class="at">rate =</span> <span class="fu">mean</span>(<span class="sc">!</span><span class="fu">is.na</span>(ref_month_in_quarter))), by <span class="ot">=</span> .(Ano, Trimestre)]</span></code></pre></div></li>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a>crosswalk[, .(<span class="at">rate =</span> <span class="fu">mean</span>(<span class="sc">!</span><span class="fu">is.na</span>(ref_month_in_quarter))), by <span class="ot">=</span> .(Ano, Trimestre)]</span></code></pre></div></li>
 <li><p><strong>Handle indeterminate observations</strong>: Decide
 whether to exclude them or use quarterly-level analysis for those
 cases.</p></li>
@@ -1251,10 +1514,12 @@ purposes.</p></li>
 <li><a href="applied-examples.html">Applied Examples</a> - See the
 algorithm in action with COVID, recession, and minimum wage
 validation</li>
+<li><a href="annual-poverty-analysis.html">Annual Poverty Analysis</a> -
+Monthly poverty analysis with annual PNADC income data</li>
 <li><a href="https://www.ibge.gov.br/estatisticas/sociais/trabalho/9171-pesquisa-nacional-por-amostra-de-domicilios-continua-mensal.html">IBGE
 PNADC Documentation</a></li>
 <li>Package function reference: <code>?mensalizePNADC</code>,
-<code>?identify_reference_month</code></li>
+<code>?mensalize_annual_pnadc</code></li>
 <li>Source code: <a href="https://github.com/antrologos/mensalizePNADC">GitHub
 repository</a></li>
 </ul>

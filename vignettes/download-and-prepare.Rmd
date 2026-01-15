@@ -354,4 +354,6 @@ Now that you have mensalized PNADC data, you can:
 - Learn about the algorithm in [How mensalizePNADC Works](how-it-works.html)
 - Visit the [package website](https://antrologos.github.io/mensalizePNADC/) for more resources
 
+> **Working with annual PNADC data?** Annual data (visit-specific microdata with comprehensive income variables) requires a different workflow. See [Monthly Poverty Analysis with Annual PNADC Data](annual-poverty-analysis.html) for details on using `mensalize_annual_pnadc()`.
+
 For questions or issues, please open an issue on [GitHub](https://github.com/antrologos/mensalizePNADC/issues).

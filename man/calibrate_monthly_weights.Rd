@@ -74,6 +74,12 @@ equals
 
 This preserves the quarterly totals while redistributing to months.
 }
+\note{
+\strong{Important}: This function is designed for \strong{quarterly} PNADC data where all 5
+panel visits are present. For \strong{annual} PNADC analysis (visit-specific data),
+use \code{\link{mensalize_annual_pnadc}} instead, which properly calibrates
+the annual weight \code{V1032} to monthly population totals.
+}
 \examples{
 \dontrun{
 # First identify reference months

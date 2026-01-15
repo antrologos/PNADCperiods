@@ -48,6 +48,8 @@ The `mensalizePNADC` package solves this problem by identifying which specific m
 
 This vignette demonstrates three compelling cases where monthly data reveals dynamics that quarterly data hides, culminating in a powerful validation using minimum wage transitions.
 
+> **Working with poverty or income data?** This vignette focuses on **labor market** indicators using quarterly PNADC data. For poverty and income analysis using annual PNADC data (which includes comprehensive household income variables), see [Monthly Poverty Analysis with Annual PNADC Data](annual-poverty-analysis.html).
+
 ---
 
 ## Prerequisites
@@ -569,6 +571,15 @@ monthly_total <- result[!is.na(weight_monthly), .(
 ```
 
 See [Get Started](getting-started.html) for complete documentation of the package functions.
+
+---
+
+## See Also
+
+- [Get Started](getting-started.html) - Basic mensalization workflow
+- [How It Works](how-it-works.html) - Algorithm details and technical explanation
+- [Annual Poverty Analysis](annual-poverty-analysis.html) - Monthly poverty analysis with annual income data
+- [Download and Prepare Data](download-and-prepare.html) - Data download workflow
 
 ---
 

@@ -50,6 +50,7 @@ The `mensalizePNADC` package converts Brazil's quarterly PNADC (Pesquisa Naciona
 | Variable | Description |
 |----------|-------------|
 | `V1028` | Original quarterly survey weight |
+| `V1032` | Original annual survey weight (for annual data only) |
 | `UF` | State code |
 | `posest` | Post-stratification cell |
 | `posest_sxi` | Post-stratification group |
@@ -68,8 +69,9 @@ The `mensalizePNADC` package converts Brazil's quarterly PNADC (Pesquisa Naciona
 | Function | Description |
 |----------|-------------|
 | `mensalizePNADC()` | Main function: identify months + optional weights |
+| `mensalize_annual_pnadc()` | Merge crosswalk with annual data + calibrate V1032 weights |
 | `identify_reference_month()` | Just reference month identification |
-| `calibrate_monthly_weights()` | Rake weighting for monthly weights |
+| `calibrate_monthly_weights()` | Rake weighting for monthly weights (quarterly data) |
 | `smooth_monthly_aggregates()` | Remove quarterly artifacts from series |
 | `fetch_monthly_population()` | Fetch population from SIDRA API |
 | `validate_pnadc()` | Input data validation |
@@ -82,6 +84,31 @@ The `mensalizePNADC` package converts Brazil's quarterly PNADC (Pesquisa Naciona
 | Processing time (basic mode) | **~1 minute** for 28.4M rows (~450,000 rows/sec) |
 | Processing time (with weights) | **~5 minutes** |
 | Best period (2013-2019) | 96-99% determination |
+
+---
+
+## Quarterly vs. Annual PNADC Data
+
+PNADC has two main data releases that require different approaches:
+
+| Aspect | Quarterly Data | Annual Data |
+|--------|---------------|-------------|
+| **Primary focus** | Labor market (employment, unemployment) | Income and poverty |
+| **Key income variable** | Limited (labor income only) | VD5008 (comprehensive household income) |
+| **Weight variable** | V1028 (quarterly weight) | V1032 (annual/visit-specific weight) |
+| **Panel coverage** | All 5 rotation groups mixed | One specific visit (e.g., visit 1 or visit 5) |
+| **Monthly observations** | ~20% from each visit | 100% from single visit |
+| **Function** | `mensalizePNADC()` | `mensalize_annual_pnadc()` |
+
+**Why does this matter?**
+
+- **Reference month identification** works the same for both data types (birthday constraints don't depend on weight variables)
+- **Weight calibration** is fundamentally different:
+  - Quarterly weights (V1028) assume all 5 rotation groups are present
+  - Annual weights (V1032) are calibrated for visit-specific estimates
+  - Using quarterly `weight_monthly` with annual data would misrepresent the population
+
+For income and poverty analysis using annual PNADC data, see the [Annual Poverty Analysis](annual-poverty-analysis.html) vignette.
 
 ---
 
@@ -542,6 +569,112 @@ nrow(result_determined) < nrow(pnadc_full)  # TRUE (~97% of rows)
 
 ---
 
+## Mensalizing Annual PNADC Data
+
+Annual PNADC data (with comprehensive income variables like VD5008) requires a different approach than quarterly data.
+
+### Why Annual Data Needs Different Weight Calibration
+
+The quarterly weight calibration (`calibrate_monthly_weights()`) makes assumptions that don't hold for annual data:
+
+| Assumption | Quarterly Data | Annual Data |
+|------------|---------------|-------------|
+| **Panel composition** | All 5 rotation groups present | Only 1 specific visit |
+| **Starting weight** | V1028 (quarterly weight) | V1032 (annual weight) |
+| **Calibration anchor** | Quarterly totals | Yearly totals |
+
+**The problem**: If you use quarterly `weight_monthly` directly with annual data, each observation would be weighted as if it represents only 20% of its demographic cell (since quarterly data has 5 rotation groups). Annual data has 100% from a single visit, so this approach severely underweights the population.
+
+### How Annual Weight Calibration Works
+
+The `mensalize_annual_pnadc()` function follows this algorithm:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                 ANNUAL WEIGHT CALIBRATION PIPELINE                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+STEP 1: Merge crosswalk with annual data
+        ├── Annual data: contains V1032 weight, income variables (VD5008)
+        └── Crosswalk: contains ref_month_in_quarter from quarterly data
+
+STEP 2: Create demographic cells (same as quarterly)
+        ├── celula1: Age groups (0-13, 14-29, 30-59, 60+)
+        ├── celula2: Post-stratum group + age
+        ├── celula3: State (UF) + celula2
+        └── celula4: Post-stratum (posest) + celula2
+
+STEP 3: Hierarchical rake reweighting (DIFFERENT from quarterly)
+        ├── KEY DIFFERENCE: Use YEARLY totals as anchor (not quarterly)
+        │
+        │   For each (cell, year):
+        │     pop_year = sum(V1032)
+        │     n_months = number of months in cell-year
+        │     expected_monthly = pop_year / n_months
+        │
+        │   For each (cell, month):
+        │     pop_month = sum(weight_current)
+        │     adjustment = expected_monthly / pop_month
+        │     weight_new = weight_current * adjustment
+        │
+        └── Repeat for all 4 cell levels (hierarchical raking)
+
+STEP 4: Final calibration to SIDRA monthly population totals (same as quarterly)
+        └── Ensures weights sum to official monthly population (~206 million)
+
+OUTPUT: weight_monthly (calibrated for annual data)
+```
+
+### Comparison: Quarterly vs. Annual Calibration
+
+| Step | Quarterly Approach | Annual Approach |
+|------|-------------------|-----------------|
+| **Starting weight** | V1028 | V1032 |
+| **Anchor for raking** | Quarterly totals | Yearly totals |
+| **Redistribution** | Quarter → 3 months | Year → 12 months |
+| **Final calibration** | SIDRA monthly population | SIDRA monthly population |
+
+The key insight: Within each cell-year, the V1032 weights sum to that cell's annual population. We redistribute that total evenly across the months where that cell appears, then calibrate to SIDRA totals.
+
+### Usage Example
+
+```{r annual-workflow}
+# Step 1: Create crosswalk from quarterly data
+# (birthday variables are in quarterly data, not annual)
+quarterly_data <- fread("pnadc_quarterly_stacked.csv")
+crosswalk <- mensalizePNADC(quarterly_data, compute_weights = TRUE)
+
+# Step 2: Load annual data with income variables
+annual_data <- fread("pnadc_annual_visit1_stacked.csv")
+
+# Step 3: Apply crosswalk and calibrate annual weights
+result <- mensalize_annual_pnadc(
+  annual_data = annual_data,
+  crosswalk = crosswalk,
+  calibrate_weights = TRUE,  # Use V1032 → weight_monthly
+  verbose = TRUE
+)
+
+# Step 4: Use weight_monthly for monthly income/poverty analysis
+monthly_income <- result[, .(
+  mean_income = weighted.mean(vd5008, weight_monthly, na.rm = TRUE)
+), by = ref_month_yyyymm]
+```
+
+### COVID-Era Visit Selection
+
+For annual data, you must choose which panel visit to use. During COVID-19 (2020-2021), visit 1 was often unavailable:
+
+| Period | Recommended Visit | Reason |
+|--------|------------------|--------|
+| 2015-2019 | Visit 1 | Standard practice |
+| 2020-2021 | Visit 5 | COVID-era data collection issues |
+| 2022-2024 | Visit 1 | Post-pandemic normalization |
+
+For a complete example of poverty analysis with annual data, see the [Annual Poverty Analysis](annual-poverty-analysis.html) vignette.
+
+---
+
 ## Advanced Usage
 
 ### Using Modular Functions
@@ -624,6 +757,7 @@ calibrated <- calibrate_monthly_weights(merged_data, pop_data)
 ## Further Reading
 
 - [Applied Examples](applied-examples.html) - See the algorithm in action with COVID, recession, and minimum wage validation
+- [Annual Poverty Analysis](annual-poverty-analysis.html) - Monthly poverty analysis with annual PNADC income data
 - [IBGE PNADC Documentation](https://www.ibge.gov.br/estatisticas/sociais/trabalho/9171-pesquisa-nacional-por-amostra-de-domicilios-continua-mensal.html)
-- Package function reference: `?mensalizePNADC`, `?identify_reference_month`
+- Package function reference: `?mensalizePNADC`, `?mensalize_annual_pnadc`
 - Source code: [GitHub repository](https://github.com/antrologos/mensalizePNADC)

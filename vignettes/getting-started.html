@@ -700,6 +700,10 @@ IBGE.</p></li>
 <li><p><strong>Analysis examples</strong>: See <a href="applied-examples.html">Applied Examples</a> for real-world labor
 market analysis comparing monthly vs quarterly data, including COVID
 unemployment and minimum wage validation.</p></li>
+<li><p><strong>Annual PNADC data</strong>: Working with annual income
+data? See <a href="annual-poverty-analysis.html">Monthly Poverty
+Analysis with Annual PNADC Data</a> for the workflow using
+<code>mensalize_annual_pnadc()</code>.</p></li>
 <li><p><strong>Function reference</strong>: Browse the <a href="../reference/index.html">Reference</a> for documentation of all
 exported functions.</p></li>
 </ul>
@@ -726,22 +730,26 @@ exported functions.</p></li>
 <td>Main function: identify months + optional weights</td>
 </tr>
 <tr class="even">
+<td><code>mensalize_annual_pnadc()</code></td>
+<td>Merge crosswalk with annual data + calibrate V1032 weights</td>
+</tr>
+<tr class="odd">
 <td><code>identify_reference_month()</code></td>
 <td>Just reference month identification</td>
 </tr>
-<tr class="odd">
-<td><code>calibrate_monthly_weights()</code></td>
-<td>Rake weighting for monthly weights</td>
-</tr>
 <tr class="even">
+<td><code>calibrate_monthly_weights()</code></td>
+<td>Rake weighting for monthly weights (quarterly data)</td>
+</tr>
+<tr class="odd">
 <td><code>smooth_monthly_aggregates()</code></td>
 <td>Remove quarterly artifacts from series</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>fetch_monthly_population()</code></td>
 <td>Fetch population from SIDRA API</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>validate_pnadc()</code></td>
 <td>Input data validation</td>
 </tr>
