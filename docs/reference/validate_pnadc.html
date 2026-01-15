@@ -69,9 +69,13 @@ a validation report list.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>If stop_on_error is TRUE, returns invisibly if valid or stops with error.
-If FALSE, returns a list with validation results.</p>
-    </div>
+    <p>If <code>stop_on_error = TRUE</code>, returns invisibly if valid or stops with error.
+If <code>stop_on_error = FALSE</code>, returns a list with:</p><ul><li><p><code>valid</code>: Logical indicating if data passed all validations</p></li>
+<li><p><code>issues</code>: Named list of validation issues found (empty if none)</p></li>
+<li><p><code>n_rows</code>: Number of rows in input data</p></li>
+<li><p><code>n_cols</code>: Number of columns in input data</p></li>
+<li><p><code>join_keys_available</code>: Character vector of available join key columns</p></li>
+</ul></div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>

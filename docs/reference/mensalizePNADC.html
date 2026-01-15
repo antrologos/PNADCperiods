@@ -124,7 +124,10 @@ A data.table with join keys and new time variables:</p><ul><li><p>Join keys: <co
 </ul><p>If <code>output = "microdata"</code>:
 Full input data with all computed columns added.</p>
 <p>If <code>output = "aggregates"</code>:
-Monthly aggregated indicators.</p>
+A data.table with monthly aggregated indicators containing:</p><ul><li><p><code>ref_month_yyyymm</code>: Month identifier in YYYYMM format</p></li>
+<li><p><code>n_obs</code>: Number of observations per month</p></li>
+<li><p><code>population</code>: Total monthly population (sum of weights)</p></li>
+</ul><p>Requires <code>compute_weights = TRUE</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

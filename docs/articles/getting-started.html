@@ -195,8 +195,8 @@ yields only ~65-75% determination rate, while stacking 2+ years achieves
 <code class="sourceCode R"><span><span class="co"># Identify reference months</span></span>
 <span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mensalizePNADC.html">mensalizePNADC</a></span><span class="op">(</span><span class="va">pnadc</span><span class="op">)</span></span></code></pre></div>
 <p>Expected output:</p>
-<pre><code>Validating input data...
-Identifying reference months...
+<pre><code>Processing PNADC data...
+|========================================================| 100%
   Determination rate: 97.0%</code></pre>
 </div>
 <div class="section level3">
@@ -342,13 +342,10 @@ estimates (totals, means, rates) by month, use
 <span><span class="co"># Run mensalization with weight computation</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mensalizePNADC.html">mensalizePNADC</a></span><span class="op">(</span><span class="va">pnadc_full</span>, compute_weights <span class="op">=</span> <span class="cn">TRUE</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 <p>Expected output:</p>
-<pre><code>Validating input data...
-Identifying reference months...
+<pre><code>Processing PNADC data...
+|========================================================| 100%
   Determination rate: 97.0%
-Computing monthly weights...
-  Fetching monthly population from SIDRA...
-  Calibrating weights...
-Done.</code></pre>
+  Observations with monthly weights: 10,523,189</code></pre>
 </div>
 <div class="section level3">
 <h3 id="using-monthly-weights">Using Monthly Weights<a class="anchor" aria-label="anchor" href="#using-monthly-weights"></a>
@@ -459,6 +456,10 @@ IBGE.</p></li>
 <li><p><strong>Analysis examples</strong>: See <a href="applied-examples.html">Applied Examples</a> for real-world labor
 market analysis comparing monthly vs quarterly data, including COVID
 unemployment and minimum wage validation.</p></li>
+<li><p><strong>Annual PNADC data</strong>: Working with annual income
+data? See <a href="annual-poverty-analysis.html">Monthly Poverty
+Analysis with Annual PNADC Data</a> for the workflow using
+<code><a href="../reference/mensalize_annual_pnadc.html">mensalize_annual_pnadc()</a></code>.</p></li>
 <li><p><strong>Function reference</strong>: Browse the <a href="../reference/index.html">Reference</a> for documentation of all
 exported functions.</p></li>
 </ul>
@@ -467,6 +468,30 @@ exported functions.</p></li>
 <div class="section level2">
 <h2 id="quick-reference">Quick Reference<a class="anchor" aria-label="anchor" href="#quick-reference"></a>
 </h2>
+<div class="section level3">
+<h3 id="main-function-parameters">Main Function Parameters<a class="anchor" aria-label="anchor" href="#main-function-parameters"></a>
+</h3>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/mensalizePNADC.html">mensalizePNADC</a></span><span class="op">(</span></span>
+<span>  <span class="va">data</span>,                    <span class="co"># Stacked PNADC data.table/data.frame</span></span>
+<span>  compute_weights <span class="op">=</span> <span class="cn">FALSE</span>, <span class="co"># Compute monthly calibrated weights?</span></span>
+<span>  keep_all <span class="op">=</span> <span class="cn">TRUE</span>,         <span class="co"># Return all rows (including indeterminate)?</span></span>
+<span>  output <span class="op">=</span> <span class="st">"crosswalk"</span>,    <span class="co"># "crosswalk", "microdata", or "aggregates"</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>           <span class="co"># Show progress bar?</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p><strong><code>output</code> options:</strong></p>
+<ul>
+<li>
+<code>"crosswalk"</code> (default): Returns join keys + reference
+month columns + weight_monthly</li>
+<li>
+<code>"microdata"</code>: Returns full input data with all computed
+columns attached</li>
+<li>
+<code>"aggregates"</code>: Returns monthly aggregated indicators
+(requires <code>compute_weights = TRUE</code>)</li>
+</ul>
+</div>
 <div class="section level3">
 <h3 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a>
 </h3>
@@ -485,22 +510,26 @@ exported functions.</p></li>
 <td>Main function: identify months + optional weights</td>
 </tr>
 <tr class="even">
+<td><code><a href="../reference/mensalize_annual_pnadc.html">mensalize_annual_pnadc()</a></code></td>
+<td>Merge crosswalk with annual data + calibrate V1032 weights</td>
+</tr>
+<tr class="odd">
 <td><code><a href="../reference/identify_reference_month.html">identify_reference_month()</a></code></td>
 <td>Just reference month identification</td>
 </tr>
-<tr class="odd">
-<td><code><a href="../reference/calibrate_monthly_weights.html">calibrate_monthly_weights()</a></code></td>
-<td>Rake weighting for monthly weights</td>
-</tr>
 <tr class="even">
+<td><code><a href="../reference/calibrate_monthly_weights.html">calibrate_monthly_weights()</a></code></td>
+<td>Rake weighting for monthly weights (quarterly data)</td>
+</tr>
+<tr class="odd">
 <td><code><a href="../reference/smooth_monthly_aggregates.html">smooth_monthly_aggregates()</a></code></td>
 <td>Remove quarterly artifacts from series</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code><a href="../reference/fetch_monthly_population.html">fetch_monthly_population()</a></code></td>
 <td>Fetch population from SIDRA API</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="../reference/validate_pnadc.html">validate_pnadc()</a></code></td>
 <td>Input data validation</td>
 </tr>

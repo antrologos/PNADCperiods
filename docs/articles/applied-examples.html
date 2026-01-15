@@ -119,6 +119,13 @@ months to nearly all observations.</p>
 <p>This vignette demonstrates three compelling cases where monthly data
 reveals dynamics that quarterly data hides, culminating in a powerful
 validation using minimum wage transitions.</p>
+<blockquote>
+<p><strong>Working with poverty or income data?</strong> This vignette
+focuses on <strong>labor market</strong> indicators using quarterly
+PNADC data. For poverty and income analysis using annual PNADC data
+(which includes comprehensive household income variables), see <a href="annual-poverty-analysis.html">Monthly Poverty Analysis with Annual
+PNADC Data</a>.</p>
+</blockquote>
 <hr>
 </div>
 <div class="section level2">
@@ -148,11 +155,12 @@ the examples below.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Load the mensalized data from download-and-prepare workflow</span></span>
 <span><span class="co"># This should contain all PNADC variables plus the mensalization results</span></span>
-<span><span class="va">pnadc</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"path/to/your/pnadc_mensalized.fst"</span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="http://www.fstpackage.org" class="external-link">fst</a></span><span class="op">)</span></span>
+<span><span class="va">pnadc</span> <span class="op">&lt;-</span> <span class="fu"><a href="http://www.fstpackage.org/reference/write_fst.html" class="external-link">read_fst</a></span><span class="op">(</span><span class="st">"path/to/your/pnadc_mensalized.fst"</span>, as.data.table <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Alternative: If you have full microdata separately, join with crosswalk</span></span>
 <span><span class="va">full_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"path/to/pnadc_full.csv"</span><span class="op">)</span></span>
-<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"path/to/mensalized_crosswalk.fst"</span><span class="op">)</span></span>
+<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="http://www.fstpackage.org/reference/write_fst.html" class="external-link">read_fst</a></span><span class="op">(</span><span class="st">"path/to/mensalized_crosswalk.fst"</span>, as.data.table <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">pnadc</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/merge.html" class="external-link">merge</a></span><span class="op">(</span></span>
 <span>  <span class="va">full_data</span>,</span>
@@ -455,12 +463,45 @@ minimum wage” but “exactly R$ 622” or “exactly R$ 678”) makes the
 transition patterns especially clear.</p>
 </div>
 <div class="section level3">
+<h3 id="preparing-the-minimum-wage-data">Preparing the Minimum Wage Data<a class="anchor" aria-label="anchor" href="#preparing-the-minimum-wage-data"></a>
+</h3>
+<p>The analysis below requires pre-computed objects:
+<code>monthly_mw_exact</code> (monthly aggregates by MW value) and
+<code>mw_adjustment_months</code> (dates when MW changed). Here’s how to
+create them:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Historical minimum wage values (R$)</span></span>
+<span><span class="va">mw_history</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<span>  start_yyyymm <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">201201</span>, <span class="fl">201301</span>, <span class="fl">201401</span>, <span class="fl">201501</span>, <span class="fl">201601</span>, <span class="fl">201701</span>, <span class="fl">201801</span>, <span class="fl">201901</span>, <span class="fl">202001</span>, <span class="fl">202002</span>, <span class="fl">202101</span>, <span class="fl">202201</span>, <span class="fl">202301</span>, <span class="fl">202401</span>, <span class="fl">202501</span><span class="op">)</span>,</span>
+<span>  mw_value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">622</span>, <span class="fl">678</span>, <span class="fl">724</span>, <span class="fl">788</span>, <span class="fl">880</span>, <span class="fl">937</span>, <span class="fl">954</span>, <span class="fl">998</span>, <span class="fl">1039</span>, <span class="fl">1045</span>, <span class="fl">1100</span>, <span class="fl">1212</span>, <span class="fl">1302</span>, <span class="fl">1412</span>, <span class="fl">1518</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">mw_adjustment_months</span> <span class="op">&lt;-</span> <span class="va">mw_history</span><span class="op">$</span><span class="va">start_yyyymm</span></span>
+<span></span>
+<span><span class="co"># For each formal private sector employee, identify which MW they earn</span></span>
+<span><span class="va">pnadc_formal</span> <span class="op">&lt;-</span> <span class="va">pnadc</span><span class="op">[</span><span class="va">VD4009</span> <span class="op">==</span> <span class="fl">1</span> <span class="op">&amp;</span> <span class="va">V2009</span> <span class="op">&gt;=</span> <span class="fl">18</span> <span class="op">&amp;</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">weight_monthly</span><span class="op">)</span><span class="op">]</span></span>
+<span></span>
+<span><span class="co"># Match exact habitual/effective incomes to MW values</span></span>
+<span><span class="va">pnadc_formal</span><span class="op">[</span>, <span class="va">habitual_mw</span> <span class="op">:=</span> <span class="va">mw_history</span><span class="op">[</span><span class="va">start_yyyymm</span> <span class="op">&lt;=</span> <span class="va">ref_month_yyyymm</span><span class="op">]</span><span class="op">[</span><span class="va">.N</span>, <span class="va">mw_value</span><span class="op">]</span>, by <span class="op">=</span> <span class="va">ref_month_yyyymm</span><span class="op">]</span></span>
+<span><span class="va">pnadc_formal</span><span class="op">[</span>, <span class="va">at_habitual_mw</span> <span class="op">:=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">VD4016</span> <span class="op">==</span> <span class="va">habitual_mw</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="va">pnadc_formal</span><span class="op">[</span>, <span class="va">at_effective_mw</span> <span class="op">:=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">VD4017</span> <span class="op">==</span> <span class="va">habitual_mw</span><span class="op">)</span><span class="op">]</span></span>
+<span></span>
+<span><span class="co"># Aggregate by month and MW value</span></span>
+<span><span class="va">monthly_mw_exact</span> <span class="op">&lt;-</span> <span class="va">pnadc_formal</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
+<span>  n_workers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">weight_monthly</span><span class="op">)</span>,</span>
+<span>  pct_habitual <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">at_habitual_mw</span> <span class="op">*</span> <span class="va">weight_monthly</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">weight_monthly</span><span class="op">)</span>,</span>
+<span>  pct_effective <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">at_effective_mw</span> <span class="op">*</span> <span class="va">weight_monthly</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">weight_monthly</span><span class="op">)</span></span>
+<span><span class="op">)</span>, by <span class="op">=</span> <span class="fu">.</span><span class="op">(</span><span class="va">ref_month_yyyymm</span>, mw_value <span class="op">=</span> <span class="va">habitual_mw</span><span class="op">)</span><span class="op">]</span></span>
+<span></span>
+<span><span class="va">monthly_mw_exact</span><span class="op">[</span>, <span class="va">period</span> <span class="op">:=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">ref_month_yyyymm</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html" class="external-link">%/%</a></span> <span class="fl">100</span>, <span class="st">"-"</span>,</span>
+<span>                                             <span class="va">ref_month_yyyymm</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html" class="external-link">%%</a></span> <span class="fl">100</span>, <span class="st">"-15"</span><span class="op">)</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
+</div>
+<div class="section level3">
 <h3 id="the-smoking-gun-january-2013-transition">The Smoking Gun: January 2013 Transition<a class="anchor" aria-label="anchor" href="#the-smoking-gun-january-2013-transition"></a>
 </h3>
 <p>The clearest test of our methodology comes from examining a single,
 clean transition. In January 2013, the minimum wage increased from R$
 622 to R$ 678:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Create long format for plotting (needed for all MW examples)</span></span>
 <span><span class="va">mw_long</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/melt.data.table.html" class="external-link">melt</a></span><span class="op">(</span><span class="va">monthly_mw_exact</span>,</span>
 <span>                id.vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ref_month_yyyymm"</span>, <span class="st">"period"</span>, <span class="st">"mw_value"</span>, <span class="st">"n_workers"</span><span class="op">)</span>,</span>
@@ -542,7 +583,7 @@ adjustment)</li>
 <p>This creates a situation where R$ 1,039 was the official minimum wage
 for only one month. If our reference month identification were
 imprecise, these rapid transitions would blur together. Instead:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Filter to 2020 double adjustment period (Jul 2019 - Jul 2020)</span></span>
 <span><span class="va">mw_2020</span> <span class="op">&lt;-</span> <span class="va">mw_long</span><span class="op">[</span><span class="va">period</span> <span class="op">&gt;=</span> <span class="st">"2019-07-15"</span> <span class="op">&amp;</span> <span class="va">period</span> <span class="op">&lt;=</span> <span class="st">"2020-07-15"</span> <span class="op">&amp;</span></span>
 <span>                   <span class="va">mw_value</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">998</span>, <span class="fl">1039</span>, <span class="fl">1045</span><span class="op">)</span><span class="op">]</span></span>
@@ -603,7 +644,7 @@ both panels, offset by precisely one month.</p>
 <p>Even with consecutive monthly adjustments creating overlapping
 transitions, the one-month lag remains crisp. Does this pattern hold
 across the entire series?</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Create color palette (blue to red gradient)</span></span>
 <span><span class="va">mw_vals</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">monthly_mw_exact</span><span class="op">$</span><span class="va">mw_value</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">n_mw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">mw_vals</span><span class="op">)</span></span>
@@ -714,7 +755,7 @@ averages)</li>
 <li>Stack multiple quarters (we recommend at least 2 years)</li>
 <li>Apply mensalization:</li>
 </ol>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/mensalizePNADC/">mensalizePNADC</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span>
 <span></span>
@@ -733,6 +774,25 @@ averages)</li>
 <span><span class="op">)</span>, by <span class="op">=</span> <span class="va">ref_month_yyyymm</span><span class="op">]</span></span></code></pre></div>
 <p>See <a href="getting-started.html">Get Started</a> for complete
 documentation of the package functions.</p>
+<hr>
+</div>
+<div class="section level2">
+<h2 id="see-also">See Also<a class="anchor" aria-label="anchor" href="#see-also"></a>
+</h2>
+<ul>
+<li>
+<a href="getting-started.html">Get Started</a> - Basic mensalization
+workflow</li>
+<li>
+<a href="how-it-works.html">How It Works</a> - Algorithm details and
+technical explanation</li>
+<li>
+<a href="annual-poverty-analysis.html">Annual Poverty Analysis</a> -
+Monthly poverty analysis with annual income data</li>
+<li>
+<a href="download-and-prepare.html">Download and Prepare Data</a> -
+Data download workflow</li>
+</ul>
 <hr>
 </div>
 <div class="section level2">

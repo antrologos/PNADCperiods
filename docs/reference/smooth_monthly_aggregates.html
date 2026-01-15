@@ -99,8 +99,9 @@ Required columns:</p><ul><li><p><code>ref_month_yyyymm</code>: Month identifier 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data.table with smoothed monthly estimates. For each input variable
-<code>z_varname</code>, the output includes:</p><ul><li><p><code>m_varname</code>: Smoothed monthly estimate</p></li>
+    <p>A data.table with the original data plus smoothed estimates. Contains:</p><ul><li><p><code>ref_month_yyyymm</code>: Month identifier (preserved from input)</p></li>
+<li><p>Original <code>z_*</code> columns (unchanged)</p></li>
+<li><p><code>m_varname</code>: Smoothed monthly estimate for each input <code>z_varname</code></p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

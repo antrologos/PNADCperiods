@@ -304,13 +304,10 @@ weights:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Determination rate:"</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.1f%%"</span>, <span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">result</span>, <span class="st">"determination_rate"</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <p>Expected output:</p>
-<pre><code>Validating input data...
-Identifying reference months...
-Computing monthly weights...
-Fetching monthly population from SIDRA...
-Calibrating weights...
-
-Determination rate: 97.0%</code></pre>
+<pre><code>Processing PNADC data...
+|========================================================| 100%
+  Determination rate: 97.0%
+  Observations with monthly weights: 10,523,189</code></pre>
 <p>The determination rate tells you what percentage of observations have
 their reference month identified. With 19 quarters stacked, you should
 achieve approximately 97%.</p>
@@ -498,6 +495,13 @@ mensalizePNADC Works</a>
 <li>Visit the <a href="https://antrologos.github.io/mensalizePNADC/">package website</a>
 for more resources</li>
 </ul>
+<blockquote>
+<p><strong>Working with annual PNADC data?</strong> Annual data
+(visit-specific microdata with comprehensive income variables) requires
+a different workflow. See <a href="annual-poverty-analysis.html">Monthly
+Poverty Analysis with Annual PNADC Data</a> for details on using
+<code><a href="../reference/mensalize_annual_pnadc.html">mensalize_annual_pnadc()</a></code>.</p>
+</blockquote>
 <p>For questions or issues, please open an issue on <a href="https://github.com/antrologos/mensalizePNADC/issues" class="external-link">GitHub</a>.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
