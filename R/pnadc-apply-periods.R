@@ -432,9 +432,10 @@ reweight_at_cell_level_unified <- function(dt, cell_var, anchor_vars, ref_var, w
   ), by = c(cell_var, anchor_vars)]
 
   # Period-level aggregations
+  # Count how many unique anchor periods (quarters or years) contain this cell-period combination
   dt[, `:=`(
     pop_period = sum(weight_current, na.rm = TRUE),
-    n_cells_period = data.table::uniqueN(do.call(paste, c(.SD, sep = "_"))[1])
+    n_cells_period = data.table::uniqueN(do.call(paste, c(.SD, sep = "_")))
   ), by = c(cell_var, ref_var), .SDcols = anchor_vars]
 
   # Apply reweighting ratio

@@ -162,13 +162,20 @@ pnadc_identify_periods <- function(data, verbose = TRUE) {
   # STEP 4: Combine into unified crosswalk
   # ============================================================================
 
-  # Month and fortnight crosswalks are at UPA-V1014 level
-  # Week crosswalk is at UPA-V1008 level (household within quarter)
+  # All crosswalks need to be aggregated to UPA-V1014 level
+  # Month and fortnight already aggregate across quarters at UPA-V1014 level
+  # Week is at household level (UPA-V1008) within quarter - needs special handling
 
-  # First, merge month and fortnight (both at UPA-V1014 level)
+  # Aggregate month crosswalk to UPA-V1014 level (remove person-level keys)
+  month_agg <- unique(month_xw[, .(UPA, V1014, ref_month, ref_month_in_quarter, ref_month_yyyymm)])
+
+  # Aggregate fortnight crosswalk to UPA-V1014 level
+  fortnight_agg <- unique(fortnight_xw[, .(UPA, V1014, ref_fortnight, ref_fortnight_in_quarter, ref_fortnight_yyyyff)])
+
+  # Merge month and fortnight (both at UPA-V1014 level)
   crosswalk <- merge(
-    month_xw,
-    fortnight_xw,
+    month_agg,
+    fortnight_agg,
     by = c("UPA", "V1014"),
     all = TRUE
   )
@@ -179,21 +186,33 @@ pnadc_identify_periods <- function(data, verbose = TRUE) {
     determined_fortnight = !is.na(ref_fortnight_in_quarter)
   )]
 
-  # For weeks, we need to handle the different aggregation level
-
+  # For weeks: aggregate to UPA-V1014 level
   # Week crosswalk has Ano, Trimestre, UPA, V1008 - household level within quarter
-  # We'll keep the week info at the most detailed level and users will join appropriately
+  # We aggregate by taking the unique week position if consistent across all households
+  # Note: Week position varies by quarter, so we look for consistency in ref_week_in_quarter
+  # which is the relative position (1-14) within the quarter - this should be stable
+  # across the rotating panel design similar to months
 
-  # Add week columns - since week is at household level within quarter,
-
-  # we aggregate to UPA-V1014 level by taking the unique week if all households agree
   week_agg <- week_xw[, .(
-    ref_week = if (length(unique(na.omit(ref_week))) == 1L) unique(na.omit(ref_week)) else as.Date(NA),
-    ref_week_in_quarter = if (length(unique(na.omit(ref_week_in_quarter))) == 1L)
-      unique(na.omit(ref_week_in_quarter)) else NA_integer_,
-    ref_week_yyyyww = if (length(unique(na.omit(ref_week_iso_yyyyww))) == 1L)
-      unique(na.omit(ref_week_iso_yyyyww)) else NA_integer_
+    # Take the most common week position, or NA if inconsistent
+    ref_week_in_quarter = {
+      vals <- na.omit(ref_week_in_quarter)
+      if (length(vals) == 0L) NA_integer_
+      else if (length(unique(vals)) == 1L) unique(vals)
+      else NA_integer_  # Inconsistent - cannot determine
+    },
+    # For the absolute week (yyyyww), take from most recent quarter if position is determined
+    ref_week_yyyyww = {
+      vals <- na.omit(ref_week_iso_yyyyww)
+      if (length(vals) == 0L) NA_integer_
+      else if (length(unique(na.omit(ref_week_in_quarter))) == 1L) max(vals)  # Most recent
+      else NA_integer_
+    }
   ), by = .(UPA, V1014)]
+
+  # Calculate ref_week Date from yyyyww
+  week_agg[!is.na(ref_week_yyyyww), ref_week := yyyyww_to_date(ref_week_yyyyww)]
+  week_agg[is.na(ref_week_yyyyww), ref_week := as.Date(NA)]
 
   # Merge week info
   crosswalk <- merge(
