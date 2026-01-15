@@ -32,6 +32,12 @@
 #' @param n_cells Integer. Number of hierarchical cell levels to use (1-4).
 #'   Default is 4 (full hierarchy). Lower values are faster but less precise.
 #'
+#' @param keep_all Logical. If TRUE (default), return all rows including those
+#'   with indeterminate reference months (with \code{weight_calibrated = NA}).
+#'   If FALSE, only return observations with determined reference months.
+#'
+#' @param verbose Logical. Print progress messages? Default TRUE.
+#'
 #' @return A data.table with the input data plus:
 #'   \itemize{
 #'     \item \code{weight_calibrated}: Calibrated monthly weight
@@ -69,12 +75,6 @@
 #' # Then calibrate weights
 #' result <- calibrate_monthly_weights(merged, monthly_pop)
 #' }
-#'
-#' @param keep_all Logical. If TRUE (default), return all rows including those
-#'   with indeterminate reference months (with \code{weight_calibrated = NA}).
-#'   If FALSE, only return observations with determined reference months.
-#'
-#' @param verbose Logical. Print progress messages? Default TRUE.
 #'
 #' @seealso \code{\link{identify_reference_month}}, \code{\link{mensalizePNADC}}
 #'

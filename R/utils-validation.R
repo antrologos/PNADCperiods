@@ -61,8 +61,15 @@ required_vars_monthly_totals <- function() {
 #' @param stop_on_error Logical. If TRUE, stops with an error. If FALSE, returns
 #'   a validation report list.
 #'
-#' @return If stop_on_error is TRUE, returns invisibly if valid or stops with error.
-#'   If FALSE, returns a list with validation results.
+#' @return If \code{stop_on_error = TRUE}, returns invisibly if valid or stops with error.
+#'   If \code{stop_on_error = FALSE}, returns a list with:
+#'   \itemize{
+#'     \item \code{valid}: Logical indicating if data passed all validations
+#'     \item \code{issues}: Named list of validation issues found (empty if none)
+#'     \item \code{n_rows}: Number of rows in input data
+#'     \item \code{n_cols}: Number of columns in input data
+#'     \item \code{join_keys_available}: Character vector of available join key columns
+#'   }
 #'
 #' @examples
 #' \dontrun{

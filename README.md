@@ -15,9 +15,21 @@ The `mensalizePNADC` package identifies reference months in Brazil's quarterly P
 
 **Why mensalization?** PNADC quarterly statistics are actually moving averages of three months. Mensalization recovers the specific month each observation refers to, enabling true monthly labor market analysis.
 
-- **97% determination rate** on 28.4M observations (2012-2025)
+- **97.0% determination rate** on 28.4M observations (2012-2025)
 - **Validated methodology** based on Hecksher (2024)
 - **Fast**: ~1 minute for 28M rows
+
+## Key Functions
+
+| Function | Description |
+|----------|-------------|
+| `mensalizePNADC()` | Main function: identify reference months + optional weight calibration |
+| `identify_reference_month()` | Reference month identification only |
+| `mensalize_annual_pnadc()` | Process annual PNADC data with mensalization crosswalk |
+| `calibrate_monthly_weights()` | Hierarchical rake weighting for monthly weights |
+| `fetch_monthly_population()` | Fetch population totals from IBGE SIDRA API |
+| `smooth_monthly_aggregates()` | Remove quarterly artifacts from monthly series |
+| `validate_pnadc()` | Validate input data has required columns |
 
 ## Installation
 
@@ -32,18 +44,35 @@ devtools::install_github("antrologos/mensalizePNADC")
 library(mensalizePNADC)
 library(data.table)
 
-# Load stacked PNADC data
+# Load stacked PNADC data (2+ years recommended for best determination rate)
 pnadc <- fread("pnadc_stacked.csv")
 
-# Identify reference months
+# Identify reference months only
 result <- mensalizePNADC(pnadc)
-# Determination rate: 97.0%
+
+# With monthly weight calibration (requires sidrar package)
+result <- mensalizePNADC(pnadc, compute_weights = TRUE)
 
 # Use in analysis
 result[, .(n = .N), by = ref_month_yyyymm]
 ```
 
-For complete examples and required input columns, see the [Get Started guide](https://antrologos.github.io/mensalizePNADC/articles/getting-started.html).
+**Key parameters:**
+- `compute_weights = TRUE`: Compute calibrated monthly weights (default: FALSE)
+- `output`: Return type - `"crosswalk"` (default), `"microdata"`, or `"aggregates"`
+
+**Output columns:**
+- `ref_month`: Reference month as Date
+- `ref_month_in_quarter`: Position in quarter (1, 2, 3) or NA if undetermined
+- `ref_month_yyyymm`: Month in YYYYMM integer format
+- `weight_monthly`: Calibrated monthly weight (if `compute_weights = TRUE`)
+
+**Required input columns:**
+- Reference month: `Ano`, `Trimestre`, `UPA`, `V1014`, `V2008`, `V20081`, `V20082`, `V2009`
+- Join keys: `V1008`, `V2003`
+- For weights: add `V1028`, `UF`, `posest`, `posest_sxi`
+
+For complete examples, see the [Get Started guide](https://antrologos.github.io/mensalizePNADC/articles/getting-started.html).
 
 ## Documentation
 

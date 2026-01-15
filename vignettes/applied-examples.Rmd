@@ -75,11 +75,12 @@ This section shows how to create the aggregate time series used in the examples 
 ```{r load-data}
 # Load the mensalized data from download-and-prepare workflow
 # This should contain all PNADC variables plus the mensalization results
-pnadc <- fread("path/to/your/pnadc_mensalized.fst")
+library(fst)
+pnadc <- read_fst("path/to/your/pnadc_mensalized.fst", as.data.table = TRUE)
 
 # Alternative: If you have full microdata separately, join with crosswalk
 full_data <- fread("path/to/pnadc_full.csv")
-crosswalk <- fread("path/to/mensalized_crosswalk.fst")
+crosswalk <- read_fst("path/to/mensalized_crosswalk.fst", as.data.table = TRUE)
 
 pnadc <- merge(
   full_data,
@@ -340,6 +341,37 @@ This one-month lag is a prediction of the mensalization methodology. If our refe
 ### Methodology
 
 We focus on formal private sector employees (VD4009 == 1) aged 18 and older, tracking the share earning **exactly** each historical minimum wage value. This precise measurement (not "around minimum wage" but "exactly R$ 622" or "exactly R$ 678") makes the transition patterns especially clear.
+
+### Preparing the Minimum Wage Data
+
+The analysis below requires pre-computed objects: `monthly_mw_exact` (monthly aggregates by MW value) and `mw_adjustment_months` (dates when MW changed). Here's how to create them:
+
+```{r mw-data-prep}
+# Historical minimum wage values (R$)
+mw_history <- data.table(
+  start_yyyymm = c(201201, 201301, 201401, 201501, 201601, 201701, 201801, 201901, 202001, 202002, 202101, 202201, 202301, 202401, 202501),
+  mw_value = c(622, 678, 724, 788, 880, 937, 954, 998, 1039, 1045, 1100, 1212, 1302, 1412, 1518)
+)
+mw_adjustment_months <- mw_history$start_yyyymm
+
+# For each formal private sector employee, identify which MW they earn
+pnadc_formal <- pnadc[VD4009 == 1 & V2009 >= 18 & !is.na(weight_monthly)]
+
+# Match exact habitual/effective incomes to MW values
+pnadc_formal[, habitual_mw := mw_history[start_yyyymm <= ref_month_yyyymm][.N, mw_value], by = ref_month_yyyymm]
+pnadc_formal[, at_habitual_mw := as.integer(VD4016 == habitual_mw)]
+pnadc_formal[, at_effective_mw := as.integer(VD4017 == habitual_mw)]
+
+# Aggregate by month and MW value
+monthly_mw_exact <- pnadc_formal[, .(
+  n_workers = sum(weight_monthly),
+  pct_habitual = sum(at_habitual_mw * weight_monthly) / sum(weight_monthly),
+  pct_effective = sum(at_effective_mw * weight_monthly) / sum(weight_monthly)
+), by = .(ref_month_yyyymm, mw_value = habitual_mw)]
+
+monthly_mw_exact[, period := as.Date(paste0(ref_month_yyyymm %/% 100, "-",
+                                             ref_month_yyyymm %% 100, "-15"))]
+```
 
 ### The Smoking Gun: January 2013 Transition
 

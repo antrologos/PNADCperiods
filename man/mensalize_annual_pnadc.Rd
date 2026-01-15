@@ -15,7 +15,7 @@ mensalize_annual_pnadc(
 }
 \arguments{
 \item{annual_data}{data.frame/data.table with annual PNADC data (stacked or single year).
-Required columns:
+Required columns (case-insensitive, will be converted to lowercase internally):
 \itemize{
 \item Join keys: \code{ano}, \code{trimestre}, \code{upa}, \code{v1008}, \code{v1014}, \code{v2003}
 \item Weight: \code{v1032}

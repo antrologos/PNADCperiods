@@ -23,10 +23,11 @@ Required columns:
 \item{calibration_end}{Integer YYYYMM. End of calibration period. Default 201912.}
 }
 \value{
-A data.table with smoothed monthly estimates. For each input variable
-\code{z_varname}, the output includes:
+A data.table with the original data plus smoothed estimates. Contains:
 \itemize{
-\item \code{m_varname}: Smoothed monthly estimate
+\item \code{ref_month_yyyymm}: Month identifier (preserved from input)
+\item Original \code{z_*} columns (unchanged)
+\item \code{m_varname}: Smoothed monthly estimate for each input \code{z_varname}
 }
 }
 \description{

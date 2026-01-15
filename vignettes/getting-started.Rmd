@@ -95,8 +95,8 @@ crosswalk <- mensalizePNADC(pnadc)
 
 Expected output:
 ```
-Validating input data...
-Identifying reference months...
+Processing PNADC data...
+|========================================================| 100%
   Determination rate: 97.0%
 ```
 
@@ -191,13 +191,10 @@ result <- mensalizePNADC(pnadc_full, compute_weights = TRUE, verbose = TRUE)
 
 Expected output:
 ```
-Validating input data...
-Identifying reference months...
+Processing PNADC data...
+|========================================================| 100%
   Determination rate: 97.0%
-Computing monthly weights...
-  Fetching monthly population from SIDRA...
-  Calibrating weights...
-Done.
+  Observations with monthly weights: 10,523,189
 ```
 
 ### Using Monthly Weights
@@ -289,6 +286,24 @@ For the full algorithm explanation, see [How mensalizePNADC Works](how-it-works.
 ---
 
 ## Quick Reference
+
+### Main Function Parameters
+
+```r
+mensalizePNADC(
+  data,                    # Stacked PNADC data.table/data.frame
+  compute_weights = FALSE, # Compute monthly calibrated weights?
+  keep_all = TRUE,         # Return all rows (including indeterminate)?
+  output = "crosswalk",    # "crosswalk", "microdata", or "aggregates"
+  verbose = TRUE           # Show progress bar?
+)
+```
+
+**`output` options:**
+
+- `"crosswalk"` (default): Returns join keys + reference month columns + weight_monthly
+- `"microdata"`: Returns full input data with all computed columns attached
+- `"aggregates"`: Returns monthly aggregated indicators (requires `compute_weights = TRUE`)
 
 ### Functions
 

@@ -149,7 +149,7 @@ Result: ALL 5 quarters → ref_month_in_quarter = 2
 
 ### Overview Diagram
 
-The reference month identification follows a 7-step pipeline:
+The reference month identification follows an 8-step pipeline:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -262,8 +262,8 @@ INPUTS (per observation):
 │  3. Detect: if standard produces min>max but alternative would work         │
 │  4. Propagate: if ANY UPA needs exception -> apply to ALL in that quarter   │
 │                                                                             │
-│  Known exception quarters up to 2025q3 (detected automatically):            │
-│  2016q3, 2016q4, 2017q2, 2022q3, 2023q2, 2024q1.                            │
+│  Exception quarters are detected AUTOMATICALLY by the algorithm.            │
+│  Examples found in 2012-2025: 2016q3, 2016q4, 2017q2, 2022q3, 2023q2, etc.  │
 └─────────────────────────────────────────────────────────────────────────────┘
                                      │
                                      ▼
@@ -372,12 +372,13 @@ Check age: 2023 - 1990 = 33
            33 - 32 = 1  -> Interview was BEFORE February 17, 2023
 
 Check first Saturday on or after birthday:
-           first_Saturday_on_or_after(February 17) = February 18, 2023
+           first_Saturday_on_or_after(February 17) = February 18, 2023 (Sat)
+           Saturday_before = February 18 - 7 = February 11, 2023
 
-Constraint: date_max = min(date_max, Saturday_before(February 17))
-            date_max = min(March 25, February 18) = February 18
+Constraint: date_max = min(date_max, Saturday_before(birthday))
+            date_max = min(March 25, February 11) = February 11
 
-This person can only have been interviewed in JANUARY or FEBRUARY.
+This person can only have been interviewed in JANUARY or early FEBRUARY.
 ```
 
 **Unknown birthdays**: When V2008=99, V20081=99, or V20082=9999, that person's birthday cannot constrain the date. However, they may still be determined through aggregation by UPA-Panel level (Step 4) or cross-quarter aggregation (Step 5).
@@ -467,8 +468,11 @@ And the algorithm proceeds as follows:
 For each UPA-V1014:
   1. Calculate upa_month_min/max using STANDARD rules
   2. Also calculate alt_upa_month_min/max using ALTERNATIVE rules
-  3. If standard produces min > max (impossible) BUT alternative works:
-     → This quarter requires an exception
+  3. Check if exception is needed. ALL conditions must be true:
+     a) Standard produces impossible result: upa_month_min > upa_month_max
+     b) Alternative would work: alt_upa_month_min <= alt_upa_month_max
+     c) Individual's constraint is the binding one that could be relaxed
+        (the individual's bound equals the UPA bound that would change)
   4. Determine WHICH month within the quarter needs the exception:
      - requires_exc_m1: Exception needed for month 1
      - requires_exc_m2: Exception needed for month 2
@@ -477,7 +481,7 @@ For each UPA-V1014:
      apply that exception to ALL observations in that quarter
 ```
 
-Known exception quarters up to 2025q3: 2016q3, 2016q4, 2017q2, 2022q3, 2023q2, 2024q1.
+Exception quarters are detected automatically. Examples found in 2012-2025 data: 2016q3, 2016q4, 2017q2, 2022q3, 2023q2, 2024q1. The algorithm will detect any new exceptions in future data.
 
 ---
 

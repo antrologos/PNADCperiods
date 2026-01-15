@@ -64,7 +64,13 @@
 #'   Full input data with all computed columns added.
 #'
 #'   If \code{output = "aggregates"}:
-#'   Monthly aggregated indicators.
+#'   A data.table with monthly aggregated indicators containing:
+#'   \itemize{
+#'     \item \code{ref_month_yyyymm}: Month identifier in YYYYMM format
+#'     \item \code{n_obs}: Number of observations per month
+#'     \item \code{population}: Total monthly population (sum of weights)
+#'   }
+#'   Requires \code{compute_weights = TRUE}.
 #'
 #' @details
 #' ## Reference Month Identification

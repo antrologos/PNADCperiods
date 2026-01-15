@@ -15,8 +15,15 @@ validate_pnadc(data, check_weights = FALSE, stop_on_error = TRUE)
 a validation report list.}
 }
 \value{
-If stop_on_error is TRUE, returns invisibly if valid or stops with error.
-If FALSE, returns a list with validation results.
+If \code{stop_on_error = TRUE}, returns invisibly if valid or stops with error.
+If \code{stop_on_error = FALSE}, returns a list with:
+\itemize{
+\item \code{valid}: Logical indicating if data passed all validations
+\item \code{issues}: Named list of validation issues found (empty if none)
+\item \code{n_rows}: Number of rows in input data
+\item \code{n_cols}: Number of columns in input data
+\item \code{join_keys_available}: Character vector of available join key columns
+}
 }
 \description{
 Checks that input data has required columns for the specified processing.

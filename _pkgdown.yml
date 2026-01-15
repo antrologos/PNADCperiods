@@ -48,6 +48,7 @@ reference:
   - mensalizePNADC
   - mensalizePNADC-package
   - identify_reference_month
+  - mensalize_annual_pnadc
   - calibrate_monthly_weights
 
 - title: Weight Calibration
@@ -59,7 +60,6 @@ reference:
   desc: Functions for fetching external data
   contents:
   - fetch_monthly_population
-  - fetch-sidra-population
 
 - title: Utilities
   desc: Helper and validation functions
