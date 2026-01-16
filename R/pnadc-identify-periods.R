@@ -423,15 +423,25 @@ pnadc_identify_periods <- function(data, verbose = TRUE) {
       )
     )]
 
-    # Re-aggregate month positions for exception quarters
-    dt[exc_condition, `:=`(
+    # Re-aggregate month positions for ALL UPA-V1014 combinations that have any exception
+    # CRITICAL: Must aggregate across ALL rows for each UPA-V1014, not just exception rows
+    # First, identify which UPA-V1014 combinations have exception quarters
+    exc_upa_v1014 <- unique(dt[exc_condition, .(UPA, V1014)])
+    dt[, has_exc_quarter := FALSE]
+    dt[exc_upa_v1014, on = .(UPA, V1014), has_exc_quarter := TRUE]
+
+    # Re-aggregate for ALL rows of affected UPA-V1014 combinations
+    dt[has_exc_quarter == TRUE, `:=`(
       upa_month_min = max(month_min_pos, na.rm = TRUE),
       upa_month_max = min(month_max_pos, na.rm = TRUE)
     ), by = .(UPA, V1014)]
 
     # Handle infinite values
-    dt[exc_condition & is.infinite(upa_month_min), upa_month_min := NA_integer_]
-    dt[exc_condition & is.infinite(upa_month_max), upa_month_max := NA_integer_]
+    dt[has_exc_quarter == TRUE & is.infinite(upa_month_min), upa_month_min := NA_integer_]
+    dt[has_exc_quarter == TRUE & is.infinite(upa_month_max), upa_month_max := NA_integer_]
+
+    # Clean up
+    dt[, has_exc_quarter := NULL]
   }
 
   # --------------------------------------------------------------------------
