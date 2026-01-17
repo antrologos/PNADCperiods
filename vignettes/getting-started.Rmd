@@ -102,24 +102,24 @@ cat("Quarters:", uniqueN(pnadc[, .(Ano, Trimestre)]), "\n")
 
 ```{r build-crosswalk}
 # Identify reference periods (month, fortnight, week)
-crosswalk <- pnadc_identify_periods(pnadc)
+crosswalk <- pnadc_identify_periods(pnadc, verbose = TRUE)
 ```
 
-Expected output:
+Output (from real PNADC 2020-2024 data):
 ```
 Building reference period crosswalk...
-  Step 1/3: Identifying reference months...
-    -> Month determination rate: 97.0%
-  Step 2/3: Identifying reference fortnights...
-    -> Fortnight determination rate: 88.5%
-  Step 3/3: Identifying reference weeks...
-    -> Week determination rate: 62.3%
+  Preprocessing data (shared computation)...
+  Converting date bounds to period positions...
+  Aggregating constraints and determining periods...
+  Applying exception rules...
+  Assigning reference periods...
+  Building crosswalk...
 
 Crosswalk complete:
-  - 123,456 unique UPA-panel combinations
-  - Month determination: 97.0%
-  - Fortnight determination: 88.5%
-  - Week determination: 62.3%
+  - 3,159,265 unique household-quarter observations
+  - Month determination: 94.2%
+  - Fortnight determination: 2.8%
+  - Week determination: 0.9%
 ```
 
 ### Step 3: Understand the Crosswalk

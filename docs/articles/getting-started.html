@@ -209,21 +209,21 @@ yields only ~65-75% determination rate, while stacking 2+ years achieves
 </h3>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Identify reference periods (month, fortnight, week)</span></span>
-<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc</span><span class="op">)</span></span></code></pre></div>
-<p>Expected output:</p>
+<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>Output (from real PNADC 2020-2024 data):</p>
 <pre><code>Building reference period crosswalk...
-  Step 1/3: Identifying reference months...
-    -&gt; Month determination rate: 97.0%
-  Step 2/3: Identifying reference fortnights...
-    -&gt; Fortnight determination rate: 88.5%
-  Step 3/3: Identifying reference weeks...
-    -&gt; Week determination rate: 62.3%
+  Preprocessing data (shared computation)...
+  Converting date bounds to period positions...
+  Aggregating constraints and determining periods...
+  Applying exception rules...
+  Assigning reference periods...
+  Building crosswalk...
 
 Crosswalk complete:
-  - 123,456 unique UPA-panel combinations
-  - Month determination: 97.0%
-  - Fortnight determination: 88.5%
-  - Week determination: 62.3%</code></pre>
+  - 3,159,265 unique household-quarter observations
+  - Month determination: 94.2%
+  - Fortnight determination: 2.8%
+  - Week determination: 0.9%</code></pre>
 </div>
 <div class="section level3">
 <h3 id="step-3-understand-the-crosswalk">Step 3: Understand the Crosswalk<a class="anchor" aria-label="anchor" href="#step-3-understand-the-crosswalk"></a>

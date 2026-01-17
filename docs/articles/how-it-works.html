@@ -430,77 +430,6 @@ indeterminate</td>
 </div>
 </div>
 <div class="section level2">
-<h2 id="quarterly-vs--annual-pnadc-data">Quarterly vs. Annual PNADC Data<a class="anchor" aria-label="anchor" href="#quarterly-vs--annual-pnadc-data"></a>
-</h2>
-<p>PNADC has two main data releases that require different
-approaches:</p>
-<table class="table">
-<colgroup>
-<col width="22%">
-<col width="41%">
-<col width="36%">
-</colgroup>
-<thead><tr class="header">
-<th>Aspect</th>
-<th>Quarterly Data</th>
-<th>Annual Data</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td><strong>Primary focus</strong></td>
-<td>Labor market (employment, unemployment)</td>
-<td>Income and poverty</td>
-</tr>
-<tr class="even">
-<td><strong>Key income variable</strong></td>
-<td>Limited (labor income only)</td>
-<td>VD5008 (comprehensive household income)</td>
-</tr>
-<tr class="odd">
-<td><strong>Weight variable</strong></td>
-<td>V1028 (quarterly weight)</td>
-<td>V1032 (annual/visit-specific weight)</td>
-</tr>
-<tr class="even">
-<td><strong>Panel coverage</strong></td>
-<td>All 5 rotation groups mixed</td>
-<td>One specific visit (e.g., visit 1 or visit 5)</td>
-</tr>
-<tr class="odd">
-<td><strong>Monthly observations</strong></td>
-<td>~20% from each visit</td>
-<td>100% from single visit</td>
-</tr>
-<tr class="even">
-<td><strong>Function</strong></td>
-<td><code>pnadc_apply_periods(..., anchor="quarter")</code></td>
-<td><code>pnadc_apply_periods(..., anchor="year")</code></td>
-</tr>
-</tbody>
-</table>
-<p><strong>Why does this matter?</strong></p>
-<ul>
-<li>
-<strong>Reference month identification</strong> works the same for
-both data types (birthday constraints don’t depend on weight
-variables)</li>
-<li>
-<strong>Weight calibration</strong> is fundamentally different:
-<ul>
-<li>Quarterly weights (V1028) assume all 5 rotation groups are
-present</li>
-<li>Annual weights (V1032) are calibrated for visit-specific
-estimates</li>
-<li>Using quarterly <code>weight_monthly</code> with annual data would
-misrepresent the population</li>
-</ul>
-</li>
-</ul>
-<p>For income and poverty analysis using annual PNADC data, see the <a href="annual-poverty-analysis.html">Annual Poverty Analysis</a>
-vignette.</p>
-<hr>
-</div>
-<div class="section level2">
 <h2 id="why-stacked-data-matters">Why Stacked Data Matters<a class="anchor" aria-label="anchor" href="#why-stacked-data-matters"></a>
 </h2>
 <p>The algorithm achieves <strong>97% determination rate</strong> when
@@ -585,12 +514,18 @@ data before calling <code><a href="../reference/pnadc_identify_periods.html">pna
 <div class="section level2">
 <h2 id="the-algorithm-explained">The Algorithm Explained<a class="anchor" aria-label="anchor" href="#the-algorithm-explained"></a>
 </h2>
+<p>This section details how the package identifies reference periods
+(months, fortnights, and weeks) for each observation. The algorithm
+shares initial computation steps across all three period types, then
+diverges based on each period’s aggregation scope.</p>
 <div class="section level3">
 <h3 id="overview-diagram">Overview Diagram<a class="anchor" aria-label="anchor" href="#overview-diagram"></a>
 </h3>
-<p>The reference month identification follows an 8-step pipeline:</p>
+<p>The reference period identification follows a pipeline with shared
+initial steps and period-specific aggregation:</p>
 <pre><code>┌─────────────────────────────────────────────────────────────────────────────┐
-│                    REFERENCE MONTH IDENTIFICATION PIPELINE                  │
+│                    REFERENCE PERIOD IDENTIFICATION PIPELINE                 │
+│                       (Months, Fortnights, and Weeks)                       │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 INPUTS (per observation):
@@ -599,132 +534,71 @@ INPUTS (per observation):
 │    (Ano)     │  │  (Trimestre) │  │  (V2008/1/2) │  │    (V2009)   │
 └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
         │                │                  │                 │
-        ▼                ▼                  ▼                 ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ STEP 1a: Calculate Valid Interview Weeks                                    │
-│          (IBGE "Parada Tecnica" Rules)                                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  IBGE Rule: A reference week belongs to a month only if it has at least     │
-│  4 days within the month.                                                   │
-│                                                                             │
-|  So, for finding the first reference week of IBGE interviews find the       |
-|  Saturday of that month and count how many days it has been since 1st day.  |
-│                                                                             │
-|  If ≥4 days, that is considered a valid reference week.                     |
-|  If less than 3 days, that short week will be considered a "technical stop" | 
-|  Then skip to the next (second) Saturday                                    |
-│                                                                             │
-│  Saturdays are the reference day of each reference week. They are the dates |
-|  the IBGE interviewers refer to in questions involving precise timing. So   │
-│  the first Saturday of each month is also the first valid interview date    │
-│  for that month                                                             │
-│                                                                             │
-│  OUTPUT: First reference day of Months 1, 2, and 3 of the quarter           │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ STEP 1b: Calculate the range of possible interview dates for each quarter   │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  Interviews (i.e. valid reference dates for interviews) within a quarter    │
-│  can only have happened from the first valid Saturday of Month 1 up to the  │
-│  last Saturday of Month 3 -- i.e. First Saturday of Month 3 + 21 days       │
-│  (since reference weeks end on Saturdays). This gives us date bounds.       │   
-│                                                                             │
-│  OUTPUT: date_min = First Saturday of Month 1                               │
-│          date_max = First Saturday of Month 3 + 21 days                     │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ STEP 2: Apply Birthday Constraints                                          │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  Compare (Survey_Year - Birth_Year) with Reported_Age to determine if       │
-│  interview was BEFORE or AFTER the person's birthday this year.             │
-│                                                                             │
-|  The goal is to Narrow the possible interview date window using each        |
-|  person’s birthday and calculated age (by IBGE on the reference date of     |
-|  the interview, which is the Saturday that ends the reference week).        |│                                                                             │
-│  If AFTER birthday  -&gt; date_min = max(date_min, Sat_after_birthday)         │
-│  If BEFORE birthday -&gt; date_max = min(date_max, Sat_before_birthday)        │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ STEP 3: Convert Date Ranges to Month Positions (1, 2, or 3)                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  month_min_pos = which month does date_min fall in?                         │
-│  month_max_pos = which month does date_max fall in?                         │
-│                                                                             │
-│  Special handling: Weeks in which Saturdays fall on the 1st to 3rd day of   │
-│  a month are assigned to the previous month.                                │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ STEP 4: Aggregate to UPA-Panel Level                                        │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  All people in same (UPA, V1014) are interviewed in the SAME MONTH.         │
-│  Take intersection of all individual constraints:                           │
-│                                                                             │
-│    upa_month_min = max(all individual month_min_pos)                        │
-│    upa_month_max = min(all individual month_max_pos)                        │
-│                                                                             │
-│  If upa_month_min = upa_month_max -&gt; DETERMINED!                            │
-│  If upa_month_min &lt; upa_month_max -&gt; Still ambiguous, try Step 5            │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ STEP 5: Cross-Quarter Aggregation                                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  PNADC uses ROTATING PANEL: same (UPA, V1014) interviewed in SAME MONTH     │
-│  POSITION across all quarterly visits (up to 5 consecutive quarters).       │
-│                                                                             │
-│  Combine constraints from ALL quarters -&gt; dramatically improves accuracy:   │
-│                                                                             │
-│    Per-quarter only:  ~65-75% determination                                 │
-│    Cross-quarter:     ~97.0% determination                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ STEP 6: Dynamic Exception Detection                                         │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  Algorithm DYNAMICALLY detects which quarters need relaxed timing rules:    │
-│                                                                             │
-│  1. Calculate positions using STANDARD rules (&gt;=4 days, day &lt;=3 threshold)  │
-│  2. Calculate positions using ALTERNATIVE rules (&gt;=3 days, day &lt;=2)         │
-│  3. Detect: if standard produces min&gt;max but alternative would work         │
-│  4. Propagate: if ANY UPA needs exception -&gt; apply to ALL in that quarter   │
-│                                                                             │
-│  Exception quarters are detected AUTOMATICALLY by the algorithm.            │
-│  Examples found in 2012-2025: 2016q3, 2016q4, 2017q2, 2022q3, 2023q2, etc.  │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ STEP 7: Final Month Assignment                                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  After applying exceptions and recalculating:                               │
-│  If upa_month_min == upa_month_max -&gt; Reference month DETERMINED            │
-│  Otherwise -&gt; remains NA (indeterminate, ~3% of observations)               │
-└─────────────────────────────────────────────────────────────────────────────┘
+        └────────────────┴──────────────────┴─────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ OUTPUT                                                                      │
+│                        SHARED COMPUTATION (All Periods)                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  ref_month_in_quarter: 1, 2, 3, or NA (indeterminate)                       │
-│  ref_month:            Full date (e.g., 2023-02-01)                         │
-│  ref_month_yyyymm:     Integer format (e.g., 202302)                        │
-└─────────────────────────────────────────────────────────────────────────────┘</code></pre>
+│                                                                             │
+│  STEP 1: Calculate Valid Interview Saturdays (IBGE Rules)                   │
+│          Output: date_min, date_max for each quarter                        │
+│                                                                             │
+│  STEP 2: Apply Birthday Constraints                                         │
+│          Narrow date window using age vs birth year comparison              │
+│                                                                             │
+│  STEP 3: Convert Dates to Period Positions                                  │
+│          Compute: month_min/max, fortnight_min/max, week_min/max            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+            ┌───────────────────────┼───────────────────────┐
+            │                       │                       │
+            ▼                       ▼                       ▼
+┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
+│   MONTH PIPELINE      │ │ FORTNIGHT PIPELINE    │ │   WEEK PIPELINE       │
+│   (Steps 4-7)         │ │ (Steps 4-5)           │ │   (Steps 4-5)         │
+├───────────────────────┤ ├───────────────────────┤ ├───────────────────────┤
+│                       │ │                       │ │                       │
+│ Step 4: Aggregate at  │ │ Step 4: Aggregate at  │ │ Step 4: Aggregate at  │
+│   (UPA, V1014) level  │ │   (Ano, Trim, UPA,    │ │   (Ano, Trim, UPA,    │
+│                       │ │    V1008) level       │ │    V1008) level       │
+│ Step 5: CROSS-QUARTER │ │                       │ │                       │
+│   aggregation across  │ │ NO cross-quarter      │ │ NO cross-quarter      │
+│   ALL quarters        │ │ aggregation possible  │ │ aggregation possible  │
+│                       │ │                       │ │                       │
+│ Step 6: Dynamic       │ │ Step 5: Final         │ │ Step 5: Final         │
+│   exception detection │ │   assignment          │ │   assignment          │
+│                       │ │                       │ │                       │
+│ Step 7: Final         │ │                       │ │                       │
+│   assignment          │ │                       │ │                       │
+│                       │ │                       │ │                       │
+└───────────────────────┘ └───────────────────────┘ └───────────────────────┘
+            │                       │                       │
+            ▼                       ▼                       ▼
+┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
+│ Determination: ~97%   │ │ Determination: ~3%    │ │ Determination: ~1%    │
+│                       │ │                       │ │                       │
+│ OUTPUT:               │ │ OUTPUT:               │ │ OUTPUT:               │
+│ - ref_month (Date)    │ │ - ref_fortnight       │ │ - ref_week (Date)     │
+│ - ref_month_in_qtr    │ │ - ref_fortnight_in_q  │ │ - ref_week_in_qtr     │
+│ - ref_month_yyyymm    │ │ - ref_fortnight_yyyyff│ │ - ref_week_yyyyww     │
+└───────────────────────┘ └───────────────────────┘ └───────────────────────┘</code></pre>
+<p><strong>Key insight</strong>: The critical difference is that
+<strong>months benefit from cross-quarter aggregation</strong> (Step 5
+in the month pipeline), while fortnights and weeks cannot aggregate
+constraints across quarters. This is why the monthly determination rate
+(~97%) far exceeds fortnights (~3%) and weeks (~1%).</p>
 <hr>
 </div>
 <div class="section level3">
-<h3 id="step-1-valid-interview-saturdays-ibge-rules">Step 1: Valid Interview Saturdays (IBGE Rules)<a class="anchor" aria-label="anchor" href="#step-1-valid-interview-saturdays-ibge-rules"></a>
+<h3 id="shared-computation-steps-1-3">Shared Computation (Steps 1-3)<a class="anchor" aria-label="anchor" href="#shared-computation-steps-1-3"></a>
 </h3>
+<p>The following three steps are computed once and shared across all
+period types (months, fortnights, and weeks).</p>
+<div class="section level4">
+<h4 id="step-1-valid-interview-saturdays-ibge-rules">Step 1: Valid Interview Saturdays (IBGE Rules)<a class="anchor" aria-label="anchor" href="#step-1-valid-interview-saturdays-ibge-rules"></a>
+</h4>
 <p>As previously stated, IBGE defines that a reference week belongs to a
 month only if it has at least <strong>4 days within that month</strong>.
 Since reference weeks end on Saturdays, we look at the Saturdays of each
@@ -757,6 +631,7 @@ date range</strong> for the quarter: - <code>date_min</code> = First
 valid Saturday of Month 1 - <code>date_max</code> = First valid Saturday
 of Month 3 + 21 days</p>
 <hr>
+</div>
 </div>
 <div class="section level3">
 <h3 id="step-2-birthday-constraints">Step 2: Birthday Constraints<a class="anchor" aria-label="anchor" href="#step-2-birthday-constraints"></a>
@@ -861,13 +736,20 @@ as:</p>
 least 4 days of the new year - Can span year boundaries (e.g., December
 30 might be in week 1 of next year)</p>
 <p>The resulting period positions feed into Step 4 (aggregation), which
-differs by granularity (see “Fortnight and Week Identification” below
-for details).</p>
+differs by period type. See the separate pipelines below for months,
+fortnights, and weeks.</p>
 <hr>
 </div>
 <div class="section level3">
-<h3 id="step-4-upa-panel-aggregation-months">Step 4: UPA-Panel Aggregation (Months)<a class="anchor" aria-label="anchor" href="#step-4-upa-panel-aggregation-months"></a>
+<h3 id="month-identification-pipeline-steps-4-7">Month Identification Pipeline (Steps 4-7)<a class="anchor" aria-label="anchor" href="#month-identification-pipeline-steps-4-7"></a>
 </h3>
+<p>The month identification pipeline uses cross-quarter aggregation to
+achieve ~97% determination. This is the most powerful identification
+because the same UPA-V1014 panel group is always interviewed in the same
+relative month across all their quarterly visits.</p>
+<div class="section level4">
+<h4 id="step-4-upa-panel-aggregation">Step 4: UPA-Panel Aggregation<a class="anchor" aria-label="anchor" href="#step-4-upa-panel-aggregation"></a>
+</h4>
 <p>All people in the same <strong>UPA + V1014</strong> are interviewed
 together in the <strong>same reference month</strong>. Take the
 intersection:</p>
@@ -892,18 +774,13 @@ Person A:     [=========]
 Person B:     [============]
 Person C:            [========]
 Intersection:        [==]      &lt;- Only February satisfies all</code></pre>
-<p><strong>Note on fortnights and weeks</strong>: Fortnights and weeks
-also aggregate constraints at Step 4, but using different keys:
-<code>(Ano, Trimestre, UPA, V1008)</code> (household within a specific
-quarter) instead of <code>(UPA, V1014)</code> (panel across quarters).
-This is because the specific fortnight or week can vary between quarters
-even for the same household. See “Fortnight and Week Identification”
-below for details.</p>
-<hr>
+<p><strong>Note</strong>: Fortnights and weeks use a different
+aggregation key — see the Fortnight and Week Identification section
+below.</p>
 </div>
-<div class="section level3">
-<h3 id="step-5-cross-quarter-aggregation-months-only">Step 5: Cross-Quarter Aggregation (Months Only)<a class="anchor" aria-label="anchor" href="#step-5-cross-quarter-aggregation-months-only"></a>
-</h3>
+<div class="section level4">
+<h4 id="step-5-cross-quarter-aggregation">Step 5: Cross-Quarter Aggregation<a class="anchor" aria-label="anchor" href="#step-5-cross-quarter-aggregation"></a>
+</h4>
 <p>Since the relative month position is constant across quarters,
 constraints from <strong>any</strong> quarter apply to
 <strong>all</strong> quarters:</p>
@@ -920,11 +797,10 @@ month 2), the specific fortnight or week within that month varies by
 quarter. Therefore, fortnight and week constraints must be evaluated
 within each quarter independently, resulting in much lower determination
 rates (~2-5% for fortnights, ~1-2% for weeks).</p>
-<hr>
 </div>
-<div class="section level3">
-<h3 id="step-6-dynamic-exception-detection">Step 6: Dynamic Exception Detection<a class="anchor" aria-label="anchor" href="#step-6-dynamic-exception-detection"></a>
-</h3>
+<div class="section level4">
+<h4 id="step-6-dynamic-exception-detection">Step 6: Dynamic Exception Detection<a class="anchor" aria-label="anchor" href="#step-6-dynamic-exception-detection"></a>
+</h4>
 <p>In some quarters, the standard rule (first reference week with ≥4
 days) may produce impossible results. For instance,
 <code>upa_month_min &gt; upa_month_max</code>. Quarters in which this
@@ -978,11 +854,10 @@ September’s reference month rather than August’s.</p>
 <p>Exception quarters are detected automatically. Examples found in
 2012-2025 data: 2016q3, 2016q4, 2017q2, 2022q3, 2023q2, 2024q1. The
 algorithm will detect any new exceptions in future data.</p>
-<hr>
 </div>
-<div class="section level3">
-<h3 id="step-7-final-assignment">Step 7: Final Assignment<a class="anchor" aria-label="anchor" href="#step-7-final-assignment"></a>
-</h3>
+<div class="section level4">
+<h4 id="step-7-final-assignment">Step 7: Final Assignment<a class="anchor" aria-label="anchor" href="#step-7-final-assignment"></a>
+</h4>
 <p>After applying exceptions: if
 <code>upa_month_min == upa_month_max</code>, the reference month is
 determined. Otherwise, it remains NA.</p>
@@ -1019,16 +894,17 @@ quarter’s interview window).</li>
 <hr>
 </div>
 </div>
-<div class="section level2">
-<h2 id="fortnight-and-week-identification">Fortnight and Week Identification<a class="anchor" aria-label="anchor" href="#fortnight-and-week-identification"></a>
-</h2>
-<p>The package also identifies <strong>fortnights</strong> (quinzenas)
-and <strong>weeks</strong> within each quarter. These use the same core
-methodology as months but with important differences in how constraints
-are aggregated.</p>
 <div class="section level3">
-<h3 id="why-lower-determination-rates">Why Lower Determination Rates?<a class="anchor" aria-label="anchor" href="#why-lower-determination-rates"></a>
+<h3 id="fortnight-and-week-identification-pipeline-steps-4-5">Fortnight and Week Identification Pipeline (Steps 4-5)<a class="anchor" aria-label="anchor" href="#fortnight-and-week-identification-pipeline-steps-4-5"></a>
 </h3>
+<p>The package also identifies <strong>fortnights</strong> (quinzenas)
+and <strong>weeks</strong> within each quarter. These use the same
+shared computation (Steps 1-3) as months, but with a critical
+difference: <strong>they cannot aggregate across quarters</strong>,
+resulting in much lower determination rates.</p>
+<div class="section level4">
+<h4 id="why-lower-determination-rates">Why Lower Determination Rates?<a class="anchor" aria-label="anchor" href="#why-lower-determination-rates"></a>
+</h4>
 <table class="table">
 <thead><tr class="header">
 <th>Period</th>
@@ -1068,9 +944,9 @@ Q2.</li>
 be combined.</li>
 </ul>
 </div>
-<div class="section level3">
-<h3 id="fortnight-identification-algorithm">Fortnight Identification Algorithm<a class="anchor" aria-label="anchor" href="#fortnight-identification-algorithm"></a>
-</h3>
+<div class="section level4">
+<h4 id="fortnight-identification-algorithm">Fortnight Identification Algorithm<a class="anchor" aria-label="anchor" href="#fortnight-identification-algorithm"></a>
+</h4>
 <p>Fortnights divide the quarter into 6 periods (2 per month):</p>
 <pre><code>Quarter structure:
 Month 1: Fortnight 1, Fortnight 2
@@ -1125,9 +1001,9 @@ aggregation.</p>
 </tbody>
 </table>
 </div>
-<div class="section level3">
-<h3 id="week-identification-algorithm">Week Identification Algorithm<a class="anchor" aria-label="anchor" href="#week-identification-algorithm"></a>
-</h3>
+<div class="section level4">
+<h4 id="week-identification-algorithm">Week Identification Algorithm<a class="anchor" aria-label="anchor" href="#week-identification-algorithm"></a>
+</h4>
 <p>Weeks divide the quarter into approximately 13 periods:</p>
 <pre><code>Quarter structure (example):
 Month 1: Weeks 1-4 (or 5, depending on calendar)
@@ -1174,9 +1050,9 @@ If hh_week_min == hh_week_max -&gt; DETERMINED</code></pre>
 </tbody>
 </table>
 </div>
-<div class="section level3">
-<h3 id="practical-implications">Practical Implications<a class="anchor" aria-label="anchor" href="#practical-implications"></a>
-</h3>
+<div class="section level4">
+<h4 id="practical-implications">Practical Implications<a class="anchor" aria-label="anchor" href="#practical-implications"></a>
+</h4>
 <p><strong>When to use each granularity:</strong></p>
 <table class="table">
 <colgroup>
@@ -1221,9 +1097,9 @@ automatically uses simplified raking (fewer cell levels) for
 fortnights/weeks to handle smaller samples.</p></li>
 </ol>
 </div>
-<div class="section level3">
-<h3 id="usage-example">Usage Example<a class="anchor" aria-label="anchor" href="#usage-example"></a>
-</h3>
+<div class="section level4">
+<h4 id="usage-example">Usage Example<a class="anchor" aria-label="anchor" href="#usage-example"></a>
+</h4>
 <div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Build crosswalk with all period types</span></span>
 <span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc_stacked</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
@@ -1250,13 +1126,15 @@ fortnights/weeks to handle smaller samples.</p></li>
 <hr>
 </div>
 </div>
+</div>
 <div class="section level2">
-<h2 id="monthly-weights">Monthly Weights<a class="anchor" aria-label="anchor" href="#monthly-weights"></a>
+<h2 id="weight-calibration">Weight Calibration<a class="anchor" aria-label="anchor" href="#weight-calibration"></a>
 </h2>
-<p>For monthly aggregate estimates, you need monthly-appropriate survey
-weights.</p>
+<p>For sub-quarterly aggregate estimates, you need appropriately
+calibrated survey weights. The package supports calibration for all
+three period types: monthly, fortnightly, and weekly.</p>
 <div class="section level3">
-<h3 id="how-weight-calibration-works">How Weight Calibration Works<a class="anchor" aria-label="anchor" href="#how-weight-calibration-works"></a>
+<h3 id="how-calibration-works-general-principles">How Calibration Works (General Principles)<a class="anchor" aria-label="anchor" href="#how-calibration-works-general-principles"></a>
 </h3>
 <p>When <code>calibrate = TRUE</code> in
 <code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code>, the package:</p>
@@ -1335,21 +1213,18 @@ adjusted so period totals match anchor totals proportionally.</p>
 (~206 million average).</p>
 </div>
 <div class="section level3">
-<h3 id="usage-example-1">Usage Example<a class="anchor" aria-label="anchor" href="#usage-example-1"></a>
+<h3 id="monthly-calibration">Monthly Calibration<a class="anchor" aria-label="anchor" href="#monthly-calibration"></a>
 </h3>
+<p>Monthly calibration uses the full 4-level hierarchical raking because
+the high determination rate (~97%) provides sufficient sample size in
+each cell.</p>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Load full data with all required variables</span></span>
-<span><span class="va">pnadc_full</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"pnadc_stacked_full.csv"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Step 1: Build crosswalk</span></span>
-<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc_full</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Step 2: Apply crosswalk and calibrate weights</span></span>
-<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc_full</span>, <span class="va">crosswalk</span>,</span>
+<code class="sourceCode R"><span><span class="co"># Apply crosswalk and calibrate monthly weights</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc_stacked</span>, <span class="va">crosswalk</span>,</span>
 <span>                               weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
 <span>                               anchor <span class="op">=</span> <span class="st">"quarter"</span>,</span>
-<span>                               calibrate <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>                               verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>                               calibration_unit <span class="op">=</span> <span class="st">"month"</span>,  <span class="co"># default</span></span>
+<span>                               calibrate <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Use weight_monthly for monthly estimates</span></span>
 <span><span class="va">monthly_pop</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
@@ -1357,7 +1232,7 @@ adjusted so period totals match anchor totals proportionally.</p>
 <span><span class="op">)</span>, by <span class="op">=</span> <span class="va">ref_month_yyyymm</span><span class="op">]</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="fortnight-and-weekly-calibration">Fortnight and Weekly Calibration<a class="anchor" aria-label="anchor" href="#fortnight-and-weekly-calibration"></a>
+<h3 id="fortnight-and-week-calibration">Fortnight and Week Calibration<a class="anchor" aria-label="anchor" href="#fortnight-and-week-calibration"></a>
 </h3>
 <p>The package also supports calibrating weights for fortnight and
 weekly analysis using <code>calibration_unit = "fortnight"</code> or
@@ -1613,157 +1488,174 @@ rather than calibration artifacts.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="mensalizing-annual-pnadc-data">Mensalizing Annual PNADC Data<a class="anchor" aria-label="anchor" href="#mensalizing-annual-pnadc-data"></a>
+<h2 id="applying-the-crosswalk">Applying the Crosswalk<a class="anchor" aria-label="anchor" href="#applying-the-crosswalk"></a>
 </h2>
-<p>Annual PNADC data (with comprehensive income variables like VD5008)
-requires a different approach than quarterly data.</p>
+<p>The package uses a <strong>two-step workflow</strong> to convert
+PNADC data into sub-quarterly time series:</p>
+<ol style="list-style-type: decimal">
+<li>
+<strong><code><a href="../reference/pnadc_identify_periods.html">pnadc_identify_periods()</a></code></strong>: Build a
+crosswalk that identifies reference periods (months, fortnights, weeks)
+for each household-quarter observation</li>
+<li>
+<strong><code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code></strong>: Merge this
+crosswalk with your PNADC data and optionally calibrate weights</li>
+</ol>
+<p>This separation is deliberate: the crosswalk is built once from
+stacked quarterly data (which contains birthday variables), then applied
+to either quarterly or annual datasets for analysis.</p>
 <div class="section level3">
-<h3 id="why-annual-data-needs-different-weight-calibration">Why Annual Data Needs Different Weight Calibration<a class="anchor" aria-label="anchor" href="#why-annual-data-needs-different-weight-calibration"></a>
+<h3 id="the-two-step-workflow">The Two-Step Workflow<a class="anchor" aria-label="anchor" href="#the-two-step-workflow"></a>
 </h3>
-<p>The quarterly weight calibration
-(<code><a href="../reference/calibrate_monthly_weights.html">calibrate_monthly_weights()</a></code>) makes assumptions that don’t
-hold for annual data:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────────┐
+│                        TWO-STEP WORKFLOW                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+STEP 1: Build Crosswalk (run once, from quarterly data)
+┌───────────────────────────────────────────────────────────────────────┐
+│ pnadc_identify_periods(quarterly_stacked)                             │
+│                                                                       │
+│ Input:  Stacked quarterly PNADC (needs birthday variables)            │
+│ Output: Crosswalk with ref_month, ref_fortnight, ref_week per         │
+│         (UPA, V1014) household-panel group                            │
+└───────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+STEP 2: Apply to Target Data (run for each analysis)
+┌───────────────────────────────────────────────────────────────────────┐
+│ pnadc_apply_periods(target_data, crosswalk, ...)                      │
+│                                                                       │
+│ Input:  Any PNADC data (quarterly OR annual) + crosswalk              │
+│ Output: Data with reference periods + calibrated weights              │
+│                                                                       │
+│ Key parameters:                                                       │
+│   - weight_var: "V1028" (quarterly) or "V1032" (annual)               │
+│   - anchor: "quarter" (quarterly) or "year" (annual)                  │
+│   - calibration_unit: "month", "fortnight", or "week"                 │
+└───────────────────────────────────────────────────────────────────────┘</code></pre>
+</div>
+<div class="section level3">
+<h3 id="quarterly-vs--annual-pnadc-data">Quarterly vs. Annual PNADC Data<a class="anchor" aria-label="anchor" href="#quarterly-vs--annual-pnadc-data"></a>
+</h3>
+<p>PNADC has two main data releases that require different
+approaches:</p>
 <table class="table">
 <colgroup>
-<col width="30%">
-<col width="37%">
-<col width="32%">
+<col width="22%">
+<col width="41%">
+<col width="36%">
 </colgroup>
 <thead><tr class="header">
-<th>Assumption</th>
+<th>Aspect</th>
 <th>Quarterly Data</th>
 <th>Annual Data</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td><strong>Panel composition</strong></td>
-<td>All 5 rotation groups present</td>
-<td>Only 1 specific visit</td>
+<td><strong>Primary focus</strong></td>
+<td>Labor market (employment, unemployment)</td>
+<td>Income and poverty</td>
 </tr>
 <tr class="even">
-<td><strong>Starting weight</strong></td>
+<td><strong>Key income variable</strong></td>
+<td>Limited (labor income only)</td>
+<td>VD5008 (comprehensive household income)</td>
+</tr>
+<tr class="odd">
+<td><strong>Weight variable</strong></td>
 <td>V1028 (quarterly weight)</td>
-<td>V1032 (annual weight)</td>
+<td>V1032 (annual/visit-specific weight)</td>
+</tr>
+<tr class="even">
+<td><strong>Panel coverage</strong></td>
+<td>All 5 rotation groups mixed</td>
+<td>One specific visit (e.g., visit 1 or visit 5)</td>
 </tr>
 <tr class="odd">
-<td><strong>Calibration anchor</strong></td>
-<td>Quarterly totals</td>
-<td>Yearly totals</td>
+<td><strong>Monthly observations</strong></td>
+<td>~20% from each visit</td>
+<td>100% from single visit</td>
+</tr>
+<tr class="even">
+<td><strong>Function call</strong></td>
+<td><code>anchor = "quarter"</code></td>
+<td><code>anchor = "year"</code></td>
 </tr>
 </tbody>
 </table>
-<p><strong>The problem</strong>: If you use quarterly
-<code>weight_monthly</code> directly with annual data, each observation
-would be weighted as if it represents only 20% of its demographic cell
-(since quarterly data has 5 rotation groups). Annual data has 100% from
-a single visit, so this approach severely underweights the
-population.</p>
+<p><strong>Key insight</strong>: Reference period identification works
+identically for both data types (birthday constraints don’t depend on
+weight variables). The difference is in <strong>weight
+calibration</strong>: quarterly weights distribute quarterly totals
+across 3 months, while annual weights distribute yearly totals across 12
+months.</p>
 </div>
 <div class="section level3">
-<h3 id="how-annual-weight-calibration-works">How Annual Weight Calibration Works<a class="anchor" aria-label="anchor" href="#how-annual-weight-calibration-works"></a>
+<h3 id="applying-to-quarterly-data">Applying to Quarterly Data<a class="anchor" aria-label="anchor" href="#applying-to-quarterly-data"></a>
 </h3>
-<p>For annual data, <code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code> with
-<code>anchor = "year"</code> follows this algorithm:</p>
-<pre><code>┌─────────────────────────────────────────────────────────────────────────────┐
-│                 ANNUAL WEIGHT CALIBRATION PIPELINE                          │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-STEP 1: Merge crosswalk with annual data
-        ├── Annual data: contains V1032 weight, income variables (VD5008)
-        └── Crosswalk: contains ref_month_in_quarter from quarterly data
-
-STEP 2: Create demographic cells (same as quarterly)
-        ├── celula1: Age groups (0-13, 14-29, 30-59, 60+)
-        ├── celula2: Post-stratum group + age
-        ├── celula3: State (UF) + celula2
-        └── celula4: Post-stratum (posest) + celula2
-
-STEP 3: Hierarchical rake reweighting (DIFFERENT from quarterly)
-        ├── KEY DIFFERENCE: Use YEARLY totals as anchor (not quarterly)
-        │
-        │   For each (cell, year):
-        │     pop_year = sum(V1032)
-        │     n_months = number of months in cell-year
-        │     expected_monthly = pop_year / n_months
-        │
-        │   For each (cell, month):
-        │     pop_month = sum(weight_current)
-        │     adjustment = expected_monthly / pop_month
-        │     weight_new = weight_current * adjustment
-        │
-        └── Repeat for all 4 cell levels (hierarchical raking)
-
-STEP 4: Final calibration to SIDRA monthly population totals (same as quarterly)
-        └── Ensures weights sum to official monthly population (~206 million)
-
-OUTPUT: weight_monthly (calibrated for annual data)</code></pre>
-</div>
-<div class="section level3">
-<h3 id="comparison-quarterly-vs--annual-calibration">Comparison: Quarterly vs. Annual Calibration<a class="anchor" aria-label="anchor" href="#comparison-quarterly-vs--annual-calibration"></a>
-</h3>
-<table class="table">
-<colgroup>
-<col width="14%">
-<col width="45%">
-<col width="40%">
-</colgroup>
-<thead><tr class="header">
-<th>Step</th>
-<th>Quarterly Approach</th>
-<th>Annual Approach</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td><strong>Starting weight</strong></td>
-<td>V1028</td>
-<td>V1032</td>
-</tr>
-<tr class="even">
-<td><strong>Anchor for raking</strong></td>
-<td>Quarterly totals</td>
-<td>Yearly totals</td>
-</tr>
-<tr class="odd">
-<td><strong>Redistribution</strong></td>
-<td>Quarter → 3 months</td>
-<td>Year → 12 months</td>
-</tr>
-<tr class="even">
-<td><strong>Final calibration</strong></td>
-<td>SIDRA monthly population</td>
-<td>SIDRA monthly population</td>
-</tr>
-</tbody>
-</table>
-<p>The key insight: Within each cell-year, the V1032 weights sum to that
-cell’s annual population. We redistribute that total evenly across the
-months where that cell appears, then calibrate to SIDRA totals.</p>
-</div>
-<div class="section level3">
-<h3 id="usage-example-2">Usage Example<a class="anchor" aria-label="anchor" href="#usage-example-2"></a>
-</h3>
+<p>Use <code>anchor = "quarter"</code> with quarterly PNADC data (V1028
+weights):</p>
 <div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Step 1: Create crosswalk from quarterly data</span></span>
-<span><span class="co"># (birthday variables are in quarterly data, not annual)</span></span>
-<span><span class="va">quarterly_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"pnadc_quarterly_stacked.csv"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co"># Build crosswalk from stacked quarterly data</span></span>
+<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc_stacked</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Apply to quarterly data with monthly weights</span></span>
+<span><span class="va">result_monthly</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span></span>
+<span>  <span class="va">pnadc_quarterly</span>, <span class="va">crosswalk</span>,</span>
+<span>  weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
+<span>  anchor <span class="op">=</span> <span class="st">"quarter"</span>,</span>
+<span>  calibration_unit <span class="op">=</span> <span class="st">"month"</span>,</span>
+<span>  calibrate <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Apply with fortnight weights (for short-term analysis)</span></span>
+<span><span class="va">result_fortnight</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span></span>
+<span>  <span class="va">pnadc_quarterly</span>, <span class="va">crosswalk</span>,</span>
+<span>  weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
+<span>  anchor <span class="op">=</span> <span class="st">"quarter"</span>,</span>
+<span>  calibration_unit <span class="op">=</span> <span class="st">"fortnight"</span>,</span>
+<span>  calibrate <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Apply with weekly weights (for high-frequency monitoring)</span></span>
+<span><span class="va">result_weekly</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span></span>
+<span>  <span class="va">pnadc_quarterly</span>, <span class="va">crosswalk</span>,</span>
+<span>  weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
+<span>  anchor <span class="op">=</span> <span class="st">"quarter"</span>,</span>
+<span>  calibration_unit <span class="op">=</span> <span class="st">"week"</span>,</span>
+<span>  calibrate <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="applying-to-annual-data">Applying to Annual Data<a class="anchor" aria-label="anchor" href="#applying-to-annual-data"></a>
+</h3>
+<p>Use <code>anchor = "year"</code> with annual PNADC data (V1032
+weights). Note that <strong>the crosswalk is still built from quarterly
+data</strong> (which contains the birthday variables needed for period
+identification).</p>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Step 1: Build crosswalk from quarterly data</span></span>
+<span><span class="va">quarterly_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="http://www.fstpackage.org/reference/write_fst.html" class="external-link">read_fst</a></span><span class="op">(</span><span class="st">"pnadc_quarterly_stacked.fst"</span>, as.data.table <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">quarterly_data</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Step 2: Load annual data with income variables</span></span>
-<span><span class="va">annual_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"pnadc_annual_visit1_stacked.csv"</span><span class="op">)</span></span>
+<span><span class="va">annual_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="http://www.fstpackage.org/reference/write_fst.html" class="external-link">read_fst</a></span><span class="op">(</span><span class="st">"pnadc_2023_visita1.fst"</span>, as.data.table <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Step 3: Apply crosswalk and calibrate annual weights</span></span>
+<span><span class="co"># Step 3: Apply crosswalk with annual calibration</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span></span>
 <span>  <span class="va">annual_data</span>, <span class="va">crosswalk</span>,</span>
 <span>  weight_var <span class="op">=</span> <span class="st">"V1032"</span>,</span>
 <span>  anchor <span class="op">=</span> <span class="st">"year"</span>,</span>
-<span>  calibrate <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  calibration_unit <span class="op">=</span> <span class="st">"month"</span>,</span>
+<span>  calibrate <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Step 4: Use weight_monthly for monthly income/poverty analysis</span></span>
-<span><span class="va">monthly_income</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
-<span>  mean_income <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/weighted.mean.html" class="external-link">weighted.mean</a></span><span class="op">(</span><span class="va">vd5008</span>, <span class="va">weight_monthly</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co"># Use for monthly income/poverty analysis</span></span>
+<span><span class="va">monthly_income</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_month_in_quarter</span><span class="op">)</span>, <span class="fu">.</span><span class="op">(</span></span>
+<span>  mean_income <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/weighted.mean.html" class="external-link">weighted.mean</a></span><span class="op">(</span><span class="va">VD5008</span>, <span class="va">weight_monthly</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="op">)</span>, by <span class="op">=</span> <span class="va">ref_month_yyyymm</span><span class="op">]</span></span></code></pre></div>
+<p>Annual data can also be calibrated at fortnight or week level by
+changing <code>calibration_unit</code>.</p>
 </div>
 <div class="section level3">
 <h3 id="covid-era-visit-selection">COVID-Era Visit Selection<a class="anchor" aria-label="anchor" href="#covid-era-visit-selection"></a>
@@ -1806,31 +1698,38 @@ vignette.</p>
 <div class="section level3">
 <h3 id="using-modular-functions">Using Modular Functions<a class="anchor" aria-label="anchor" href="#using-modular-functions"></a>
 </h3>
-<p>For more control, use the individual functions:</p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Step 1: Just identify reference months</span></span>
-<span><span class="va">months</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/identify_reference_month.html">identify_reference_month</a></span><span class="op">(</span><span class="va">pnadc</span><span class="op">)</span></span>
+<p>For more control, use the individual identification functions:</p>
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Identify reference months only</span></span>
+<span><span class="va">months</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/identify_reference_month.html">identify_reference_month</a></span><span class="op">(</span><span class="va">pnadc_stacked</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Step 2: Check determination rate by quarter</span></span>
+<span><span class="co"># Identify fortnights only</span></span>
+<span><span class="va">fortnights</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/identify_reference_fortnight.html">identify_reference_fortnight</a></span><span class="op">(</span><span class="va">pnadc_stacked</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Identify weeks only</span></span>
+<span><span class="va">weeks</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/identify_reference_week.html">identify_reference_week</a></span><span class="op">(</span><span class="va">pnadc_stacked</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Check determination rates by quarter</span></span>
 <span><span class="va">months</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
 <span>  total <span class="op">=</span> <span class="va">.N</span>,</span>
 <span>  determined <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_month_in_quarter</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_month_in_quarter</span><span class="op">)</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="op">)</span>, by <span class="op">=</span> <span class="fu">.</span><span class="op">(</span><span class="va">Ano</span>, <span class="va">Trimestre</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="op">)</span>, by <span class="op">=</span> <span class="fu">.</span><span class="op">(</span><span class="va">Ano</span>, <span class="va">Trimestre</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="validation-and-population-data">Validation and Population Data<a class="anchor" aria-label="anchor" href="#validation-and-population-data"></a>
+</h3>
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Validate input data before processing</span></span>
+<span><span class="va">validation</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/validate_pnadc.html">validate_pnadc</a></span><span class="op">(</span><span class="va">pnadc_stacked</span>, stop_on_error <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Step 3: Validate input data</span></span>
-<span><span class="va">validation</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/validate_pnadc.html">validate_pnadc</a></span><span class="op">(</span><span class="va">pnadc</span>, stop_on_error <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Step 4: Fetch population data from SIDRA-IBGE manually</span></span>
+<span><span class="co"># Fetch population data from SIDRA-IBGE manually (for inspection)</span></span>
 <span><span class="va">pop_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fetch_monthly_population.html">fetch_monthly_population</a></span><span class="op">(</span>verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">pop_data</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Step 5: For weight calibration, use pnadc_apply_periods() (recommended)</span></span>
-<span><span class="co"># The standalone calibrate_monthly_weights() requires manual data preparation</span></span>
-<span><span class="co"># and is intended for advanced use cases only</span></span>
-<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">months</span>,</span>
-<span>                               weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
-<span>                               anchor <span class="op">=</span> <span class="st">"quarter"</span>,</span>
-<span>                               calibrate <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Note: pnadc_apply_periods() fetches population data automatically</span></span>
+<span><span class="co"># when calibrate = TRUE. Manual fetching is only needed for inspection</span></span>
+<span><span class="co"># or custom calibration workflows.</span></span></code></pre></div>
 <hr>
 </div>
 </div>
@@ -1962,7 +1861,7 @@ month is enough.</p></li>
 <p><strong>Check determination rates by year</strong>: Monthly rates
 should be 97-99% for 2013-2019. Lower rates may indicate data
 issues.</p>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">crosswalk</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span>rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_month_in_quarter</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>, by <span class="op">=</span> <span class="fu">.</span><span class="op">(</span><span class="va">Ano</span>, <span class="va">Trimestre</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
 </li>
 <li><p><strong>Handle indeterminate observations</strong>: Decide
@@ -1983,7 +1882,7 @@ vignette.</p>
 <div class="section level3">
 <h3 id="scenario-monthly-unemployment-analysis-2019-2024">Scenario: Monthly Unemployment Analysis (2019-2024)<a class="anchor" aria-label="anchor" href="#scenario-monthly-unemployment-analysis-2019-2024"></a>
 </h3>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/mensalizePNADC/">PNADCperiods</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span>
 <span></span>
@@ -2030,12 +1929,6 @@ vignette.</p>
 <span>  det_fortnight <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_fortnight</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span>  det_week <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_week</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="op">)</span>, by <span class="op">=</span> <span class="va">Ano</span><span class="op">]</span></span>
-<span></span>
-<span><span class="co"># Expected output:</span></span>
-<span><span class="co">#    Ano        n det_month det_fortnight det_week</span></span>
-<span><span class="co"># 1: 2019  2284532      97.2           4.1      1.3</span></span>
-<span><span class="co"># 2: 2020  2156789      96.1           3.8      1.1</span></span>
-<span><span class="co"># ...</span></span>
 <span></span>
 <span><span class="co"># =============================================================================</span></span>
 <span><span class="co"># STEP 4: Apply crosswalk and calibrate monthly weights</span></span>

@@ -189,13 +189,13 @@ for (i in 1:nrow(editions)) {
 cat("Total observations:", format(nrow(pnadc_stacked), big.mark = ","), "\n")
 ```
 
-Expected output:
+Output (from real PNADC 2020-2024 data):
 ```
 Loading: pnadc_2020-1q.fst
 Loading: pnadc_2020-2q.fst
 ...
-Loading: pnadc_2024-3q.fst
-Total observations: 10,847,562
+Loading: pnadc_2024-4q.fst
+Total observations: 8,868,247
 ```
 
 ## Step 5: Apply Mensalization
@@ -221,24 +221,24 @@ result <- pnadc_apply_periods(
 )
 ```
 
-Expected output:
+Output (from real PNADC 2020-2024 data):
 ```
 Building reference period crosswalk...
-  Step 1/3: Identifying reference months...
-    -> Month determination rate: 97.0%
-  Step 2/3: Identifying reference fortnights...
-    -> Fortnight determination rate: 88.2%
-  Step 3/3: Identifying reference weeks...
-    -> Week determination rate: 62.1%
+  Preprocessing data (shared computation)...
+  Converting date bounds to period positions...
+  Aggregating constraints and determining periods...
+  Applying exception rules...
+  Assigning reference periods...
+  Building crosswalk...
 
 Crosswalk complete:
-  - 10,523,189 unique household-quarter observations
-  - Month determination: 97.0%
-  - Fortnight determination: 88.2%
-  - Week determination: 62.1%
+  - 3,159,265 unique household-quarter observations
+  - Month determination: 94.2%
+  - Fortnight determination: 2.8%
+  - Week determination: 0.9%
 ```
 
-The determination rate tells you what percentage of observations have their reference period identified. With 19 quarters stacked, you should achieve approximately 97% for months.
+The determination rate tells you what percentage of observations have their reference period identified. With 20 quarters stacked (2020-2024), we achieve 94.2% for months.
 
 ## Step 6: Explore the Results
 
@@ -254,16 +254,16 @@ result |>
   mutate(pct = n / sum(n) * 100)
 ```
 
-Expected output:
+Output (from real PNADC 2020-2024 data):
 ```
-# A tibble: 4 x 3
-  ref_month_in_quarter       n   pct
-                 <int>   <int> <dbl>
-1                    1 3516234  32.4
-2                    2 3498721  32.3
-3                    3 3508234  32.3
-4                   NA  324373   3.0
+   ref_month_in_quarter       N   pct
+1:                    1 1020409  32.3
+2:                    2  965613  30.6
+3:                    3  990865  31.4
+4:                   NA  182378   5.8
 ```
+
+The distribution is approximately equal across months 1, 2, and 3 (each around 31-32%), with 5.8% having `NA` for indeterminate cases (this is higher than the ~3% seen with full 2012-2025 data because boundary quarters have lower determination rates).
 
 The output columns include:
 
