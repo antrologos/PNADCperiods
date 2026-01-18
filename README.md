@@ -17,8 +17,9 @@ The `PNADCperiods` package identifies reference periods (months, fortnights, wee
 **Why sub-quarterly analysis?** PNADC quarterly statistics are actually moving averages of three months. This package recovers the specific period each observation refers to, enabling true monthly (or finer) labor market analysis.
 
 - **~97% monthly determination rate** when using stacked multi-quarter data
-- **~2-5% fortnightly determination rate** (within-quarter constraints only)
-- **~1-2% weekly determination rate** (within-quarter constraints only)
+- **~8% strict fortnightly rate** (within-quarter constraints only)
+- **~2% strict weekly rate** (within-quarter constraints only)
+- **Experimental strategies** can boost fortnight to ~58% and week to ~14% (UPA aggregation)
 - **Validated methodology** based on Hecksher (2024)
 - **Fast**: ~1 minute for 28M rows
 
@@ -97,10 +98,25 @@ For complete examples, see the [Get Started guide](https://antrologos.github.io/
 
 The `pnadc_experimental_periods()` function provides experimental strategies to improve fortnight and week determination rates:
 
-- **Probabilistic assignment**: When the date range spans only 2 possible periods, assigns the most likely one based on date midpoint (with confidence scores)
-- **UPA aggregation**: Aggregates constraints at UPA level (experimental)
+| Strategy | Fortnight % | Week % | Notes |
+|----------|-------------|--------|-------|
+| Strict only | 7.64% | 1.54% | Baseline |
+| + Probabilistic | 13.61% | 1.82% | Adds confidence scores |
+| + UPA aggregation | **57.69%** | **14.36%** | Best coverage |
+| + Both | **60.33%** | **14.60%** | Maximum coverage |
 
-These features are marked experimental and may change in future versions.
+**Key finding:** UPA homogeneity rate = 100% for both fortnights and weeks. This means when any household in a UPA has a determined period, ALL households with determined periods in that UPA have the SAME period.
+
+```r
+# Apply experimental strategies
+crosswalk_exp <- pnadc_experimental_periods(
+  crosswalk,
+  pnadc_stacked,
+  strategy = "upa_aggregation"  # or "probabilistic" or "both"
+)
+```
+
+These features are marked experimental and may change in future versions. See the [Benchmark Report](https://antrologos.github.io/mensalizePNADC/articles/determination-rates-benchmark.html) for detailed results.
 
 ## Documentation
 
@@ -112,6 +128,7 @@ These features are marked experimental and may change in future versions.
 | [How It Works](https://antrologos.github.io/mensalizePNADC/articles/how-it-works.html) | Algorithm details |
 | [Annual Poverty Analysis](https://antrologos.github.io/mensalizePNADC/articles/annual-poverty-analysis.html) | Using annual visit data |
 | [Complex Survey Design](https://antrologos.github.io/mensalizePNADC/articles/complex-survey-design.html) | Survey design considerations |
+| [Benchmark Report](https://antrologos.github.io/mensalizePNADC/articles/determination-rates-benchmark.html) | Determination rates on complete PNADC data |
 | [Reference](https://antrologos.github.io/mensalizePNADC/reference/index.html) | Function documentation |
 
 ## Citation

@@ -15,11 +15,13 @@ Description: Identifies reference periods (months, fortnights, and weeks) in
     sub-quarterly analysis. The core algorithm uses IBGE's "Parada Tecnica"
     (technical break) rules combined with respondent birthdates to determine
     which temporal period each survey observation refers to. Achieves ~97%
-    monthly determination rate when using stacked multi-quarter data. Fortnight
-    and week determination rates are lower (~2-5% and ~1-2% respectively) as
-    they cannot leverage cross-quarter panel aggregation. For users needing
-    sub-quarterly aggregate estimates, the package provides hierarchical weight
-    calibration to produce period-appropriate survey weights.
+    monthly determination rate when using stacked multi-quarter data. Strict
+    fortnight and week determination rates are lower (~8% and ~2% respectively)
+    as they cannot leverage cross-quarter panel aggregation. Experimental
+    strategies (UPA aggregation) can boost fortnight rates to ~58% and week
+    rates to ~14%. For users needing sub-quarterly aggregate estimates, the
+    package provides hierarchical weight calibration to produce period-appropriate
+    survey weights.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

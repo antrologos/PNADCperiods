@@ -327,10 +327,12 @@ Cross-quarter aggregation:
 
 | Processing Mode | Month Rate | Fortnight Rate | Week Rate |
 |-----------------|------------|----------------|-----------|
-| Single quarter | 65-75% | ~2-5% | ~1-2% |
-| Stacked (2+ years) | **~97%** | ~2-5% | ~1-2% |
+| Single quarter | 65-75% | ~3% | ~1% |
+| Stacked (2+ years) | **~97%** | ~8% | ~2% |
 
-**Important:** Fortnight and week determination rates remain low (~2-5% and ~1-2%) regardless of stacking because their constraints cannot aggregate across quarters—each quarter's interview timing is independent at the sub-monthly level. Only month determination benefits from cross-quarter aggregation through the rotating panel design.
+**Important:** Strict fortnight and week determination rates remain low (~8% and ~2%) regardless of stacking because their constraints cannot aggregate across quarters—each quarter's interview timing is independent at the sub-monthly level. Only month determination benefits from cross-quarter aggregation through the rotating panel design.
+
+**Experimental strategies:** The `pnadc_experimental_periods()` function can boost fortnight rates to ~58% and week rates to ~14% using UPA aggregation. See the [Benchmark Report](determination-rates-benchmark.html) for details.
 
 ### What Makes Observations Indeterminate?
 
@@ -345,6 +347,43 @@ For the full algorithm explanation, see [How PNADCperiods Works](how-it-works.ht
 
 ---
 
+## Experimental Strategies for Improved Rates
+
+For fortnight and week analysis, experimental strategies can significantly improve determination rates:
+
+```{r experimental}
+# Build standard crosswalk first
+crosswalk <- pnadc_identify_periods(pnadc_stacked)
+
+# Apply experimental UPA aggregation strategy
+crosswalk_exp <- pnadc_experimental_periods(
+  crosswalk,
+  pnadc_stacked,
+  strategy = "upa_aggregation"  # or "probabilistic" or "both"
+)
+
+# Check improvement
+crosswalk_exp[, .(
+  fortnight_strict = mean(determined_fortnight),
+  fortnight_upa = mean(determined_fortnight | !is.na(ref_fortnight_upa)),
+  week_strict = mean(determined_week),
+  week_upa = mean(determined_week | !is.na(ref_week_upa))
+)]
+```
+
+| Strategy | Fortnight % | Week % | Notes |
+|----------|-------------|--------|-------|
+| Strict only | 7.64% | 1.54% | Baseline |
+| + Probabilistic | 13.61% | 1.82% | Adds confidence scores |
+| + UPA aggregation | **57.69%** | **14.36%** | Best coverage |
+| + Both | **60.33%** | **14.60%** | Maximum coverage |
+
+**Key finding:** UPA homogeneity rate = 100%. When any household in a UPA has a strictly determined period, ALL households with determined periods in that UPA have the SAME period.
+
+See the [Benchmark Report](determination-rates-benchmark.html) for detailed methodology and results.
+
+---
+
 ## Next Steps
 
 - **Download PNADC data**: See [Download and Prepare Data](download-and-prepare.html) for a complete workflow to download and stack quarterly microdata from IBGE.
@@ -352,6 +391,8 @@ For the full algorithm explanation, see [How PNADCperiods Works](how-it-works.ht
 - **Analysis examples**: See [Applied Examples](applied-examples.html) for real-world labor market analysis comparing monthly vs quarterly data, including COVID unemployment and minimum wage validation.
 
 - **Annual PNADC data**: Working with annual income data? See [Monthly Poverty Analysis with Annual PNADC Data](annual-poverty-analysis.html) for the workflow using annual data.
+
+- **Benchmark report**: See [Determination Rates Benchmark](determination-rates-benchmark.html) for comprehensive benchmarks on complete 2012-2025 PNADC data.
 
 - **Function reference**: Browse the [Reference](../reference/index.html) for documentation of all exported functions.
 
@@ -388,7 +429,11 @@ pnadc_apply_periods(
 | Metric | Value |
 |--------|-------|
 | Month determination rate | **~97%** (on stacked data) |
-| Fortnight determination rate | ~2-5% |
-| Week determination rate | ~1-2% |
+| Fortnight determination rate (strict) | ~8% |
+| Week determination rate (strict) | ~2% |
+| Fortnight rate (+ UPA aggregation) | **~58%** |
+| Week rate (+ UPA aggregation) | **~14%** |
 | Processing time (identification) | ~1 minute for 28M rows |
 | Processing time (with calibration) | ~5 minutes for 28M rows |
+
+See the [Benchmark Report](determination-rates-benchmark.html) for comprehensive benchmarks on 2012-2025 data.

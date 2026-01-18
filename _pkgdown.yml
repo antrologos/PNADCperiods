@@ -25,6 +25,9 @@ navbar:
         href: articles/complex-survey-design.html
       - text: How PNADCperiods Works
         href: articles/how-it-works.html
+      - text: "---"
+      - text: Benchmark Report
+        href: articles/determination-rates-benchmark.html
 
 articles:
 - title: ~
@@ -40,6 +43,10 @@ articles:
   - annual-poverty-analysis
   - complex-survey-design
   - how-it-works
+
+- title: Benchmarks
+  contents:
+  - determination-rates-benchmark
 
 reference:
 - title: Main Functions
