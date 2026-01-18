@@ -71,6 +71,11 @@ reference:
   contents:
   - validate_pnadc
 
+- title: Experimental
+  desc: Experimental strategies for improved period identification
+  contents:
+  - pnadc_experimental_periods
+
 home:
   links:
   - text: Original methodology (Hecksher 2024)
