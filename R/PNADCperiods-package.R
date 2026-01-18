@@ -120,5 +120,21 @@ utils::globalVariables(c(
   # Smoothing variables
   "period_pos", "i.pos", "cell_pop", "pop_smoothed", "pop_lag", "pop_lead",
   "smooth_factor", "i.smooth_factor", "pop_orig", "pop_new", "final_factor",
-  "i.final_factor"
+  "i.final_factor",
+  # Month-conditional refinement variables
+  "month_num_temp", "last_day_temp", "month_start_yyyyww", "month_end_yyyyww",
+  # Experimental period identification variables
+  "hh_date_min", "hh_date_max", "fortnight_range", "date_midpoint",
+  "midpoint_day", "boundary_distance",
+  "ref_fortnight_likely", "ref_fortnight_confidence",
+  "ref_week_likely", "ref_week_confidence",
+  "ref_fortnight_upa", "ref_week_upa",
+  "consensus_fortnight", "consensus_week", "n_unique", "n_households",
+  "i.hh_date_min", "i.hh_date_max", "i.hh_fortnight_min", "i.hh_fortnight_max",
+  "i.fortnight_range", "i.consensus_fortnight", "i.consensus_week",
+  "needs_reagg",
+  # Week probabilistic strategy variables
+  "hh_week_min_yyyyww", "hh_week_max_yyyyww",
+  "hh_week_min_seq", "hh_week_max_seq", "week_range",
+  "midpoint_week_yyyyww", "week_boundary_distance"
 ))

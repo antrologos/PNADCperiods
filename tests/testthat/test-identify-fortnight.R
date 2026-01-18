@@ -353,3 +353,57 @@ test_that("identify_reference_fortnight does NOT aggregate across quarters", {
   # Should have one row per household-quarter (4 quarters)
   expect_equal(nrow(result), 4L)
 })
+
+# =============================================================================
+# OUT-OF-QUARTER VALIDATION TESTS (Bug fix verification)
+# =============================================================================
+
+test_that("date_to_fortnight_in_quarter returns NA for dates outside quarter", {
+  # April date with Q1 should return NA (April is in Q2)
+  date_q2_in_q1 <- as.Date("2024-04-15")
+  expect_true(is.na(PNADCperiods:::date_to_fortnight_in_quarter(date_q2_in_q1, 1L)))
+
+  # December date with Q1 should return NA
+  date_q4_in_q1 <- as.Date("2024-12-25")
+  expect_true(is.na(PNADCperiods:::date_to_fortnight_in_quarter(date_q4_in_q1, 1L)))
+
+  # January date with Q2 should return NA
+  date_q1_in_q2 <- as.Date("2024-01-15")
+  expect_true(is.na(PNADCperiods:::date_to_fortnight_in_quarter(date_q1_in_q2, 2L)))
+
+  # July date with Q4 should return NA
+  date_q3_in_q4 <- as.Date("2024-07-20")
+  expect_true(is.na(PNADCperiods:::date_to_fortnight_in_quarter(date_q3_in_q4, 4L)))
+})
+
+test_that("date_to_fortnight_in_quarter handles quarter boundaries correctly", {
+  # Last day of Q1 (March 31) should be valid for Q1
+  date_q1_end <- as.Date("2024-03-31")
+  expect_equal(PNADCperiods:::date_to_fortnight_in_quarter(date_q1_end, 1L), 6L)
+
+  # First day of Q2 (April 1) should be NA for Q1
+  date_q2_start <- as.Date("2024-04-01")
+  expect_true(is.na(PNADCperiods:::date_to_fortnight_in_quarter(date_q2_start, 1L)))
+
+  # First day of Q2 should be valid for Q2
+  expect_equal(PNADCperiods:::date_to_fortnight_in_quarter(date_q2_start, 2L), 1L)
+})
+
+test_that("date_to_fortnight_in_quarter handles vector with mixed in/out of quarter", {
+  dates <- as.Date(c("2024-01-15", "2024-04-15", "2024-02-20", "2024-07-01"))
+  quarters <- rep(1L, 4)
+
+  positions <- PNADCperiods:::date_to_fortnight_in_quarter(dates, quarters)
+
+  # Jan 15 in Q1 = position 1
+  expect_equal(positions[1], 1L)
+
+  # Apr 15 in Q1 = NA (outside quarter)
+  expect_true(is.na(positions[2]))
+
+  # Feb 20 in Q1 = position 4
+  expect_equal(positions[3], 4L)
+
+  # Jul 1 in Q1 = NA (outside quarter)
+  expect_true(is.na(positions[4]))
+})

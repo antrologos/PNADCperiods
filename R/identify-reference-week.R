@@ -286,27 +286,44 @@ identify_reference_week <- function(data, verbose = TRUE, .pb = NULL, .pb_offset
   update_pb(5)
 
   # ============================================================================
-  # STEP 6: Dynamic exception detection and application
+  # STEP 6: Dynamic exception detection (fallback to min_days=3 rule)
   # ============================================================================
+  #
+  # IBGE's "Parada Tecnica" defines two rules for first valid Saturday:
+  #   - Standard rule: First Saturday with >= 4 days in the month
+  #   - Exception rule: First Saturday with >= 3 days in the month
+  #
+  # The exception rule is a fallback used when standard rules produce an
+  # impossible result (hh_week_min > hh_week_max after birthday constraints
+  # are applied). This can happen in edge cases where the standard Saturday
+  # selection creates contradictory date bounds.
+  #
+  # When ANY household in a quarter requires the exception, we apply it
+  # to the ENTIRE quarter for consistency - this follows how IBGE applies
+  # exceptions at the quarter level in their methodology.
+  #
+  # The detection logic:
+  #   1. requires_exception = TRUE if standard rules are impossible BUT
+  #      alternative (min_days=3) rules would be valid
+  #   2. If any household in the quarter requires exception, all use it
+  #   3. The alternative bounds (alt_hh_*) replace standard bounds
 
-  # An observation requires exception if:
-  # 1. Standard rules produce impossible result (hh_week_min > hh_week_max)
-  # 2. Alternative rules would produce valid result (alt_hh_week_min <= alt_hh_week_max)
+  # Check if standard rules produce impossible result but alt rules work
   dt[, requires_exception := (
     hh_week_min > hh_week_max &
     alt_hh_week_min <= alt_hh_week_max
   )]
 
-  # Propagate exception requirement to entire quarter
+  # Propagate exception to entire quarter for consistency
   dt[, trim_has_exception := as.integer(sum(requires_exception, na.rm = TRUE) > 0L),
      by = .(Ano, Trimestre)]
 
-  # Apply exception rules where needed
+  # Apply exception rules (fallback to min_days=3) where needed
   exc_condition <- (dt$trim_has_exception == 1L)
   has_any_exception <- any(exc_condition)
 
   if (has_any_exception) {
-    # For quarters with exceptions, use alternative bounds
+    # Replace standard bounds with alternative bounds for entire quarter
     dt[exc_condition, `:=`(
       hh_week_min = alt_hh_week_min,
       hh_week_max = alt_hh_week_max

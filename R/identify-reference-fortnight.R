@@ -250,20 +250,39 @@ identify_reference_fortnight <- function(data, verbose = TRUE, .pb = NULL, .pb_o
   update_pb(5)
 
   # ============================================================================
-  # STEP 6: Dynamic exception detection
+  # STEP 6: Dynamic exception detection (fallback to min_days=3 rule)
   # ============================================================================
+  #
+  # IBGE's "Parada Tecnica" defines two rules for first valid Saturday:
+  #   - Standard rule: First Saturday with >= 4 days in the month
+  #   - Exception rule: First Saturday with >= 3 days in the month
+  #
+  # The exception rule is a fallback used when standard rules produce an
+  # impossible result (hh_fortnight_min > hh_fortnight_max after birthday
+  # constraints are applied). This can happen in edge cases where the
+  # standard Saturday selection creates contradictory date bounds.
+  #
+  # When ANY household in a quarter requires the exception, we apply it
+  # to the ENTIRE quarter for consistency - this follows how IBGE applies
+  # exceptions at the quarter level in their methodology.
+  #
+  # The detection logic:
+  #   1. requires_exception = TRUE if standard rules are impossible BUT
+  #      alternative (min_days=3) rules would be valid
+  #   2. If any household in the quarter requires exception, all use it
+  #   3. The alternative bounds (alt_hh_*) replace standard bounds
 
-  # Check if standard rules produce impossible result
+  # Check if standard rules produce impossible result but alt rules work
   dt[, requires_exception := (
     hh_fortnight_min > hh_fortnight_max &
     alt_hh_fortnight_min <= alt_hh_fortnight_max
   )]
 
-  # Propagate exception to entire quarter
+  # Propagate exception to entire quarter for consistency
   dt[, trim_has_exception := as.integer(sum(requires_exception, na.rm = TRUE) > 0L),
      by = .(Ano, Trimestre)]
 
-  # Apply exception rules where needed
+  # Apply exception rules (fallback to min_days=3) where needed
   exc_condition <- (dt$trim_has_exception == 1L)
   has_any_exception <- any(exc_condition)
 
@@ -281,7 +300,7 @@ identify_reference_fortnight <- function(data, verbose = TRUE, .pb = NULL, .pb_o
   update_pb(6)
 
   # ============================================================================
-  # STEP 7: Assign reference fortnight
+  # STEP 7: Assign reference fortnight and select output columns
   # ============================================================================
 
   # Assign if min == max
@@ -301,10 +320,6 @@ identify_reference_fortnight <- function(data, verbose = TRUE, .pb = NULL, .pb_o
   # Calculate ref_fortnight Date (1st or 16th of month)
   dt[, ref_fortnight := as.Date(NA)]
   dt[!is.na(ref_fortnight_yyyyff), ref_fortnight := yyyyff_to_date(ref_fortnight_yyyyff)]
-
-  # ============================================================================
-  # STEP 8: Select output columns
-  # ============================================================================
 
   # Clean up intermediate columns
   temp_cols <- c(
@@ -351,8 +366,12 @@ date_to_fortnight_in_quarter <- function(date, quarter) {
   month <- fast_month(date)
   day <- fast_mday(date)
 
-  # First month of quarter
+  # First and last month of quarter
   first_month <- quarter_first_month(quarter)
+  last_month <- first_month + 2L
+
+  # Check if date is within the quarter
+  in_quarter <- month >= first_month & month <= last_month
 
   # Month position in quarter (1, 2, or 3)
   month_in_quarter <- month - first_month + 1L
@@ -363,7 +382,8 @@ date_to_fortnight_in_quarter <- function(date, quarter) {
   # Position in quarter (1-6)
   pos <- (month_in_quarter - 1L) * 2L + fortnight_in_month
 
-  pmin(pmax(pos, 1L), 6L)
+  # Return NA for dates outside the quarter
+  fifelse(in_quarter, pos, NA_integer_)
 }
 
 

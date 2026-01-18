@@ -424,6 +424,59 @@ pnadc_identify_periods <- function(data, verbose = TRUE) {
         date_max, Ano, Trimestre, trim_exc_m1, trim_exc_m2, trim_exc_m3
       )
     )]
+
+    # --------------------------------------------------------------------------
+    # UNIFIED EXCEPTION HANDLING: Recalculate fortnight/week positions using
+    # corrected dates (same exception rules as months)
+    # --------------------------------------------------------------------------
+    #
+    # KEY PRINCIPLE: When a month requires an exception (fallback to min_days=3
+    # rule), the same corrected date bounds should be used for determining
+    # fortnights and weeks. This ensures consistency across all three time
+    # granularities.
+    #
+    # Without this, we would have contradictory results where a month is
+    # determined using exception rules but the corresponding fortnight/week
+    # calculations still use standard rules with invalid bounds.
+    #
+    # After recalculating positions, we re-aggregate at household level for
+    # all households in affected quarters (not just the exception rows, since
+    # household members share interview timing constraints).
+
+    # Recalculate fortnight positions for exception rows using corrected dates
+    dt[exc_condition, `:=`(
+      fortnight_min_pos = date_to_fortnight_in_quarter(date_min, Trimestre),
+      fortnight_max_pos = date_to_fortnight_in_quarter(date_max, Trimestre)
+    )]
+
+    # Recalculate week positions for exception rows using corrected dates
+    dt[exc_condition, `:=`(
+      week_min_yyyyww = date_to_yyyyww(date_min),
+      week_max_yyyyww = date_to_yyyyww(date_max)
+    )]
+
+    # Re-aggregate fortnight/week at household level for affected quarters
+    # Must aggregate ALL households in the affected quarters (not just exc_condition rows)
+    # because some household members may have different positions
+    affected_quarters <- unique(dt[exc_condition, .(Ano, Trimestre)])
+
+    for (i in seq_len(nrow(affected_quarters))) {
+      aq <- affected_quarters[i]
+      dt[Ano == aq$Ano & Trimestre == aq$Trimestre, `:=`(
+        hh_fortnight_min = max(fortnight_min_pos, na.rm = TRUE),
+        hh_fortnight_max = min(fortnight_max_pos, na.rm = TRUE),
+        hh_week_min = max(week_min_yyyyww, na.rm = TRUE),
+        hh_week_max = min(week_max_yyyyww, na.rm = TRUE)
+      ), by = .(UPA, V1008)]
+    }
+
+    # Handle infinite values from re-aggregation
+    for (col in c("hh_fortnight_min", "hh_fortnight_max", "hh_week_min", "hh_week_max")) {
+      inf_idx <- which(is.infinite(dt[[col]]))
+      if (length(inf_idx) > 0L) {
+        data.table::set(dt, i = inf_idx, j = col, value = NA_integer_)
+      }
+    }
   }
 
   # --------------------------------------------------------------------------
@@ -448,10 +501,28 @@ pnadc_identify_periods <- function(data, verbose = TRUE) {
   }
 
   # --------------------------------------------------------------------------
-  # 6b: Exception detection for FORTNIGHT and WEEK (simpler logic)
+  # 6b: FALLBACK exception detection for FORTNIGHT and WEEK
   # --------------------------------------------------------------------------
+  #
+  # This handles rare edge cases where:
+  #   - Month bounds were valid with standard rules (no month exception)
+  #   - But fortnight/week bounds are invalid (min > max)
+  #   - And alternative bounds (min_days=3) would be valid
+  #
+  # This can occur because:
+  #   - Months aggregate at UPA-V1014 level across ALL quarters
+  #   - Fortnights/weeks aggregate at household level within SINGLE quarter
+  #   - The different aggregation scopes can produce different constraint sets
+  #
+  # The unified exception handling above (within has_any_exception block)
+  # is the PRIMARY source of consistency. This is a SAFETY NET for edge cases
+  # where month-level exception detection didn't trigger but fortnight/week
+  # still has invalid bounds.
+  #
+  # Uses same logic as standalone identify_reference_fortnight/week functions:
+  # propagate exception to entire quarter if any household requires it.
 
-  # Fortnight exceptions
+  # Fortnight exceptions (fallback - applies min_days=3 rule)
   dt[, requires_exc_fortnight := (
     hh_fortnight_min > hh_fortnight_max &
     alt_hh_fortnight_min <= alt_hh_fortnight_max
@@ -522,6 +593,47 @@ pnadc_identify_periods <- function(data, verbose = TRUE) {
   dt[upa_month_min_final == upa_month_max_final &
        upa_month_min_final >= 1L & upa_month_max_final <= 3L,
      ref_month_in_quarter := upa_month_min_final]
+
+  # --------------------------------------------------------------------------
+  # MONTH-CONDITIONAL REFINEMENT: Use determined month to constrain fortnights/weeks
+  # Key insight: Once month is determined (~97%), fortnight search reduces from
+  # 6 to 2 positions, and week search reduces from ~13 to ~4 positions.
+  # --------------------------------------------------------------------------
+
+  # Fortnight refinement based on determined month:
+  # Month 1 → fortnights 1-2; Month 2 → fortnights 3-4; Month 3 → fortnights 5-6
+  dt[!is.na(ref_month_in_quarter), `:=`(
+    hh_fortnight_min = pmax(hh_fortnight_min, (ref_month_in_quarter - 1L) * 2L + 1L, na.rm = TRUE),
+    hh_fortnight_max = pmin(hh_fortnight_max, ref_month_in_quarter * 2L, na.rm = TRUE)
+  )]
+
+  # Week refinement based on determined month:
+  # Approximate mapping: Month 1 → weeks 1-4, Month 2 → weeks 5-9, Month 3 → weeks 10-14
+  # We constrain by converting month boundaries to YYYYWW format
+  # Use actual last day of month (not fixed 28) to handle all months correctly
+  days_in_month <- c(31L, 28L, 31L, 30L, 31L, 30L, 31L, 31L, 30L, 31L, 30L, 31L)
+  dt[!is.na(ref_month_in_quarter), `:=`(
+    month_num_temp = quarter_month_n(Trimestre, ref_month_in_quarter)
+  )]
+  dt[!is.na(ref_month_in_quarter), `:=`(
+    # Handle leap years for February using is_leap_year() utility
+    last_day_temp = fifelse(month_num_temp == 2L & is_leap_year(Ano),
+                            29L, days_in_month[month_num_temp])
+  )]
+  dt[!is.na(ref_month_in_quarter), `:=`(
+    month_start_yyyyww = date_to_yyyyww(make_date(Ano, month_num_temp, 1L)),
+    month_end_yyyyww = date_to_yyyyww(make_date(Ano, month_num_temp, last_day_temp))
+  )]
+
+  # Apply week constraints using YYYYWW format (lexicographically correct)
+  dt[!is.na(ref_month_in_quarter), `:=`(
+    hh_week_min = pmax(hh_week_min, month_start_yyyyww, na.rm = TRUE),
+    hh_week_max = pmin(hh_week_max, month_end_yyyyww, na.rm = TRUE)
+  )]
+
+  # Clean up temporary columns (use intersect pattern for robustness)
+  temp_week_cols <- c("month_start_yyyyww", "month_end_yyyyww", "month_num_temp", "last_day_temp")
+  dt[, (intersect(temp_week_cols, names(dt))) := NULL]
 
   # Fortnight: determined if min == max
   dt[, ref_fortnight_in_quarter := NA_integer_]
