@@ -53,8 +53,22 @@ devtools::install("mensalizePNADC", dependencies = FALSE)  # Install locally
 pkgdown::build_site("mensalizePNADC")  # Rebuild docs locally
 ```
 
-pkgdown site rebuilds automatically via GitHub Actions on push to master:
-https://antrologos.github.io/mensalizePNADC/
+### GitHub Pages Deployment
+
+**CRITICAL:** The pkgdown site publishes from the `refactor/pnadc-periods` branch, NOT master/main.
+
+To update the online documentation:
+```bash
+cd "D:\Dropbox\Artigos\mensalizacao_pnad\mensalizePNADC"
+pkgdown::build_site()  # Build locally first
+git add .
+git commit -m "Update documentation"
+git push origin refactor/pnadc-periods  # Push to this branch - site rebuilds automatically
+```
+
+**Do NOT merge to master** - the GitHub Actions workflow triggers on push to `refactor/pnadc-periods`.
+
+Site URL: https://antrologos.github.io/mensalizePNADC/
 
 ## Source Files
 
