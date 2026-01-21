@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">PNADCperiods</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -44,7 +44,7 @@
 
 <div id="pnadcperiods---architecture-documentation" class="section level1">
 
-<p>This document describes the implemented architecture of the PNADCperiods package (v2.0.0).</p>
+<p>This document describes the implemented architecture of the PNADCperiods package (v2.1.0).</p>
 <div class="section level2">
 <h2 id="package-overview">Package Overview<a class="anchor" aria-label="anchor" href="#package-overview"></a></h2>
 <p><strong>Package name:</strong> <code>PNADCperiods</code> <strong>Purpose:</strong> Identify reference periods (months, fortnights, weeks) in Brazil’s PNADC survey data and optionally calibrate weights for sub-quarterly analysis.</p>
@@ -56,7 +56,7 @@
 <table class="table"><colgroup><col width="52%"><col width="47%"></colgroup><thead><tr><th>Function</th>
 <th>Purpose</th>
 </tr></thead><tbody><tr><td><code><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods()</a></code></td>
-<td>Build crosswalk with month/fortnight/week identification</td>
+<td>Build crosswalk with nested month/fortnight/week identification</td>
 </tr><tr><td><code><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code></td>
 <td>Apply crosswalk to data + optional weight calibration</td>
 </tr></tbody></table></div>
@@ -74,9 +74,34 @@
 <td>Fetch population from SIDRA API</td>
 </tr><tr><td><code><a href="reference/validate_pnadc.html">validate_pnadc()</a></code></td>
 <td>Input validation</td>
+</tr><tr><td><code><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code></td>
+<td>Experimental probabilistic period assignment</td>
 </tr><tr><td><code><a href="reference/calibrate_monthly_weights.html">calibrate_monthly_weights()</a></code></td>
 <td>Legacy monthly calibration (use <code><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code> instead)</td>
 </tr></tbody></table></div>
+</div>
+<div class="section level2">
+<h2 id="nested-identification-strategy">Nested Identification Strategy<a class="anchor" aria-label="anchor" href="#nested-identification-strategy"></a></h2>
+<p>The package uses a <strong>nested identification hierarchy</strong>:</p>
+<pre><code>Month → Fortnight → Week</code></pre>
+<p><strong>Key principle:</strong> A finer period can only be determined if its parent period is determined.</p>
+<table class="table"><thead><tr><th>Phase</th>
+<th>Period</th>
+<th>Requires</th>
+<th>Aggregation Level</th>
+</tr></thead><tbody><tr><td>1</td>
+<td>Month</td>
+<td>-</td>
+<td>UPA-V1014 across ALL quarters</td>
+</tr><tr><td>2</td>
+<td>Fortnight</td>
+<td>Month determined</td>
+<td>Household within quarter</td>
+</tr><tr><td>3</td>
+<td>Week</td>
+<td>Fortnight determined</td>
+<td>Household within quarter</td>
+</tr></tbody></table><p>This nesting ensures logical consistency: you cannot know which week without knowing which fortnight, and you cannot know which fortnight without knowing which month.</p>
 </div>
 <div class="section level2">
 <h2 id="crosswalk-structure">Crosswalk Structure<a class="anchor" aria-label="anchor" href="#crosswalk-structure"></a></h2>
@@ -147,58 +172,143 @@
 <td>Aggregates at UPA-V1014 level across ALL quarters (panel design)</td>
 </tr><tr><td>Fortnight</td>
 <td>~2-5%</td>
-<td>Cannot aggregate across quarters; within-quarter constraints only</td>
+<td>Nested under month; household-level within quarter only</td>
 </tr><tr><td>Week</td>
 <td>~1-2%</td>
-<td>Cannot aggregate across quarters; within-quarter constraints only</td>
-</tr></tbody></table><p><strong>Key insight:</strong> Only month identification benefits from stacking data across quarters. Fortnights and weeks are determined solely from birthday constraints within a single quarter.</p>
+<td>Nested under fortnight; household-level within quarter only</td>
+</tr></tbody></table><p><strong>Key insight:</strong> Only month identification benefits from stacking data across quarters. Fortnights and weeks are determined solely from birthday constraints within a single quarter, AND require their parent period to be determined first.</p>
 </div>
 <div class="section level2">
 <h2 id="file-structure">File Structure<a class="anchor" aria-label="anchor" href="#file-structure"></a></h2>
 <pre><code>R/
-├── pnadc-identify-periods.R      # Main: pnadc_identify_periods()
-├── pnadc-apply-periods.R         # Main: pnadc_apply_periods()
-├── identify-reference-month.R    # Core month algorithm
-├── identify-reference-fortnight.R # Core fortnight algorithm
-├── identify-reference-week.R     # Core week algorithm
-├── calibrate-weights.R           # Legacy calibration
-├── fetch-sidra-population.R      # SIDRA API for population
-├── smooth-aggregates.R           # Smoothing algorithm
-├── utils-dates.R                 # Fast date utilities
-├── utils-validation.R            # Input validation
-└── PNADCperiods-package.R        # Package docs + globalVariables</code></pre>
+├── pnadc-identify-periods.R        # Main: pnadc_identify_periods() - nested 4-phase algorithm
+├── pnadc-apply-periods.R           # Main: pnadc_apply_periods() - includes internal smoothing
+├── identify-reference-month.R      # Core month algorithm with dynamic exceptions
+├── identify-reference-fortnight.R  # Core fortnight algorithm (household-level aggregation)
+├── identify-reference-week.R       # Core week algorithm (household-level aggregation)
+├── experimental-period-identification.R  # pnadc_experimental_periods() - probabilistic strategies
+├── calibrate-weights.R             # Legacy calibration + annual weight calibration
+├── fetch-sidra-population.R        # SIDRA API for population data
+├── utils-dates.R                   # Fast date utilities (lookup tables, ISO week functions)
+├── utils-validation.R              # Input validation utilities
+└── PNADCperiods-package.R          # Package docs + globalVariables</code></pre>
 </div>
 <div class="section level2">
-<h2 id="algorithm-summary">Algorithm Summary<a class="anchor" aria-label="anchor" href="#algorithm-summary"></a></h2>
+<h2 id="algorithm-details">Algorithm Details<a class="anchor" aria-label="anchor" href="#algorithm-details"></a></h2>
 <div class="section level3">
-<h3 id="month-identification-high-rate">Month Identification (High Rate)<a class="anchor" aria-label="anchor" href="#month-identification-high-rate"></a></h3>
-<ol style="list-style-type: decimal"><li>Calculate valid interview Saturdays using IBGE timing rules</li>
+<h3 id="phase-1-month-identification-high-rate">Phase 1: Month Identification (High Rate)<a class="anchor" aria-label="anchor" href="#phase-1-month-identification-high-rate"></a></h3>
+<ol style="list-style-type: decimal"><li>Calculate valid interview Saturdays using IBGE “Parada Técnica” rules</li>
 <li>Apply birthday constraints to narrow date range per person</li>
 <li>Convert dates to month positions (1, 2, 3 in quarter)</li>
 <li>
 <strong>Aggregate at UPA-V1014 level ACROSS ALL QUARTERS</strong> (key optimization)</li>
-<li>Dynamic exception detection for edge cases</li>
-<li>Determine: if min_position == max_position → determined</li>
+<li>Dynamic exception detection for edge cases (relaxed Saturday rules)</li>
+<li>Determine: if <code>min_position == max_position</code> → determined</li>
 </ol></div>
 <div class="section level3">
-<h3 id="fortnightweek-identification-low-rate">Fortnight/Week Identification (Low Rate)<a class="anchor" aria-label="anchor" href="#fortnightweek-identification-low-rate"></a></h3>
-<ol style="list-style-type: decimal"><li>Same steps 1-3 as month</li>
-<li><strong>Aggregate at household level WITHIN QUARTER ONLY</strong></li>
-<li>No cross-quarter aggregation (positions not consistent across visits)</li>
-<li>Determine: if min_position == max_position → determined</li>
+<h3 id="phase-2-fortnight-identification-nested-low-rate">Phase 2: Fortnight Identification (Nested, Low Rate)<a class="anchor" aria-label="anchor" href="#phase-2-fortnight-identification-nested-low-rate"></a></h3>
+<p><strong>Precondition:</strong> Only processes observations with <code>determined_month = TRUE</code></p>
+<ol style="list-style-type: decimal"><li>Constrain fortnight search to within the identified month:
+<ul><li>Month 1 → fortnights 1-2</li>
+<li>Month 2 → fortnights 3-4</li>
+<li>Month 3 → fortnights 5-6</li>
+</ul></li>
+<li>Apply birthday constraints within constrained range</li>
+<li><strong>Aggregate at household level <code>(Ano, Trimestre, UPA, V1008)</code> WITHIN QUARTER</strong></li>
+<li>Dynamic exception detection</li>
+<li>Determine: if <code>min_position == max_position</code> → determined</li>
 </ol></div>
+<div class="section level3">
+<h3 id="phase-3-week-identification-nested-low-rate">Phase 3: Week Identification (Nested, Low Rate)<a class="anchor" aria-label="anchor" href="#phase-3-week-identification-nested-low-rate"></a></h3>
+<p><strong>Precondition:</strong> Only processes observations with <code>determined_fortnight = TRUE</code></p>
+<ol style="list-style-type: decimal"><li>Constrain week search to within the identified fortnight</li>
+<li>Apply birthday constraints within constrained range</li>
+<li><strong>Aggregate at household level <code>(Ano, Trimestre, UPA, V1008)</code> WITHIN QUARTER</strong></li>
+<li>Dynamic exception detection</li>
+<li>Determine: if <code>min_position == max_position</code> → determined</li>
+</ol></div>
+<div class="section level3">
+<h3 id="phase-4-build-crosswalk">Phase 4: Build Crosswalk<a class="anchor" aria-label="anchor" href="#phase-4-build-crosswalk"></a></h3>
+<p>Combines results from all phases into the final crosswalk data.table.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="experimental-strategies">Experimental Strategies<a class="anchor" aria-label="anchor" href="#experimental-strategies"></a></h2>
+<p>The <code><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code> function provides three strategies for improving determination rates beyond the strict algorithm:</p>
+<table class="table"><colgroup><col width="43%"><col width="56%"></colgroup><thead><tr><th>Strategy</th>
+<th>Description</th>
+</tr></thead><tbody><tr><td><code>probabilistic</code></td>
+<td>For 2-period ranges, assigns based on which period contains most of the date interval</td>
+</tr><tr><td><code>upa_aggregation</code></td>
+<td>Extends strictly identified periods to other observations in same UPA-V1014</td>
+</tr><tr><td><code>both</code></td>
+<td>Combines probabilistic + UPA aggregation at UPA-V1014 level</td>
+</tr></tbody></table><p><strong>All strategies enforce proper nesting:</strong> experimental fortnights require identified months, experimental weeks require identified fortnights.</p>
+<p>Output columns: <code>ref_month_exp</code>, <code>ref_fortnight_exp</code>, <code>ref_week_exp</code> (positions) with corresponding <code>*_confidence</code> columns.</p>
 </div>
 <div class="section level2">
 <h2 id="calibration-pipeline">Calibration Pipeline<a class="anchor" aria-label="anchor" href="#calibration-pipeline"></a></h2>
 <p>When <code>pnadc_apply_periods(..., calibrate = TRUE)</code>:</p>
 <ol style="list-style-type: decimal"><li>Join data with crosswalk</li>
 <li>Fetch population targets from SIDRA (or use provided targets)</li>
-<li>Create hierarchical calibration cells (4 levels)</li>
+<li>Create hierarchical calibration cells</li>
 <li>Iterative reweighting within anchor period (quarter or year)</li>
 <li>Calibrate to external population totals</li>
-<li>Smooth weights (optional)</li>
-</ol><p><strong>Anchor types:</strong> - <code>anchor = "quarter"</code>: Preserve quarterly totals, redistribute to sub-periods - <code>anchor = "year"</code>: Preserve annual totals (for annual PNADC data)</p>
+<li>Apply smoothing (period-specific)</li>
+</ol><div class="section level3">
+<h3 id="period-specific-calibration-settings">Period-Specific Calibration Settings<a class="anchor" aria-label="anchor" href="#period-specific-calibration-settings"></a></h3>
+<table class="table"><colgroup><col width="20%"><col width="33%"><col width="28%"><col width="17%"></colgroup><thead><tr><th>Period</th>
+<th>Cell Levels</th>
+<th>Smoothing</th>
+<th>Notes</th>
+</tr></thead><tbody><tr><td>Month</td>
+<td>4 (full hierarchy)</td>
+<td>3-period rolling mean</td>
+<td>Full demographic/geographic cells</td>
+</tr><tr><td>Fortnight</td>
+<td>2 (age + region)</td>
+<td>7-period rolling mean</td>
+<td>Simplified due to sparse data</td>
+</tr><tr><td>Week</td>
+<td>1 (age only)</td>
+<td>None</td>
+<td>Minimal cells due to very sparse data</td>
+</tr></tbody></table></div>
+<div class="section level3">
+<h3 id="calibration-cell-hierarchy">Calibration Cell Hierarchy<a class="anchor" aria-label="anchor" href="#calibration-cell-hierarchy"></a></h3>
+<ol style="list-style-type: decimal"><li>
+<strong>celula1:</strong> Age groups (0-13, 14-29, 30-59, 60+)</li>
+<li>
+<strong>celula2:</strong> Post-stratum group + age</li>
+<li>
+<strong>celula3:</strong> State (UF) + celula2</li>
+<li>
+<strong>celula4:</strong> Post-stratum (posest) + celula2</li>
+</ol></div>
+<div class="section level3">
+<h3 id="anchor-types">Anchor Types<a class="anchor" aria-label="anchor" href="#anchor-types"></a></h3>
+<ul><li>
+<code>anchor = "quarter"</code>: Preserve quarterly totals, redistribute to sub-periods</li>
+<li>
+<code>anchor = "year"</code>: Preserve annual totals (for annual PNADC data with V1032 weights)</li>
+</ul></div>
 </div>
+<div class="section level2">
+<h2 id="performance-optimizations">Performance Optimizations<a class="anchor" aria-label="anchor" href="#performance-optimizations"></a></h2>
+<p>The package is optimized for large datasets (~450,000 rows/sec):</p>
+<ol style="list-style-type: decimal"><li>
+<strong>Lookup tables:</strong> Pre-computed date tables for 20x faster date creation vs <code><a href="https://rdrr.io/r/base/ISOdatetime.html" class="external-link">ISOdate()</a></code>
+</li>
+<li>
+<strong>Integer arithmetic:</strong> ISO week calculations use pure integer math (300x faster than <code><a href="https://rdatatable.gitlab.io/data.table/reference/IDateTime.html" class="external-link">data.table::isoweek()</a></code>)</li>
+<li>
+<strong>data.table threading:</strong> Enabled via <code>setDTthreads(0)</code> at package load</li>
+<li>
+<strong>Vectorized operations:</strong> All calculations use vectorized data.table syntax</li>
+<li>
+<strong>Efficient joins:</strong> data.table binary joins instead of <code><a href="https://rdrr.io/r/base/merge.html" class="external-link">merge()</a></code>
+</li>
+</ol></div>
 <div class="section level2">
 <h2 id="dependencies">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies"></a></h2>
 <p><strong>Required:</strong> - <code>data.table</code> (&gt;= 1.14.0) - Core data manipulation - <code>checkmate</code> (&gt;= 2.0.0) - Input validation</p>
@@ -208,25 +318,79 @@
 <h2 id="workflow-examples">Workflow Examples<a class="anchor" aria-label="anchor" href="#workflow-examples"></a></h2>
 <div class="section level3">
 <h3 id="standard-monthly-analysis">Standard Monthly Analysis<a class="anchor" aria-label="anchor" href="#standard-monthly-analysis"></a></h3>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc_stacked</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Build crosswalk from stacked multi-year data (maximizes determination rate)</span></span>
+<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc_stacked</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Apply to specific quarter with calibration</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc_2023</span>, <span class="va">crosswalk</span>,</span>
 <span>                              weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
 <span>                              anchor <span class="op">=</span> <span class="st">"quarter"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="annual-data">Annual Data<a class="anchor" aria-label="anchor" href="#annual-data"></a></h3>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc_annual</span>, <span class="va">crosswalk</span>,</span>
 <span>                              weight_var <span class="op">=</span> <span class="st">"V1032"</span>,</span>
 <span>                              anchor <span class="op">=</span> <span class="st">"year"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="crosswalk-only-no-calibration">Crosswalk Only (No Calibration)<a class="anchor" aria-label="anchor" href="#crosswalk-only-no-calibration"></a></h3>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc_2023</span>, <span class="va">crosswalk</span>,</span>
 <span>                              calibrate <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 </div>
+<div class="section level3">
+<h3 id="experimental-period-assignment">Experimental Period Assignment<a class="anchor" aria-label="anchor" href="#experimental-period-assignment"></a></h3>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Build standard crosswalk</span></span>
+<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc_data</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Apply experimental strategies for additional assignments</span></span>
+<span><span class="va">crosswalk_exp</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods</a></span><span class="op">(</span></span>
+<span>  <span class="va">crosswalk</span>,</span>
+<span>  <span class="va">pnadc_data</span>,</span>
+<span>  strategy <span class="op">=</span> <span class="st">"probabilistic"</span>,</span>
+<span>  confidence_threshold <span class="op">=</span> <span class="fl">0.9</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
+</div>
+<div class="section level2">
+<h2 id="required-pnadc-variables">Required PNADC Variables<a class="anchor" aria-label="anchor" href="#required-pnadc-variables"></a></h2>
+<div class="section level3">
+<h3 id="for-period-identification">For Period Identification<a class="anchor" aria-label="anchor" href="#for-period-identification"></a></h3>
+<ul><li>
+<code>Ano</code> - Survey year</li>
+<li>
+<code>Trimestre</code> - Quarter (1-4)</li>
+<li>
+<code>UPA</code> - Primary sampling unit</li>
+<li>
+<code>V1008</code> - Household sequence number</li>
+<li>
+<code>V1014</code> - Panel group (1-8)</li>
+<li>
+<code>V2008</code> - Birth day (1-31, 99=unknown)</li>
+<li>
+<code>V20081</code> - Birth month (1-12, 99=unknown)</li>
+<li>
+<code>V20082</code> - Birth year</li>
+<li>
+<code>V2009</code> - Age</li>
+</ul></div>
+<div class="section level3">
+<h3 id="for-weight-calibration-additional">For Weight Calibration (additional)<a class="anchor" aria-label="anchor" href="#for-weight-calibration-additional"></a></h3>
+<ul><li>
+<code>V1028</code> - Quarterly weight (for quarterly data)</li>
+<li>
+<code>V1032</code> - Annual weight (for annual data)</li>
+<li>
+<code>UF</code> - State code</li>
+<li>
+<code>posest</code> - Post-stratum</li>
+<li>
+<code>posest_sxi</code> - Post-stratum group</li>
+</ul></div>
 </div>
 </div>
 
@@ -235,7 +399,7 @@
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://orcid.org/0000-0002-5449-6787" class="external-link">Marcos Hecksher</a>, <a href="https://orcid.org/0000-0002-6796-4547" class="external-link">Rogerio Barbosa</a>.</p>
+  <p>Developed by <a href="https://orcid.org/0000-0002-6796-4547" class="external-link">Rogerio Barbosa</a>, <a href="https://orcid.org/0000-0002-5449-6787" class="external-link">Marcos Hecksher</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">

@@ -3,23 +3,41 @@
 temporal period within the quarter. This function identifies which month,
 fortnight (quinzena), and week each observation belongs to, enabling
 sub-quarterly time series analysis.
-The algorithm uses:
-IBGE's reference week timing rules (first Saturday with sufficient days in month)
+The algorithm uses a nested identification approach:
+Phase 1: Identify MONTHS for all observations using:
+IBGE's reference week timing rules (first Saturday with sufficient days)
 Respondent birthdates to constrain possible interview dates
-UPA-panel level aggregation for months (across quarters - panel design)
-Household-level aggregation for fortnights and weeks (within each quarter only)
+UPA-panel level aggregation across ALL quarters (panel design)
 Dynamic exception detection (identifies quarters needing relaxed rules)
+
+Phase 2: Identify FORTNIGHTS only for month-determined observations:
+Search space constrained to 2 fortnights within determined month
+Household-level aggregation within each quarter
+
+Phase 3: Identify WEEKS only for fortnight-determined observations:
+Search space constrained to ~2 weeks within determined fortnight
+Household-level aggregation within each quarter
+
 
 "><meta property="og:description" content="PNADC is a quarterly survey, but each interview actually refers to a specific
 temporal period within the quarter. This function identifies which month,
 fortnight (quinzena), and week each observation belongs to, enabling
 sub-quarterly time series analysis.
-The algorithm uses:
-IBGE's reference week timing rules (first Saturday with sufficient days in month)
+The algorithm uses a nested identification approach:
+Phase 1: Identify MONTHS for all observations using:
+IBGE's reference week timing rules (first Saturday with sufficient days)
 Respondent birthdates to constrain possible interview dates
-UPA-panel level aggregation for months (across quarters - panel design)
-Household-level aggregation for fortnights and weeks (within each quarter only)
+UPA-panel level aggregation across ALL quarters (panel design)
 Dynamic exception detection (identifies quarters needing relaxed rules)
+
+Phase 2: Identify FORTNIGHTS only for month-determined observations:
+Search space constrained to 2 fortnights within determined month
+Household-level aggregation within each quarter
+
+Phase 3: Identify WEEKS only for fortnight-determined observations:
+Search space constrained to ~2 weeks within determined fortnight
+Household-level aggregation within each quarter
+
 
 "></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -29,7 +47,7 @@ Dynamic exception detection (identifies quarters needing relaxed rules)
 
     <a class="navbar-brand me-2" href="../index.html">PNADCperiods</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -70,11 +88,17 @@ Dynamic exception detection (identifies quarters needing relaxed rules)
 temporal period within the quarter. This function identifies which month,
 fortnight (quinzena), and week each observation belongs to, enabling
 sub-quarterly time series analysis.</p>
-<p>The algorithm uses:</p><ul><li><p>IBGE's reference week timing rules (first Saturday with sufficient days in month)</p></li>
+<p>The algorithm uses a <strong>nested identification approach</strong>:</p><ul><li><p><strong>Phase 1</strong>: Identify MONTHS for all observations using:</p><ul><li><p>IBGE's reference week timing rules (first Saturday with sufficient days)</p></li>
 <li><p>Respondent birthdates to constrain possible interview dates</p></li>
-<li><p>UPA-panel level aggregation for months (across quarters - panel design)</p></li>
-<li><p>Household-level aggregation for fortnights and weeks (within each quarter only)</p></li>
+<li><p>UPA-panel level aggregation across ALL quarters (panel design)</p></li>
 <li><p>Dynamic exception detection (identifies quarters needing relaxed rules)</p></li>
+</ul></li>
+<li><p><strong>Phase 2</strong>: Identify FORTNIGHTS only for month-determined observations:</p><ul><li><p>Search space constrained to 2 fortnights within determined month</p></li>
+<li><p>Household-level aggregation within each quarter</p></li>
+</ul></li>
+<li><p><strong>Phase 3</strong>: Identify WEEKS only for fortnight-determined observations:</p><ul><li><p>Search space constrained to ~2 weeks within determined fortnight</p></li>
+<li><p>Household-level aggregation within each quarter</p></li>
+</ul></li>
 </ul></div>
 
     <div class="section level2">
@@ -155,15 +179,9 @@ and week) for PNADC survey data based on IBGE's interview timing rules.</p><div 
 
 
 <p>The crosswalk contains three levels of temporal granularity:</p><ul><li><p><strong>Month</strong>: 3 per quarter, ~97% determination rate (aggregates across quarters)</p></li>
-<li><p><strong>Fortnight (quinzena)</strong>: 6 per quarter, ~2-5% determination rate (within-quarter only)</p></li>
+<li><p><strong>Fortnight (quinzena)</strong>: 6 per quarter, ~2-8% determination rate (within-quarter only)</p></li>
 <li><p><strong>Week</strong>: 13-14 per quarter, ~1-2% determination rate (within-quarter only)</p></li>
-</ul><p><strong>Why are fortnight/week rates so low?</strong> Only months can aggregate at
-UPA-V1014 level across ALL quarters (leveraging the panel design where the
-same units are interviewed in consistent relative positions). Fortnights
-and weeks are determined only from birthday constraints within a single
-quarter, which rarely narrows the interview window to a single 15-day or
-7-day period.</p>
-</div>
+</ul></div>
 
 <div class="section">
 <h3 id="cross-quarter-aggregation-important-">Cross-Quarter Aggregation (Important!)<a class="anchor" aria-label="anchor" href="#cross-quarter-aggregation-important-"></a></h3>
@@ -172,9 +190,7 @@ quarter, which rarely narrows the interview window to a single 15-day or
 <p><strong>For optimal month determination rates, input data should be stacked across
 multiple quarters</strong> (ideally 4+ years). The algorithm leverages PNADC's
 rotating panel design where the same UPA-V1014 is interviewed in the same
-relative position across quarterly visits. This cross-quarter aggregation
-only applies to months - fortnight and week determination is based on
-within-quarter constraints only.</p>
+relative position across quarterly visits.</p>
 </div>
 
 <div class="section">
@@ -187,29 +203,27 @@ within-quarter constraints only.</p>
 <li><p>... and so on</p></li>
 </ul></div>
 
-<div class="section">
-<h3 id="important-note">Important Note<a class="anchor" aria-label="anchor" href="#important-note"></a></h3>
-
-
-<p>This function returns only the crosswalk (identification keys + reference
-periods). To apply the crosswalk to a dataset and optionally calibrate
-weights, use <code><a href="pnadc_apply_periods.html">pnadc_apply_periods</a></code>.</p>
-</div>
-
     </div>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
 
 <div class="section">
+<h3 id="nested-identification-hierarchy">Nested Identification Hierarchy<a class="anchor" aria-label="anchor" href="#nested-identification-hierarchy"></a></h3>
+
+
+<p>The algorithm enforces strict nesting by construction:</p><ul><li><p>Fortnights can ONLY be identified for observations with determined months</p></li>
+<li><p>Weeks can ONLY be identified for observations with determined fortnights</p></li>
+</ul><p>This guarantees: <code>determined_week =&gt; determined_fortnight =&gt; determined_month</code></p>
+</div>
+
+<div class="section">
 <h3 id="aggregation-levels">Aggregation Levels<a class="anchor" aria-label="anchor" href="#aggregation-levels"></a></h3>
 
 
-<p>The crosswalk aggregates at different levels:</p><ul><li><p><strong>Months</strong>: Can aggregate across quarters at UPA-V1014 level
+<p>The crosswalk aggregates at different levels:</p><ul><li><p><strong>Months</strong>: UPA-V1014 level across ALL quarters
 (PNADC panel design ensures same month position)</p></li>
-<li><p><strong>Fortnights</strong>: Household level within quarter only
-(no consistent position across quarterly visits)</p></li>
-<li><p><strong>Weeks</strong>: Household level within quarter only
-(no consistent position across quarterly visits)</p></li>
+<li><p><strong>Fortnights</strong>: Household level within quarter only</p></li>
+<li><p><strong>Weeks</strong>: Household level within quarter only</p></li>
 </ul></div>
 
     </div>
@@ -232,6 +246,10 @@ calibrate weights</p></div>
 <span class="r-in"><span>  week_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_week</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span><span class="op">]</span></span></span>
 <span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Verify nesting (always TRUE by construction)</span></span></span>
+<span class="r-in"><span><span class="va">crosswalk</span><span class="op">[</span><span class="va">determined_fortnight</span>, <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">determined_month</span><span class="op">)</span><span class="op">]</span></span></span>
+<span class="r-in"><span><span class="va">crosswalk</span><span class="op">[</span><span class="va">determined_week</span>, <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">determined_fortnight</span><span class="op">)</span><span class="op">]</span></span></span>
+<span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Apply to a specific dataset</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc_2023</span>, <span class="va">crosswalk</span>,</span></span>
 <span class="r-in"><span>                              weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span></span>
@@ -245,7 +263,7 @@ calibrate weights</p></div>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://orcid.org/0000-0002-5449-6787" class="external-link">Marcos Hecksher</a>, <a href="https://orcid.org/0000-0002-6796-4547" class="external-link">Rogerio Barbosa</a>.</p>
+  <p>Developed by <a href="https://orcid.org/0000-0002-6796-4547" class="external-link">Rogerio Barbosa</a>, <a href="https://orcid.org/0000-0002-5449-6787" class="external-link">Marcos Hecksher</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">

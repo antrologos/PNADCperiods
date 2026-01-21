@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">PNADCperiods</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -110,7 +110,18 @@
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/test.html" class="external-link">test</a></span><span class="op">(</span><span class="st">"mensalizePNADC"</span><span class="op">)</span>      <span class="co"># Run tests</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install.html" class="external-link">install</a></span><span class="op">(</span><span class="st">"mensalizePNADC"</span>, dependencies <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>  <span class="co"># Install locally</span></span>
 <span><span class="fu">pkgdown</span><span class="fu">::</span><span class="fu"><a href="https://pkgdown.r-lib.org/reference/build_site.html" class="external-link">build_site</a></span><span class="op">(</span><span class="st">"mensalizePNADC"</span><span class="op">)</span>  <span class="co"># Rebuild docs locally</span></span></code></pre></div>
-<p>pkgdown site rebuilds automatically via GitHub Actions on push to master: <a href="https://antrologos.github.io/mensalizePNADC/" class="uri">https://antrologos.github.io/mensalizePNADC/</a></p>
+<div class="section level3">
+<h3 id="github-pages-deployment">GitHub Pages Deployment<a class="anchor" aria-label="anchor" href="#github-pages-deployment"></a></h3>
+<p><strong>CRITICAL:</strong> The pkgdown site publishes from the <code>refactor/pnadc-periods</code> branch, NOT master/main.</p>
+<p>To update the online documentation:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad\mensalizePNADC"</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">pkgdown::build_site()</span>  <span class="co"># Build locally first</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="fu">git</span> add .</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Update documentation"</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="fu">git</span> push origin refactor/pnadc-periods  <span class="co"># Push to this branch - site rebuilds automatically</span></span></code></pre></div>
+<p><strong>Do NOT merge to master</strong> - the GitHub Actions workflow triggers on push to <code>refactor/pnadc-periods</code>.</p>
+<p>Site URL: <a href="https://antrologos.github.io/mensalizePNADC/" class="uri">https://antrologos.github.io/mensalizePNADC/</a></p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="source-files">Source Files<a class="anchor" aria-label="anchor" href="#source-files"></a></h2>
@@ -166,17 +177,45 @@
 <div class="section level2">
 <h2 id="important-notes-for-claude-code">Important Notes for Claude Code<a class="anchor" aria-label="anchor" href="#important-notes-for-claude-code"></a></h2>
 <div class="section level3">
+<h3 id="shell-environment-critical">Shell Environment (CRITICAL)<a class="anchor" aria-label="anchor" href="#shell-environment-critical"></a></h3>
+<p><strong>Claude Code uses Unix bash shell even on Windows.</strong> The shell is <code>/usr/bin/bash</code>, NOT Windows CMD or PowerShell.</p>
+<p><strong>Always use Unix commands, NOT Windows commands:</strong></p>
+<table class="table"><thead><tr><th>Task</th>
+<th>WRONG (Windows)</th>
+<th>CORRECT (Unix)</th>
+</tr></thead><tbody><tr><td>Delete file</td>
+<td><code>del file.txt</code></td>
+<td><code>rm file.txt</code></td>
+</tr><tr><td>List files</td>
+<td><code>dir</code></td>
+<td><code>ls</code></td>
+</tr><tr><td>Copy file</td>
+<td><code>copy a.txt b.txt</code></td>
+<td><code>cp a.txt b.txt</code></td>
+</tr><tr><td>Move file</td>
+<td><code>move a.txt b.txt</code></td>
+<td><code>mv a.txt b.txt</code></td>
+</tr><tr><td>Create dir</td>
+<td><code>mkdir /p path</code></td>
+<td><code>mkdir -p path</code></td>
+</tr><tr><td>Remove dir</td>
+<td><code>rmdir /s /q dir</code></td>
+<td><code>rm -rf dir</code></td>
+</tr></tbody></table><p>Using Windows commands causes: <code>Exit code 127: command not found</code></p>
+</div>
+<div class="section level3">
 <h3 id="running-r-scripts-on-windows">Running R Scripts on Windows<a class="anchor" aria-label="anchor" href="#running-r-scripts-on-windows"></a></h3>
 <p><strong>R location:</strong> <code>C:\Program Files\R\R-4.5.0\bin\Rscript.exe</code></p>
 <p>To run R scripts from the command line:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="st">"C:</span><span class="dt">\\</span><span class="st">Program Files</span><span class="dt">\\</span><span class="st">R</span><span class="dt">\\</span><span class="st">R-4.5.0</span><span class="dt">\\</span><span class="st">bin</span><span class="dt">\\</span><span class="st">Rscript.exe"</span> script.R</span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="st">"C:</span><span class="dt">\\</span><span class="st">Program Files</span><span class="dt">\\</span><span class="st">R</span><span class="dt">\\</span><span class="st">R-4.5.0</span><span class="dt">\\</span><span class="st">bin</span><span class="dt">\\</span><span class="st">Rscript.exe"</span> script.R</span></code></pre></div>
 <p><strong>NEVER use <code>-e</code> flag for complex R code</strong> - causes segfaults.</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># WRONG</span></span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">"complex code..."</span></span>
-<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a></span>
-<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co"># CORRECT - write to file first</span></span>
-<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co"># 1. Write script to temp.R</span></span>
-<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co"># 2. Run: "C:\\Program Files\\R\\R-4.5.0\\bin\\Rscript.exe" temp.R</span></span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># WRONG</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">"complex code..."</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co"># CORRECT - write to file first</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co"># 1. Write script to temp.R</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co"># 2. Run: "C:\\Program Files\\R\\R-4.5.0\\bin\\Rscript.exe" temp.R</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co"># 3. Clean up: rm temp.R</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="data-quality-rules">Data Quality Rules<a class="anchor" aria-label="anchor" href="#data-quality-rules"></a></h3>
@@ -194,11 +233,11 @@
     ├── tests\
     └── ...</code></pre>
 <p><strong>Always use the package directory for git commands:</strong></p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># WRONG - causes exit codes 128/129</span></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad"</span> <span class="kw">&amp;&amp;</span> <span class="fu">git</span> status</span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a></span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co"># CORRECT</span></span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad\mensalizePNADC"</span> <span class="kw">&amp;&amp;</span> <span class="fu">git</span> status</span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># WRONG - causes exit codes 128/129</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad"</span> <span class="kw">&amp;&amp;</span> <span class="fu">git</span> status</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co"># CORRECT</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad\mensalizePNADC"</span> <span class="kw">&amp;&amp;</span> <span class="fu">git</span> status</span></code></pre></div>
 <p>Common git errors when using wrong directory: - Exit code 128: <code>fatal: not a git repository</code> - Exit code 129: <code>warning: Not a git repository</code></p>
 </div>
 <div class="section level3">
@@ -211,6 +250,8 @@
 <strong>SIDRA API errors</strong> → Check internet; API has rate limits</li>
 <li>
 <strong>Git errors (exit 128/129)</strong> → Use <code>mensalizePNADC/</code> directory, not project root</li>
+<li>
+<strong>Dropbox file locking</strong> → If <code><a href="https://devtools.r-lib.org/reference/document.html" class="external-link">devtools::document()</a></code> fails with “Invalid argument” error when writing to vignettes, pause Dropbox sync. All vignettes have <code>purl = FALSE</code> to prevent .R file creation, but Dropbox can still interfere.</li>
 </ol></div>
 <div class="section level3">
 <h3 id="local-data-paths-rogerios-machine">Local Data Paths (Rogerio’s machine)<a class="anchor" aria-label="anchor" href="#local-data-paths-rogerios-machine"></a></h3>
@@ -228,7 +269,7 @@
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://orcid.org/0000-0002-5449-6787" class="external-link">Marcos Hecksher</a>, <a href="https://orcid.org/0000-0002-6796-4547" class="external-link">Rogerio Barbosa</a>.</p>
+  <p>Developed by <a href="https://orcid.org/0000-0002-6796-4547" class="external-link">Rogerio Barbosa</a>, <a href="https://orcid.org/0000-0002-5449-6787" class="external-link">Marcos Hecksher</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">

@@ -6,7 +6,7 @@ time series analysis.
 The algorithm uses:
 IBGE's reference week timing rules (first Saturday with sufficient days in month)
 Respondent birthdates to constrain possible interview dates
-UPA-panel level aggregation (everyone in same sampling unit interviewed together)
+Household-level aggregation within quarter (all persons in same household interviewed on same day)
 Dynamic exception detection (identifies quarters needing relaxed rules)
 
 "><meta property="og:description" content="PNADC is a quarterly survey where each interview occurs during a specific
@@ -16,7 +16,7 @@ time series analysis.
 The algorithm uses:
 IBGE's reference week timing rules (first Saturday with sufficient days in month)
 Respondent birthdates to constrain possible interview dates
-UPA-panel level aggregation (everyone in same sampling unit interviewed together)
+Household-level aggregation within quarter (all persons in same household interviewed on same day)
 Dynamic exception detection (identifies quarters needing relaxed rules)
 
 "></head><body>
@@ -27,7 +27,7 @@ Dynamic exception detection (identifies quarters needing relaxed rules)
 
     <a class="navbar-brand me-2" href="../index.html">PNADCperiods</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -70,7 +70,7 @@ per quarter, 1-24 per year) that observation belongs to, enabling bi-weekly
 time series analysis.</p>
 <p>The algorithm uses:</p><ul><li><p>IBGE's reference week timing rules (first Saturday with sufficient days in month)</p></li>
 <li><p>Respondent birthdates to constrain possible interview dates</p></li>
-<li><p>UPA-panel level aggregation (everyone in same sampling unit interviewed together)</p></li>
+<li><p>Household-level aggregation within quarter (all persons in same household interviewed on same day)</p></li>
 <li><p>Dynamic exception detection (identifies quarters needing relaxed rules)</p></li>
 </ul></div>
 
@@ -178,7 +178,7 @@ builds a complete crosswalk including months, fortnights, and weeks.
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://orcid.org/0000-0002-5449-6787" class="external-link">Marcos Hecksher</a>, <a href="https://orcid.org/0000-0002-6796-4547" class="external-link">Rogerio Barbosa</a>.</p>
+  <p>Developed by <a href="https://orcid.org/0000-0002-6796-4547" class="external-link">Rogerio Barbosa</a>, <a href="https://orcid.org/0000-0002-5449-6787" class="external-link">Marcos Hecksher</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">
