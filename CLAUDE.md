@@ -27,6 +27,7 @@ result <- pnadc_apply_periods(pnadc_2023, crosswalk, weight_var = "V1028", ancho
 | `fetch_monthly_population()` | Fetch population from SIDRA API |
 | `validate_pnadc()` | Input validation |
 | `pnadc_experimental_periods()` | Experimental probabilistic period assignment |
+| `combine_period_crosswalks()` | Merge strict and experimental crosswalks |
 
 ### Required Variables
 
@@ -108,6 +109,23 @@ All time periods calibrate to **FULL Brazilian population** (not divided). Hiera
 
 ## Important Notes for Claude Code
 
+### Shell Environment (CRITICAL)
+
+**Claude Code uses Unix bash shell even on Windows.** The shell is `/usr/bin/bash`, NOT Windows CMD or PowerShell.
+
+**Always use Unix commands, NOT Windows commands:**
+
+| Task | WRONG (Windows) | CORRECT (Unix) |
+|------|-----------------|----------------|
+| Delete file | `del file.txt` | `rm file.txt` |
+| List files | `dir` | `ls` |
+| Copy file | `copy a.txt b.txt` | `cp a.txt b.txt` |
+| Move file | `move a.txt b.txt` | `mv a.txt b.txt` |
+| Create dir | `mkdir /p path` | `mkdir -p path` |
+| Remove dir | `rmdir /s /q dir` | `rm -rf dir` |
+
+Using Windows commands causes: `Exit code 127: command not found`
+
 ### Running R Scripts on Windows
 
 **R location:** `C:\Program Files\R\R-4.5.0\bin\Rscript.exe`
@@ -126,6 +144,7 @@ Rscript -e "complex code..."
 # CORRECT - write to file first
 # 1. Write script to temp.R
 # 2. Run: "C:\\Program Files\\R\\R-4.5.0\\bin\\Rscript.exe" temp.R
+# 3. Clean up: rm temp.R
 ```
 
 ### Data Quality Rules

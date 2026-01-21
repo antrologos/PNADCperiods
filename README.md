@@ -36,6 +36,7 @@ The `PNADCperiods` package identifies reference periods (months, fortnights, wee
 | `fetch_monthly_population()` | Fetch population totals from IBGE SIDRA API |
 | `validate_pnadc()` | Validate input data has required columns |
 | `pnadc_experimental_periods()` | Experimental probabilistic period assignment |
+| `combine_period_crosswalks()` | Merge strict and experimental crosswalks |
 
 ## Installation
 
@@ -105,6 +106,11 @@ The `pnadc_experimental_periods()` function provides experimental strategies to 
 | + UPA aggregation | **57.69%** | **14.36%** | Best coverage |
 | + Both | **60.33%** | **14.60%** | Maximum coverage |
 
+**Strategies:**
+- **probabilistic**: For 2-period ranges, assigns based on which period contains most of the date interval (with confidence threshold)
+- **upa_aggregation**: Extends strictly identified periods to all observations in the same UPA-V1014 when consensus exists
+- **both**: Sequentially applies probabilistic first, then UPA aggregation. Guarantees rate >= max of individual strategies.
+
 **Key finding:** UPA homogeneity rate = 100% for both fortnights and weeks. This means when any household in a UPA has a determined period, ALL households with determined periods in that UPA have the SAME period.
 
 ```r
@@ -112,7 +118,7 @@ The `pnadc_experimental_periods()` function provides experimental strategies to 
 crosswalk_exp <- pnadc_experimental_periods(
   crosswalk,
   pnadc_stacked,
-  strategy = "upa_aggregation"  # or "probabilistic" or "both"
+  strategy = "both"  # or "probabilistic" or "upa_aggregation"
 )
 ```
 
