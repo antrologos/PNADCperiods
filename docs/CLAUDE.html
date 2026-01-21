@@ -263,6 +263,24 @@
 <p><strong>File naming conventions:</strong> - Quarterly: <code>pnadc_2019-1q.fst</code>, <code>pnadc_2019-2q.fst</code>, etc. - Annual: <code>pnadc_2019_visita1.fst</code>, <code>pnadc_2020_visita5.fst</code>, etc.</p>
 <p><strong>Visit selection for annual data:</strong> - 2015-2019: Visit 1 - 2020-2021: Visit 5 (COVID period - visit 1 not available) - 2022-2024: Visit 1</p>
 </div>
+<div class="section level3">
+<h3 id="vignette-precompute-scripts">Vignette Precompute Scripts<a class="anchor" aria-label="anchor" href="#vignette-precompute-scripts"></a></h3>
+<p><strong>CRITICAL:</strong> Vignette precompute scripts and their outputs must NOT be inside the package folder.</p>
+<pre><code>D:\Dropbox\Artigos\mensalizacao_pnad\
+├── code\                              # Precompute scripts go HERE
+│   ├── precompute_getting_started.R
+│   ├── precompute_download_prepare.R
+│   ├── generate_how_it_works_figures.R
+│   └── ...
+├── output\vignette\                   # Precomputed outputs go HERE
+│   ├── figures\                       # Generated figures
+│   ├── tables\                        # Generated tables
+│   ├── getting_started_crosswalk.rds  # Saved R objects
+│   └── *.txt                          # Text outputs for vignettes
+└── PNADCperiods\                      # Package folder (git repo)
+    └── vignettes\                     # Only .Rmd files and static assets</code></pre>
+<p><strong>Convention:</strong> - Scripts: <code>code/precompute_&lt;vignette_name&gt;.R</code> or <code>code/generate_&lt;vignette_name&gt;_figures.R</code> - Outputs: <code>output/vignette/&lt;vignette_name&gt;_*.rds|txt|png</code> - Figures copied to package: <code>PNADCperiods/vignettes/figures/&lt;vignette_name&gt;/</code></p>
+</div>
 </div>
 </div>
 

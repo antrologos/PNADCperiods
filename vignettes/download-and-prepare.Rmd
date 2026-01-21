@@ -97,15 +97,15 @@ Create a grid of year-quarter combinations to download. This example uses 2020-2
 editions <- expand.grid(
   year = 2020:2024,
   quarter = 1:4
-) |>
-  # Remove quarters not yet available
-  filter(!(year == 2024 & quarter > 3))
+)
+# Note: If downloading more recent years, filter out quarters not yet available:
+# editions <- editions |> filter(!(year == 2025 & quarter > 3))
 
 # View the grid
 editions
 ```
 
-This creates a grid of 19 quarters. Adjust the filter for the most recent available quarter.
+This creates a grid of 20 quarters. If extending to more recent years, adjust the filter for the latest available quarter.
 
 ## Step 3: Download the Data
 
@@ -234,8 +234,8 @@ Building reference period crosswalk...
 Crosswalk complete:
   - 3,159,265 unique household-quarter observations
   - Month determination: 94.2%
-  - Fortnight determination: 2.8%
-  - Week determination: 0.9%
+  - Fortnight determination: 6.8%
+  - Week determination: 1.6%
 ```
 
 The determination rate tells you what percentage of observations have their reference period identified. With 20 quarters stacked (2020-2024), we achieve 94.2% for months.
@@ -257,13 +257,13 @@ result |>
 Output (from real PNADC 2020-2024 data):
 ```
    ref_month_in_quarter       N   pct
-1:                    1 1020409  32.3
-2:                    2  965613  30.6
-3:                    3  990865  31.4
-4:                   NA  182378   5.8
+1:                    1 2870178  32.4
+2:                    2 2725932  30.7
+3:                    3 2789893  31.5
+4:                   NA  482244   5.4
 ```
 
-The distribution is approximately equal across months 1, 2, and 3 (each around 31-32%), with 5.8% having `NA` for indeterminate cases (this is higher than the ~3% seen with full 2012-2025 data because boundary quarters have lower determination rates).
+The distribution is approximately equal across months 1, 2, and 3 (each around 31-32%), with 5.4% having `NA` for indeterminate cases (this is higher than the ~3% seen with full 2012-2025 data because boundary quarters have lower determination rates).
 
 The output columns include:
 
@@ -325,8 +325,8 @@ Working with PNADC microdata can be memory-intensive. Here are some tips:
 
 | Period | Quarters | Observations | FST Size |
 |--------|----------|--------------|----------|
-| 2020-2024 | 19 | ~10.8M | ~5 GB |
-| 2012-2024 | 51 | ~28.4M | ~15 GB |
+| 2020-2024 | 20 | ~8.9M | ~5 GB |
+| 2012-2025 | 55 | ~29M | ~15 GB |
 
 ## Extending to Full History
 
@@ -343,7 +343,7 @@ editions_full <- expand.grid(
 # Use the same download and stacking loops as above
 ```
 
-The full history provides approximately 28 million observations and achieves the highest possible determination rate.
+The full history provides approximately 29 million observations and achieves the highest possible determination rate.
 
 ## Troubleshooting
 

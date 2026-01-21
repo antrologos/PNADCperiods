@@ -207,3 +207,28 @@ D:/Dropbox/Bancos_Dados/PNADC/
 - 2015-2019: Visit 1
 - 2020-2021: Visit 5 (COVID period - visit 1 not available)
 - 2022-2024: Visit 1
+
+### Vignette Precompute Scripts
+
+**CRITICAL:** Vignette precompute scripts and their outputs must NOT be inside the package folder.
+
+```
+D:\Dropbox\Artigos\mensalizacao_pnad\
+├── code\                              # Precompute scripts go HERE
+│   ├── precompute_getting_started.R
+│   ├── precompute_download_prepare.R
+│   ├── generate_how_it_works_figures.R
+│   └── ...
+├── output\vignette\                   # Precomputed outputs go HERE
+│   ├── figures\                       # Generated figures
+│   ├── tables\                        # Generated tables
+│   ├── getting_started_crosswalk.rds  # Saved R objects
+│   └── *.txt                          # Text outputs for vignettes
+└── PNADCperiods\                      # Package folder (git repo)
+    └── vignettes\                     # Only .Rmd files and static assets
+```
+
+**Convention:**
+- Scripts: `code/precompute_<vignette_name>.R` or `code/generate_<vignette_name>_figures.R`
+- Outputs: `output/vignette/<vignette_name>_*.rds|txt|png`
+- Figures copied to package: `PNADCperiods/vignettes/figures/<vignette_name>/`

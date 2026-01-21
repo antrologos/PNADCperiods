@@ -644,7 +644,7 @@ The short-lived R$ 1,039 value creates a distinctive spike visible in
 both panels, offset by precisely one month.</p>
 </div>
 <div class="section level3">
-<h3 id="the-full-picture-2012-2024">The Full Picture: 2012-2024<a class="anchor" aria-label="anchor" href="#the-full-picture-2012-2024"></a>
+<h3 id="the-full-picture-2012-2025">The Full Picture: 2012-2025<a class="anchor" aria-label="anchor" href="#the-full-picture-2012-2025"></a>
 </h3>
 <p>Even with consecutive monthly adjustments creating overlapping
 transitions, the one-month lag remains crisp. Does this pattern hold
@@ -699,7 +699,7 @@ across the entire series?</p>
 period. Each vertical line marks a MW adjustment. Notice how the pattern
 in the top panel (habitual income) is shifted one month earlier than the
 bottom panel (effective income)—exactly as predicted, consistently
-across twelve years and more than a dozen minimum wage values.</p>
+across thirteen years and fourteen minimum wage values.</p>
 <p>This provides strong validation that the mensalization algorithm
 correctly identifies reference months.</p>
 <hr>
@@ -779,6 +779,8 @@ samples</strong>.</p>
 <div class="section level3">
 <h3 id="the-sample-size-trade-off">The Sample Size Trade-Off<a class="anchor" aria-label="anchor" href="#the-sample-size-trade-off"></a>
 </h3>
+<p><strong>Strict determination rates</strong> (from
+<code><a href="../reference/pnadc_identify_periods.html">pnadc_identify_periods()</a></code>):</p>
 <table class="table">
 <thead><tr class="header">
 <th>Granularity</th>
@@ -795,13 +797,13 @@ samples</strong>.</p>
 </tr>
 <tr class="even">
 <td>Fortnightly</td>
-<td>~3%</td>
+<td>~7%</td>
 <td>~3,000</td>
 <td>Transition timing</td>
 </tr>
 <tr class="odd">
 <td>Weekly</td>
-<td>~1%</td>
+<td>~1.5%</td>
 <td>~500</td>
 <td>Shock detection</td>
 </tr>
@@ -815,6 +817,46 @@ rarely narrow the interview window to a single 15-day or 7-day
 period.</p>
 </div>
 <div class="section level3">
+<h3 id="boosting-sub-monthly-sample-sizes-with-experimental-strategies">Boosting Sub-Monthly Sample Sizes with Experimental Strategies<a class="anchor" aria-label="anchor" href="#boosting-sub-monthly-sample-sizes-with-experimental-strategies"></a>
+</h3>
+<p>The strict determination rates above can be significantly improved
+using <code><a href="../reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code>. This function applies
+two strategies:</p>
+<ol style="list-style-type: decimal">
+<li><p><strong>Probabilistic assignment</strong>: When the interview
+window spans exactly two consecutive periods and ≥90% of the interval
+falls in one period, assign to that period.</p></li>
+<li><p><strong>UPA aggregation</strong>: When ≥50% of observations
+within a UPA have the same determined period, extend that assignment to
+undetermined observations.</p></li>
+</ol>
+<p>With both strategies (<code>strategy = "both"</code>):</p>
+<table class="table">
+<thead><tr class="header">
+<th>Granularity</th>
+<th>Strict Rate</th>
+<th>Experimental Rate</th>
+<th>Improvement</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>Fortnight</td>
+<td>~6%</td>
+<td>~28%</td>
+<td>~5× more data</td>
+</tr>
+<tr class="even">
+<td>Weekly</td>
+<td>~1.2%</td>
+<td>~2%</td>
+<td>~1.6× more data</td>
+</tr>
+</tbody>
+</table>
+<p>The examples below use experimental strategies to maximize sample
+sizes for sub-monthly analysis.</p>
+</div>
+<div class="section level3">
 <h3 id="example-covid-19-lockdown-at-fortnightly-resolution">Example: COVID-19 Lockdown at Fortnightly Resolution<a class="anchor" aria-label="anchor" href="#example-covid-19-lockdown-at-fortnightly-resolution"></a>
 </h3>
 <p>The COVID-19 pandemic provides a compelling test case. Brazilian
@@ -826,15 +868,30 @@ separate them.</p>
 sharply as workers exited the labor market entirely (not just becoming
 unemployed, but stopping their job search):</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># For fortnightly analysis, we need observations with determined fortnights</span></span>
-<span><span class="va">pnadc_fortnight</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">weight_fortnight</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">Ano</span> <span class="op">==</span> <span class="fl">2020</span> <span class="op">&amp;</span> <span class="va">Trimestre</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span></span>
+<code class="sourceCode R"><span><span class="co"># Apply experimental strategies to boost fortnight determination rate</span></span>
+<span><span class="va">crosswalk_exp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_experimental_periods.html">pnadc_experimental_periods</a></span><span class="op">(</span></span>
+<span>  crosswalk <span class="op">=</span> <span class="va">crosswalk</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">pnadc</span>,</span>
+<span>  strategy <span class="op">=</span> <span class="st">"both"</span>,  <span class="co"># probabilistic + UPA aggregation</span></span>
+<span>  confidence_threshold <span class="op">=</span> <span class="fl">0.9</span>,</span>
+<span>  upa_proportion_threshold <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>  include_derived <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Compute participation rate by fortnight</span></span>
+<span><span class="co"># The experimental crosswalk now has ~28% fortnight determination vs ~6% strict</span></span>
+<span><span class="co"># For fortnightly analysis, we use the experimental crosswalk</span></span>
+<span><span class="va">pnadc_fortnight</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/merge.html" class="external-link">merge</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">crosswalk_exp</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span><span class="va">Ano</span>, <span class="va">Trimestre</span>, <span class="va">UPA</span>, <span class="va">V1008</span>, <span class="va">V1014</span>,</span>
+<span>                                                    <span class="va">ref_fortnight_in_quarter</span>, <span class="va">ref_fortnight_yyyyff</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>                         by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Ano"</span>, <span class="st">"Trimestre"</span>, <span class="st">"UPA"</span>, <span class="st">"V1008"</span>, <span class="st">"V1014"</span><span class="op">)</span>, all.x <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">pnadc_fortnight</span> <span class="op">&lt;-</span> <span class="va">pnadc_fortnight</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_in_quarter</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">Ano</span> <span class="op">==</span> <span class="fl">2020</span> <span class="op">&amp;</span> <span class="va">Trimestre</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span></span>
+<span></span>
+<span><span class="co"># Compute participation rate by fortnight using V1028 (original quarterly weight)</span></span>
+<span><span class="co"># Since fortnights cannot aggregate across quarters, V1028 is appropriate</span></span>
 <span><span class="va">fortnight_covid</span> <span class="op">&lt;-</span> <span class="va">pnadc_fortnight</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
-<span>  participation_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">pea</span> <span class="op">*</span> <span class="va">weight_fortnight</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">/</span></span>
-<span>                       <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">weight_fortnight</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
-<span>  unemployment_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">unemployed</span> <span class="op">*</span> <span class="va">weight_fortnight</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">/</span></span>
-<span>                      <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">pea</span> <span class="op">*</span> <span class="va">weight_fortnight</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  participation_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">pea</span> <span class="op">*</span> <span class="va">V1028</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">/</span></span>
+<span>                       <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">V1028</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  unemployment_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">unemployed</span> <span class="op">*</span> <span class="va">V1028</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">/</span></span>
+<span>                      <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">pea</span> <span class="op">*</span> <span class="va">V1028</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
 <span>  n_obs <span class="op">=</span> <span class="va">.N</span></span>
 <span><span class="op">)</span>, by <span class="op">=</span> <span class="fu">.</span><span class="op">(</span><span class="va">Ano</span>, <span class="va">Trimestre</span>, <span class="va">ref_fortnight_in_quarter</span>, <span class="va">ref_fortnight_yyyyff</span><span class="op">)</span><span class="op">]</span></span>
 <span></span>
@@ -872,9 +929,9 @@ unemployed, but stopping their job search):</p>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_date.html" class="external-link">scale_x_date</a></span><span class="op">(</span>date_breaks <span class="op">=</span> <span class="st">"1 month"</span>, date_labels <span class="op">=</span> <span class="st">"%b\n%Y"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span></span>
 <span>    title <span class="op">=</span> <span class="st">"COVID-19 Labor Force Participation: Monthly vs Fortnightly"</span>,</span>
-<span>    subtitle <span class="op">=</span> <span class="st">"Fortnightly data (orange) reveals sharper discontinuity at lockdown onset"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"Fortnightly data (orange) reveals sharper discontinuity at lockdown onset (experimental strategies)"</span>,</span>
 <span>    x <span class="op">=</span> <span class="cn">NULL</span>, y <span class="op">=</span> <span class="st">"Labor Force Participation Rate"</span>,</span>
-<span>    caption <span class="op">=</span> <span class="st">"Monthly (red): ~65,000 obs/month | Fortnightly (orange): ~3,000 obs/fortnight"</span></span>
+<span>    caption <span class="op">=</span> <span class="st">"Uses pnadc_experimental_periods() for ~28% fortnight determination vs ~6% strict rate."</span></span>
 <span>  <span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span>base_size <span class="op">=</span> <span class="fl">11</span><span class="op">)</span></span></code></pre></div>
 <div class="float">
@@ -893,25 +950,34 @@ more precisely.</p>
 states (Bahia, Rio de Janeiro, Pernambuco) and occurring during a
 specific week each year. Do workers reduce their hours during Carnival
 week?</p>
-<p>This is a challenging analysis due to the ~1% weekly determination
-rate. To increase sample size, we <strong>pool multiple years</strong>
-(2019, 2022-2024, excluding COVID years) and compare Carnival states to
-other states. We use <strong>average hours worked</strong> (VD4035) as
-our indicator, which should show a clear drop during Carnival:</p>
+<p>With strict determination, the ~1.2% weekly rate makes this analysis
+challenging. However, using <code><a href="../reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code>
+boosts this to ~2%. We <strong>pool multiple years</strong> (2019,
+2022-2025, excluding COVID years) and compare Carnival states to other
+states. We use <strong>average hours worked</strong> (VD4035) as our
+indicator, which should show a clear drop during Carnival:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Filter to Q1 of Carnival years (2019, 2022-2024)</span></span>
+<code class="sourceCode R"><span><span class="co"># Use experimental strategies for improved weekly determination</span></span>
+<span><span class="co"># (Same crosswalk_exp created in the fortnight example above)</span></span>
+<span></span>
+<span><span class="co"># Filter to Q1 of Carnival years (2019, 2022-2025)</span></span>
 <span><span class="co"># Use observations with determined weeks (among employed with valid hours)</span></span>
-<span><span class="va">carnival_years</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2019L</span>, <span class="fl">2022L</span>, <span class="fl">2023L</span>, <span class="fl">2024L</span><span class="op">)</span></span>
-<span><span class="va">pnadc_weekly</span> <span class="op">&lt;-</span> <span class="va">pnadc</span><span class="op">[</span></span>
+<span><span class="va">carnival_years</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2019L</span>, <span class="fl">2022L</span>, <span class="fl">2023L</span>, <span class="fl">2024L</span>, <span class="fl">2025L</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Merge experimental crosswalk for week data</span></span>
+<span><span class="va">pnadc_weekly</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/merge.html" class="external-link">merge</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">crosswalk_exp</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span><span class="va">Ano</span>, <span class="va">Trimestre</span>, <span class="va">UPA</span>, <span class="va">V1008</span>, <span class="va">V1014</span>,</span>
+<span>                                                 <span class="va">ref_week_in_quarter</span>, <span class="va">ref_week_yyyyww</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>                      by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Ano"</span>, <span class="st">"Trimestre"</span>, <span class="st">"UPA"</span>, <span class="st">"V1008"</span>, <span class="st">"V1014"</span><span class="op">)</span>, all.x <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">pnadc_weekly</span> <span class="op">&lt;-</span> <span class="va">pnadc_weekly</span><span class="op">[</span></span>
 <span>  <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_week_in_quarter</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">Trimestre</span> <span class="op">==</span> <span class="fl">1L</span> <span class="op">&amp;</span> <span class="va">Ano</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">carnival_years</span> <span class="op">&amp;</span></span>
 <span>  <span class="va">employed</span> <span class="op">==</span> <span class="fl">1L</span> <span class="op">&amp;</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">VD4035</span><span class="op">)</span></span>
 <span><span class="op">]</span></span>
 <span></span>
 <span><span class="co"># Define Carnival weeks (ISO week of Carnival Tuesday varies by year)</span></span>
-<span><span class="co"># 2019: Week 10 | 2022: Week 9 | 2023: Week 8 | 2024: Week 7</span></span>
+<span><span class="co"># 2019: Week 10 | 2022: Week 9 | 2023: Week 8 | 2024: Week 7 | 2025: Week 10</span></span>
 <span><span class="va">carnival_weeks</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  Ano <span class="op">=</span> <span class="va">carnival_years</span>,</span>
-<span>  carnival_iso_week <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10L</span>, <span class="fl">9L</span>, <span class="fl">8L</span>, <span class="fl">7L</span><span class="op">)</span></span>
+<span>  carnival_iso_week <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10L</span>, <span class="fl">9L</span>, <span class="fl">8L</span>, <span class="fl">7L</span>, <span class="fl">10L</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Extract ISO week and merge</span></span>
@@ -940,10 +1006,10 @@ our indicator, which should show a clear drop during Carnival:</p>
 <span>                               <span class="st">"Other States"</span> <span class="op">=</span> <span class="st">"#1f77b4"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span></span>
 <span>    title <span class="op">=</span> <span class="st">"Average Hours Worked by Week Type and Region"</span>,</span>
-<span>    subtitle <span class="op">=</span> <span class="st">"Pooled data from Q1 2019, 2022-2024"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"Pooled data from Q1 2019, 2022-2025 (experimental strategies)"</span>,</span>
 <span>    x <span class="op">=</span> <span class="cn">NULL</span>, y <span class="op">=</span> <span class="st">"Average Hours Worked (per week)"</span>,</span>
 <span>    fill <span class="op">=</span> <span class="st">"Region"</span>,</span>
-<span>    caption <span class="op">=</span> <span class="st">"Weekly determination rate: ~1%. Data pooled across 4 years."</span></span>
+<span>    caption <span class="op">=</span> <span class="st">"Uses pnadc_experimental_periods() for improved weekly determination. Data pooled across 5 years."</span></span>
 <span>  <span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span>base_size <span class="op">=</span> <span class="fl">11</span><span class="op">)</span></span></code></pre></div>
 <div class="float">
@@ -960,6 +1026,11 @@ uncertainty.</p>
 <h3 id="practical-guidelines-for-sub-monthly-analysis">Practical Guidelines for Sub-Monthly Analysis<a class="anchor" aria-label="anchor" href="#practical-guidelines-for-sub-monthly-analysis"></a>
 </h3>
 <table class="table">
+<colgroup>
+<col width="26%">
+<col width="42%">
+<col width="30%">
+</colgroup>
 <thead><tr class="header">
 <th>Question Type</th>
 <th>Recommended Granularity</th>
@@ -969,33 +1040,32 @@ uncertainty.</p>
 <tr class="odd">
 <td>“How much changed?”</td>
 <td>Monthly</td>
-<td>Standard</td>
+<td>Standard strict algorithm</td>
 </tr>
 <tr class="even">
 <td>“When exactly did it change?”</td>
 <td>Fortnight</td>
-<td>National-level only</td>
+<td>Use experimental strategies</td>
 </tr>
 <tr class="odd">
 <td>“Was there a within-week pattern?”</td>
 <td>Weekly</td>
-<td>Pool multiple years</td>
+<td>Experimental + pool multiple years</td>
 </tr>
 </tbody>
 </table>
 <p><strong>Key takeaways:</strong></p>
 <ol style="list-style-type: decimal">
 <li>
-<strong>Monthly analysis handles most use cases</strong> with high
-determination rates and robust samples</li>
+<strong>Monthly analysis handles most use cases</strong> with ~95%
+strict determination rate</li>
 <li>
-<strong>Fortnightly analysis</strong> works for detecting transition
-timing when the fortnight boundary aligns with the event of interest
-(e.g., mid-month policy changes)</li>
+<strong>Fortnightly analysis</strong> is more practical with
+<code><a href="../reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code> (~28% rate vs ~6% strict)</li>
 <li>
-<strong>Weekly analysis</strong> requires pooling multiple years and
-focusing on aggregate patterns; subgroup analysis is rarely
-feasible</li>
+<strong>Weekly analysis</strong> benefits from experimental
+strategies (~2% vs ~1.2% strict); still requires pooling years for
+subgroup analysis</li>
 </ol>
 <hr>
 </div>
@@ -1060,7 +1130,7 @@ Data download workflow</li>
 <li>IBGE. Pesquisa Nacional por Amostra de Domicilios Continua (PNADC).
 <a href="https://www.ibge.gov.br/estatisticas/sociais/trabalho/" class="external-link uri">https://www.ibge.gov.br/estatisticas/sociais/trabalho/</a>
 </li>
-<li>Hecksher, M. (2024). Mensalizacao da PNADC. Working paper.</li>
+<li>Hecksher, M. (2025). Mensalizacao da PNADC. Working paper.</li>
 </ul>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

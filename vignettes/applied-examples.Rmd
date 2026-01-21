@@ -505,7 +505,7 @@ The pattern remains crisp even under this demanding test. In habitual income:
 
 In effective income, each transition appears exactly one month later. The short-lived R$ 1,039 value creates a distinctive spike visible in both panels, offset by precisely one month.
 
-### The Full Picture: 2012-2024
+### The Full Picture: 2012-2025
 
 Even with consecutive monthly adjustments creating overlapping transitions, the one-month lag remains crisp. Does this pattern hold across the entire series?
 
@@ -556,7 +556,7 @@ ggplot(mw_long_filtered,
 
 ![MW Big Picture: All Values Over Time](figures/applied-examples/fig-mw-big-picture.png){width=100%}
 
-The figure shows all minimum wage values tracked over the full period. Each vertical line marks a MW adjustment. Notice how the pattern in the top panel (habitual income) is shifted one month earlier than the bottom panel (effective income)---exactly as predicted, consistently across twelve years and more than a dozen minimum wage values.
+The figure shows all minimum wage values tracked over the full period. Each vertical line marks a MW adjustment. Notice how the pattern in the top panel (habitual income) is shifted one month earlier than the bottom panel (effective income)---exactly as predicted, consistently across thirteen years and fourteen minimum wage values.
 
 This provides strong validation that the mensalization algorithm correctly identifies reference months.
 
@@ -595,13 +595,32 @@ However, finer granularity comes at a cost: **smaller samples**.
 
 ### The Sample Size Trade-Off
 
+**Strict determination rates** (from `pnadc_identify_periods()`):
+
 | Granularity | Determination Rate | Typical Obs/Period | Best For |
 |-------------|-------------------|-------------------|----------|
 | Monthly | ~97% | ~65,000 | Most analyses |
-| Fortnightly | ~3% | ~3,000 | Transition timing |
-| Weekly | ~1% | ~500 | Shock detection |
+| Fortnightly | ~7% | ~3,000 | Transition timing |
+| Weekly | ~1.5% | ~500 | Shock detection |
 
 **Why the low rates for fortnights and weeks?** Unlike months, which aggregate constraints across multiple quarterly visits (leveraging the panel design), fortnights and weeks can only use information from within a single quarter. The birthday constraints rarely narrow the interview window to a single 15-day or 7-day period.
+
+### Boosting Sub-Monthly Sample Sizes with Experimental Strategies
+
+The strict determination rates above can be significantly improved using `pnadc_experimental_periods()`. This function applies two strategies:
+
+1. **Probabilistic assignment**: When the interview window spans exactly two consecutive periods and ≥90% of the interval falls in one period, assign to that period.
+
+2. **UPA aggregation**: When ≥50% of observations within a UPA have the same determined period, extend that assignment to undetermined observations.
+
+With both strategies (`strategy = "both"`):
+
+| Granularity | Strict Rate | Experimental Rate | Improvement |
+|-------------|-------------|-------------------|-------------|
+| Fortnight | ~6% | ~28% | ~5× more data |
+| Weekly | ~1.2% | ~2% | ~1.6× more data |
+
+The examples below use experimental strategies to maximize sample sizes for sub-monthly analysis.
 
 ### Example: COVID-19 Lockdown at Fortnightly Resolution
 
@@ -610,15 +629,30 @@ The COVID-19 pandemic provides a compelling test case. Brazilian lockdowns began
 We examine **labor force participation**, which dropped sharply as workers exited the labor market entirely (not just becoming unemployed, but stopping their job search):
 
 ```{r covid-fortnight}
-# For fortnightly analysis, we need observations with determined fortnights
-pnadc_fortnight <- result[!is.na(weight_fortnight) & Ano == 2020 & Trimestre %in% 1:2]
+# Apply experimental strategies to boost fortnight determination rate
+crosswalk_exp <- pnadc_experimental_periods(
+  crosswalk = crosswalk,
+  data = pnadc,
+  strategy = "both",  # probabilistic + UPA aggregation
+  confidence_threshold = 0.9,
+  upa_proportion_threshold = 0.5,
+  include_derived = TRUE
+)
 
-# Compute participation rate by fortnight
+# The experimental crosswalk now has ~28% fortnight determination vs ~6% strict
+# For fortnightly analysis, we use the experimental crosswalk
+pnadc_fortnight <- merge(pnadc, crosswalk_exp[, .(Ano, Trimestre, UPA, V1008, V1014,
+                                                    ref_fortnight_in_quarter, ref_fortnight_yyyyff)],
+                         by = c("Ano", "Trimestre", "UPA", "V1008", "V1014"), all.x = TRUE)
+pnadc_fortnight <- pnadc_fortnight[!is.na(ref_fortnight_in_quarter) & Ano == 2020 & Trimestre %in% 1:2]
+
+# Compute participation rate by fortnight using V1028 (original quarterly weight)
+# Since fortnights cannot aggregate across quarters, V1028 is appropriate
 fortnight_covid <- pnadc_fortnight[, .(
-  participation_rate = sum(pea * weight_fortnight, na.rm = TRUE) /
-                       sum(weight_fortnight, na.rm = TRUE),
-  unemployment_rate = sum(unemployed * weight_fortnight, na.rm = TRUE) /
-                      sum(pea * weight_fortnight, na.rm = TRUE),
+  participation_rate = sum(pea * V1028, na.rm = TRUE) /
+                       sum(V1028, na.rm = TRUE),
+  unemployment_rate = sum(unemployed * V1028, na.rm = TRUE) /
+                      sum(pea * V1028, na.rm = TRUE),
   n_obs = .N
 ), by = .(Ano, Trimestre, ref_fortnight_in_quarter, ref_fortnight_yyyyff)]
 
@@ -656,9 +690,9 @@ ggplot() +
   scale_x_date(date_breaks = "1 month", date_labels = "%b\n%Y") +
   labs(
     title = "COVID-19 Labor Force Participation: Monthly vs Fortnightly",
-    subtitle = "Fortnightly data (orange) reveals sharper discontinuity at lockdown onset",
+    subtitle = "Fortnightly data (orange) reveals sharper discontinuity at lockdown onset (experimental strategies)",
     x = NULL, y = "Labor Force Participation Rate",
-    caption = "Monthly (red): ~65,000 obs/month | Fortnightly (orange): ~3,000 obs/fortnight"
+    caption = "Uses pnadc_experimental_periods() for ~28% fortnight determination vs ~6% strict rate."
   ) +
   theme_minimal(base_size = 11)
 ```
@@ -671,22 +705,30 @@ The fortnightly data shows a sharper discontinuity around March 16---the partici
 
 Carnival is Brazil's largest cultural event, concentrated in specific states (Bahia, Rio de Janeiro, Pernambuco) and occurring during a specific week each year. Do workers reduce their hours during Carnival week?
 
-This is a challenging analysis due to the ~1% weekly determination rate. To increase sample size, we **pool multiple years** (2019, 2022-2024, excluding COVID years) and compare Carnival states to other states. We use **average hours worked** (VD4035) as our indicator, which should show a clear drop during Carnival:
+With strict determination, the ~1.2% weekly rate makes this analysis challenging. However, using `pnadc_experimental_periods()` boosts this to ~2%. We **pool multiple years** (2019, 2022-2025, excluding COVID years) and compare Carnival states to other states. We use **average hours worked** (VD4035) as our indicator, which should show a clear drop during Carnival:
 
 ```{r carnival-weekly}
-# Filter to Q1 of Carnival years (2019, 2022-2024)
+# Use experimental strategies for improved weekly determination
+# (Same crosswalk_exp created in the fortnight example above)
+
+# Filter to Q1 of Carnival years (2019, 2022-2025)
 # Use observations with determined weeks (among employed with valid hours)
-carnival_years <- c(2019L, 2022L, 2023L, 2024L)
-pnadc_weekly <- pnadc[
+carnival_years <- c(2019L, 2022L, 2023L, 2024L, 2025L)
+
+# Merge experimental crosswalk for week data
+pnadc_weekly <- merge(pnadc, crosswalk_exp[, .(Ano, Trimestre, UPA, V1008, V1014,
+                                                 ref_week_in_quarter, ref_week_yyyyww)],
+                      by = c("Ano", "Trimestre", "UPA", "V1008", "V1014"), all.x = TRUE)
+pnadc_weekly <- pnadc_weekly[
   !is.na(ref_week_in_quarter) & Trimestre == 1L & Ano %in% carnival_years &
   employed == 1L & !is.na(VD4035)
 ]
 
 # Define Carnival weeks (ISO week of Carnival Tuesday varies by year)
-# 2019: Week 10 | 2022: Week 9 | 2023: Week 8 | 2024: Week 7
+# 2019: Week 10 | 2022: Week 9 | 2023: Week 8 | 2024: Week 7 | 2025: Week 10
 carnival_weeks <- data.table(
   Ano = carnival_years,
-  carnival_iso_week = c(10L, 9L, 8L, 7L)
+  carnival_iso_week = c(10L, 9L, 8L, 7L, 10L)
 )
 
 # Extract ISO week and merge
@@ -715,10 +757,10 @@ ggplot(weekly_carnival,
                                "Other States" = "#1f77b4")) +
   labs(
     title = "Average Hours Worked by Week Type and Region",
-    subtitle = "Pooled data from Q1 2019, 2022-2024",
+    subtitle = "Pooled data from Q1 2019, 2022-2025 (experimental strategies)",
     x = NULL, y = "Average Hours Worked (per week)",
     fill = "Region",
-    caption = "Weekly determination rate: ~1%. Data pooled across 4 years."
+    caption = "Uses pnadc_experimental_periods() for improved weekly determination. Data pooled across 5 years."
   ) +
   theme_minimal(base_size = 11)
 ```
@@ -731,15 +773,15 @@ The comparison shows that workers in Carnival-intensive states (BA/RJ/PE) reduce
 
 | Question Type | Recommended Granularity | Sample Strategy |
 |---------------|------------------------|-----------------|
-| "How much changed?" | Monthly | Standard |
-| "When exactly did it change?" | Fortnight | National-level only |
-| "Was there a within-week pattern?" | Weekly | Pool multiple years |
+| "How much changed?" | Monthly | Standard strict algorithm |
+| "When exactly did it change?" | Fortnight | Use experimental strategies |
+| "Was there a within-week pattern?" | Weekly | Experimental + pool multiple years |
 
 **Key takeaways:**
 
-1. **Monthly analysis handles most use cases** with high determination rates and robust samples
-2. **Fortnightly analysis** works for detecting transition timing when the fortnight boundary aligns with the event of interest (e.g., mid-month policy changes)
-3. **Weekly analysis** requires pooling multiple years and focusing on aggregate patterns; subgroup analysis is rarely feasible
+1. **Monthly analysis handles most use cases** with ~95% strict determination rate
+2. **Fortnightly analysis** is more practical with `pnadc_experimental_periods()` (~28% rate vs ~6% strict)
+3. **Weekly analysis** benefits from experimental strategies (~2% vs ~1.2% strict); still requires pooling years for subgroup analysis
 
 ---
 
@@ -791,4 +833,4 @@ See [Get Started](getting-started.html) for complete documentation of the packag
 
 - IBGE. Pesquisa Nacional por Amostra de Domicilios Continua (PNADC).
   https://www.ibge.gov.br/estatisticas/sociais/trabalho/
-- Hecksher, M. (2024). Mensalizacao da PNADC. Working paper.
+- Hecksher, M. (2025). Mensalizacao da PNADC. Working paper.

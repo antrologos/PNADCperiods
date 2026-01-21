@@ -204,14 +204,14 @@ determination rate:</p>
 <span><span class="va">editions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid</a></span><span class="op">(</span></span>
 <span>  year <span class="op">=</span> <span class="fl">2020</span><span class="op">:</span><span class="fl">2024</span>,</span>
 <span>  quarter <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span></span>
-<span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="co"># Remove quarters not yet available</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="op">(</span><span class="va">year</span> <span class="op">==</span> <span class="fl">2024</span> <span class="op">&amp;</span> <span class="va">quarter</span> <span class="op">&gt;</span> <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co"># Note: If downloading more recent years, filter out quarters not yet available:</span></span>
+<span><span class="co"># editions &lt;- editions |&gt; filter(!(year == 2025 &amp; quarter &gt; 3))</span></span>
 <span></span>
 <span><span class="co"># View the grid</span></span>
 <span><span class="va">editions</span></span></code></pre></div>
-<p>This creates a grid of 19 quarters. Adjust the filter for the most
-recent available quarter.</p>
+<p>This creates a grid of 20 quarters. If extending to more recent
+years, adjust the filter for the latest available quarter.</p>
 </div>
 <div class="section level2">
 <h2 id="step-3-download-the-data">Step 3: Download the Data<a class="anchor" aria-label="anchor" href="#step-3-download-the-data"></a>
@@ -339,8 +339,8 @@ calibrated weights:</p>
 Crosswalk complete:
   - 3,159,265 unique household-quarter observations
   - Month determination: 94.2%
-  - Fortnight determination: 2.8%
-  - Week determination: 0.9%</code></pre>
+  - Fortnight determination: 6.8%
+  - Week determination: 1.6%</code></pre>
 <p>The determination rate tells you what percentage of observations have
 their reference period identified. With 20 quarters stacked (2020-2024),
 we achieve 94.2% for months.</p>
@@ -359,12 +359,12 @@ we achieve 94.2% for months.</p>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>pct <span class="op">=</span> <span class="va">n</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span></span></code></pre></div>
 <p>Output (from real PNADC 2020-2024 data):</p>
 <pre><code>   ref_month_in_quarter       N   pct
-1:                    1 1020409  32.3
-2:                    2  965613  30.6
-3:                    3  990865  31.4
-4:                   NA  182378   5.8</code></pre>
+1:                    1 2870178  32.4
+2:                    2 2725932  30.7
+3:                    3 2789893  31.5
+4:                   NA  482244   5.4</code></pre>
 <p>The distribution is approximately equal across months 1, 2, and 3
-(each around 31-32%), with 5.8% having <code>NA</code> for indeterminate
+(each around 31-32%), with 5.4% having <code>NA</code> for indeterminate
 cases (this is higher than the ~3% seen with full 2012-2025 data because
 boundary quarters have lower determination rates).</p>
 <p>The output columns include:</p>
@@ -456,14 +456,14 @@ minutes.</p></li>
 <tbody>
 <tr class="odd">
 <td>2020-2024</td>
-<td>19</td>
-<td>~10.8M</td>
+<td>20</td>
+<td>~8.9M</td>
 <td>~5 GB</td>
 </tr>
 <tr class="even">
-<td>2012-2024</td>
-<td>51</td>
-<td>~28.4M</td>
+<td>2012-2025</td>
+<td>55</td>
+<td>~29M</td>
 <td>~15 GB</td>
 </tr>
 </tbody>
@@ -484,7 +484,7 @@ all available quarters:</p>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="op">(</span><span class="va">year</span> <span class="op">==</span> <span class="fl">2025</span> <span class="op">&amp;</span> <span class="va">quarter</span> <span class="op">&gt;</span> <span class="fl">3</span><span class="op">)</span><span class="op">)</span>  <span class="co"># Adjust for latest available</span></span>
 <span></span>
 <span><span class="co"># Use the same download and stacking loops as above</span></span></code></pre></div>
-<p>The full history provides approximately 28 million observations and
+<p>The full history provides approximately 29 million observations and
 achieves the highest possible determination rate.</p>
 </div>
 <div class="section level2">
