@@ -88,11 +88,15 @@
 #'
 #' ## UPA Aggregation Strategy
 #'
-#' Extends strictly identified periods to all observations in the same UPA-V1014
-#' within the quarter:
+#' Extends strictly identified periods based on consensus within geographic groups:
+#' \itemize{
+#'   \item \strong{Months}: Uses UPA-V1014 level (panel design ensures same month)
+#'   \item \strong{Fortnights/Weeks}: Uses UPA level (all households in same UPA
+#'     are interviewed in same fortnight/week within a quarter)
+#' }
 #' \enumerate{
-#'   \item Calculate proportion of UPA-V1014 observations with strictly identified period
-#'   \item If proportion >= \code{upa_proportion_threshold}, extend to all observations
+#'   \item Calculate proportion of observations with strictly identified period
+#'   \item If proportion >= \code{upa_proportion_threshold} AND consensus exists, extend
 #'   \item Apply in nested order: months first, then fortnights, then weeks
 #' }
 #'
@@ -103,7 +107,7 @@
 #'   \item First, apply the probabilistic strategy (captures observations with
 #'     narrow date ranges and high confidence)
 #'   \item Then, apply UPA aggregation (extends based on strict consensus
-#'     within UPA-V1014 groups)
+#'     within UPA/UPA-V1014 groups)
 #' }
 #'
 #' This guarantees that "both" identifies at least as many observations as
@@ -718,11 +722,19 @@ apply_probabilistic_strategy_nested <- function(crosswalk, data, confidence_thre
 
 #' Apply UPA Aggregation Strategy with Proper Nesting
 #'
-#' Extends strictly identified periods to all observations in the same UPA-V1014
-#' within the quarter, if a sufficient proportion already have strict identification.
+#' Extends strictly identified periods to unidentified observations based on
+#' consensus within geographic/sampling groups:
+#' \itemize{
+#'   \item \strong{Months}: Aggregates at UPA-V1014 level (panel design ensures
+#'     same month position across quarters)
+#'   \item \strong{Fortnights/Weeks}: Aggregates at UPA level (all households in
+#'     same UPA are interviewed in same fortnight/week within a quarter,
+#'     regardless of panel rotation V1014)
+#' }
 #'
 #' @param crosswalk Crosswalk data.table
-#' @param threshold Minimum proportion of UPA-V1014 observations with strict identification
+#' @param threshold Minimum proportion of observations with strict identification
+#'   required before extending to unidentified observations
 #' @param verbose Print progress
 #' @return Modified crosswalk with UPA-aggregated columns
 #' @keywords internal
@@ -773,7 +785,9 @@ apply_upa_aggregation_strategy_nested <- function(crosswalk, threshold, verbose)
 
   if (verbose) cat("  Phase 2: Fortnight UPA aggregation (nested)...\n")
 
-  # Calculate proportion of UPA-V1014 within-quarter with strictly identified fortnight
+  # Calculate proportion of UPA within-quarter with strictly identified fortnight
+  # NOTE: Aggregate at UPA level (not UPA-V1014) because all households in the same
+  # UPA are interviewed in the same fortnight within a quarter, regardless of panel rotation.
   upa_fortnight_stats <- crosswalk[, .(
     n_total = .N,
     n_strict = sum(!is.na(ref_fortnight_in_quarter)),
@@ -782,7 +796,7 @@ apply_upa_aggregation_strategy_nested <- function(crosswalk, threshold, verbose)
       ref_fortnight_in_quarter[!is.na(ref_fortnight_in_quarter)][1L],
       NA_integer_
     )
-  ), by = .(Ano, Trimestre, UPA, V1014)]
+  ), by = .(Ano, Trimestre, UPA)]
 
   upa_fortnight_stats[, prop_strict := n_strict / n_total]
 
@@ -800,7 +814,7 @@ apply_upa_aggregation_strategy_nested <- function(crosswalk, threshold, verbose)
     )]
 
     # Join consensus_fortnight and validate it's within the month's fortnight bounds
-    crosswalk[upa_fortnight_qualify, on = .(Ano, Trimestre, UPA, V1014), `:=`(
+    crosswalk[upa_fortnight_qualify, on = .(Ano, Trimestre, UPA), `:=`(
       ref_fortnight_exp = fifelse(
         is.na(ref_fortnight_in_quarter) & month_identified &
           i.consensus_fortnight >= fortnight_lower &
@@ -832,7 +846,9 @@ apply_upa_aggregation_strategy_nested <- function(crosswalk, threshold, verbose)
 
   if (verbose) cat("  Phase 3: Week UPA aggregation (nested)...\n")
 
-  # Calculate proportion of UPA-V1014 within-quarter with strictly identified week
+  # Calculate proportion of UPA within-quarter with strictly identified week
+  # NOTE: Aggregate at UPA level (not UPA-V1014) because all households in the same
+  # UPA are interviewed in the same week within a quarter, regardless of panel rotation.
   upa_week_stats <- crosswalk[, .(
     n_total = .N,
     n_strict = sum(!is.na(ref_week_in_quarter)),
@@ -841,7 +857,7 @@ apply_upa_aggregation_strategy_nested <- function(crosswalk, threshold, verbose)
       ref_week_in_quarter[!is.na(ref_week_in_quarter)][1L],
       NA_integer_
     )
-  ), by = .(Ano, Trimestre, UPA, V1014)]
+  ), by = .(Ano, Trimestre, UPA)]
 
   upa_week_stats[, prop_strict := n_strict / n_total]
 
@@ -857,7 +873,7 @@ apply_upa_aggregation_strategy_nested <- function(crosswalk, threshold, verbose)
     # algorithm's nesting enforcement for the source consensus values.
     crosswalk[, fortnight_identified := !is.na(ref_fortnight_in_quarter) | !is.na(ref_fortnight_exp)]
 
-    crosswalk[upa_week_qualify, on = .(Ano, Trimestre, UPA, V1014), `:=`(
+    crosswalk[upa_week_qualify, on = .(Ano, Trimestre, UPA), `:=`(
       ref_week_exp = fifelse(
         is.na(ref_week_in_quarter) & fortnight_identified,
         i.consensus_week,

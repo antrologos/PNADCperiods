@@ -174,5 +174,10 @@ utils::globalVariables(c(
   "i.confidence", "i.month_identified", "i.effective_month",
   "i.fortnight_identified", "i.effective_fortnight",
   "i.upa_date_min", "i.upa_date_max", "i.upa_month_min_pos", "i.upa_month_max_pos",
-  "i.month_range", "upa_month_min", "upa_month_max", "upa_month_range"
+  "i.month_range", "upa_month_min", "upa_month_max", "upa_month_range",
+  # Combine crosswalks and derived columns
+  "probabilistic_assignment",
+  "i.ref_month_exp", "i.ref_month_exp_confidence",
+  "i.ref_fortnight_exp", "i.ref_fortnight_exp_confidence",
+  "i.ref_week_exp", "i.ref_week_exp_confidence"
 ))

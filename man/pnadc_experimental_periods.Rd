@@ -111,11 +111,15 @@ For fortnights and weeks: works at household level
 
 \subsection{UPA Aggregation Strategy}{
 
-Extends strictly identified periods to all observations in the same UPA-V1014
-within the quarter:
+Extends strictly identified periods based on consensus within geographic groups:
+\itemize{
+\item \strong{Months}: Uses UPA-V1014 level (panel design ensures same month)
+\item \strong{Fortnights/Weeks}: Uses UPA level (all households in same UPA
+are interviewed in same fortnight/week within a quarter)
+}
 \enumerate{
-\item Calculate proportion of UPA-V1014 observations with strictly identified period
-\item If proportion >= \code{upa_proportion_threshold}, extend to all observations
+\item Calculate proportion of observations with strictly identified period
+\item If proportion >= \code{upa_proportion_threshold} AND consensus exists, extend
 \item Apply in nested order: months first, then fortnights, then weeks
 }
 }
@@ -127,7 +131,7 @@ Sequentially applies both strategies to maximize identification:
 \item First, apply the probabilistic strategy (captures observations with
 narrow date ranges and high confidence)
 \item Then, apply UPA aggregation (extends based on strict consensus
-within UPA-V1014 groups)
+within UPA/UPA-V1014 groups)
 }
 
 This guarantees that "both" identifies at least as many observations as
