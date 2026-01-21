@@ -105,7 +105,6 @@ If you're looking for applied examples with real policy questions, see the [Appl
 | `UPA` | Primary Sampling Unit |
 | `V1014` | Panel identifier |
 | `V1008` | Household identifier |
-| `V2003` | Person identifier |
 | `V2008` | Birth day (1-31, or 99 for unknown) |
 | `V20081` | Birth month (1-12, or 99 for unknown) |
 | `V20082` | Birth year (or 9999 for unknown) |
@@ -120,6 +119,7 @@ If you're looking for applied examples with real policy questions, see the [Appl
 | `UF` | State code |
 | `posest` | Post-stratification cell |
 | `posest_sxi` | Post-stratification group |
+| `V2003` | Person order in household (optional, used for sex-specific calibration) |
 
 ### Output Variables
 
@@ -143,6 +143,7 @@ If you're looking for applied examples with real policy questions, see the [Appl
 | `calibrate_monthly_weights()` | Rake weighting for monthly weights (quarterly data) |
 | `fetch_monthly_population()` | Fetch population from SIDRA API |
 | `validate_pnadc()` | Input data validation |
+| `combine_period_crosswalks()` | Merge strict and experimental crosswalks |
 
 ### Performance Summary
 
@@ -256,41 +257,42 @@ INPUTS (per observation):
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
-            ┌───────────────────────┼───────────────────────┐
-            │                       │                       │
-            ▼                       ▼                       ▼
-┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
-│   MONTH PIPELINE      │ │ FORTNIGHT PIPELINE    │ │   WEEK PIPELINE       │
-│   (Steps 4-7)         │ │ (Steps 4-5)           │ │   (Steps 4-5)         │
-├───────────────────────┤ ├───────────────────────┤ ├───────────────────────┤
-│                       │ │                       │ │                       │
-│ Step 4: Aggregate at  │ │ Step 4: Aggregate at  │ │ Step 4: Aggregate at  │
-│   (UPA, V1014) level  │ │   (Ano, Trim, UPA,    │ │   (Ano, Trim, UPA,    │
-│                       │ │    V1008) level       │ │    V1008) level       │
-│ Step 5: CROSS-QUARTER │ │                       │ │                       │
-│   aggregation across  │ │ NO cross-quarter      │ │ NO cross-quarter      │
-│   ALL quarters        │ │ aggregation possible  │ │ aggregation possible  │
-│                       │ │                       │ │                       │
-│ Step 6: Dynamic       │ │ Step 5: Final         │ │ Step 5: Final         │
-│   exception detection │ │   assignment          │ │   assignment          │
-│                       │ │                       │ │                       │
-│ Step 7: Final         │ │                       │ │                       │
-│   assignment          │ │                       │ │                       │
-│                       │ │                       │ │                       │
-└───────────────────────┘ └───────────────────────┘ └───────────────────────┘
-            │                       │                       │
-            ▼                       ▼                       ▼
-┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
-│ Determination: ~97%   │ │ Determination: ~3%    │ │ Determination: ~1%    │
-│                       │ │                       │ │                       │
-│ OUTPUT:               │ │ OUTPUT:               │ │ OUTPUT:               │
-│ - ref_month (Date)    │ │ - ref_fortnight       │ │ - ref_week (Date)     │
-│ - ref_month_in_qtr    │ │ - ref_fortnight_in_q  │ │ - ref_week_in_qtr     │
-│ - ref_month_yyyymm    │ │ - ref_fortnight_yyyyff│ │ - ref_week_yyyyww     │
-└───────────────────────┘ └───────────────────────┘ └───────────────────────┘
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          NESTED IDENTIFICATION                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  PHASE 1: MONTH PIPELINE (Steps 4-7)                                        │
+│  ├── Step 4: Aggregate at (UPA, V1014) level                                │
+│  ├── Step 5: CROSS-QUARTER aggregation across ALL quarters                  │
+│  ├── Step 6: Dynamic exception detection                                    │
+│  └── Step 7: Final month assignment                                         │
+│  └── Determination: ~97%                                                    │
+│                         ↓                                                   │
+│  PHASE 2: FORTNIGHT PIPELINE (only if month determined)                     │
+│  ├── Step 4: Aggregate at (Ano, Trimestre, UPA, V1008) level               │
+│  ├── NO cross-quarter aggregation possible                                  │
+│  └── Step 5: Final fortnight assignment                                     │
+│  └── Determination: ~7-8% (strict)                                          │
+│                         ↓                                                   │
+│  PHASE 3: WEEK PIPELINE (only if fortnight determined)                      │
+│  ├── Step 4: Aggregate at (Ano, Trimestre, UPA, V1008) level               │
+│  ├── NO cross-quarter aggregation possible                                  │
+│  └── Step 5: Final week assignment                                          │
+│  └── Determination: ~1-2% (strict)                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ OUTPUT:                                                                     │
+│ - Month:     ref_month (Date), ref_month_in_quarter, ref_month_yyyymm       │
+│ - Fortnight: ref_fortnight (Date), ref_fortnight_in_quarter, ref_yyyyff     │
+│ - Week:      ref_week (Date), ref_week_in_quarter, ref_week_yyyyww          │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Key insight**: The critical difference is that **months benefit from cross-quarter aggregation** (Step 5 in the month pipeline), while fortnights and weeks cannot aggregate constraints across quarters. This is why the monthly determination rate (~97%) far exceeds fortnights (~3%) and weeks (~1%).
+**Key insight**: The identification is **nested** - fortnights can only be identified if the month is already determined, and weeks can only be identified if the fortnight is already determined. Additionally, **months benefit from cross-quarter aggregation** (Step 5), while fortnights and weeks cannot aggregate constraints across quarters. This is why the monthly determination rate (~97%) far exceeds fortnights (~7-8% strict) and weeks (~1-2% strict).
 
 ---
 
@@ -492,7 +494,7 @@ For each (UPA, V1014) group across ALL quarters:
 
 This is why processing stacked data improves determination from ~70% to ~97%.
 
-**Critical distinction**: This cross-quarter aggregation is what makes monthly determination so effective (~97%), but it **cannot be applied to fortnights or weeks**. Even though a household is always interviewed in the same relative month (e.g., always month 2), the specific fortnight or week within that month varies by quarter. Therefore, fortnight and week constraints must be evaluated within each quarter independently, resulting in much lower determination rates (~2-5% for fortnights, ~1-2% for weeks).
+**Critical distinction**: This cross-quarter aggregation is what makes monthly determination so effective (~97%), but it **cannot be applied to fortnights or weeks**. Even though a household is always interviewed in the same relative month (e.g., always month 2), the specific fortnight or week within that month varies by quarter. Therefore, fortnight and week constraints must be evaluated within each quarter independently, resulting in much lower determination rates (~7-8% for fortnights, ~1-2% for weeks).
 
 #### Step 6: Dynamic Exception Detection
 
@@ -687,7 +689,7 @@ crosswalk[, .(
 
 # For fortnight analysis, filter to determined observations
 fortnight_data <- crosswalk[determined_fortnight == TRUE]
-nrow(fortnight_data) / nrow(crosswalk)  # ~3%
+nrow(fortnight_data) / nrow(crosswalk)  # ~7-8%
 
 # Apply crosswalk with fortnight calibration
 result <- pnadc_apply_periods(
@@ -771,7 +773,7 @@ Days in fortnight 6 (Mar 16-31): 16, 17, 18, 19, 20     = 5 days
 Date midpoint: March 15 → Falls in fortnight 5
 Confidence: 6/11 ≈ 0.55 (55% probability of fortnight 5)
 
-Result: ref_fortnight_likely = 5, ref_fortnight_confidence = 0.55
+Result: ref_fortnight_exp = 5, ref_fortnight_exp_confidence = 0.55
 ```
 
 **Confidence Score Distribution (from 2012-2025 benchmark):**
@@ -809,13 +811,13 @@ crosswalk_prob <- pnadc_experimental_periods(
 # Check results
 crosswalk_prob[, .(
   strict = sum(determined_fortnight),
-  likely = sum(!is.na(ref_fortnight_likely)),
-  high_conf = sum(ref_fortnight_confidence >= 0.7, na.rm = TRUE)
+  experimental = sum(!is.na(ref_fortnight_exp)),
+  high_conf = sum(ref_fortnight_exp_confidence >= 0.7, na.rm = TRUE)
 )]
 
 # Filter to high-confidence assignments
 high_conf_fortnights <- crosswalk_prob[
-  determined_fortnight | ref_fortnight_confidence >= 0.7
+  determined_fortnight | ref_fortnight_exp_confidence >= 0.7
 ]
 ```
 
@@ -839,7 +841,7 @@ IBGE's interview scheduling creates natural clustering at the UPA level. While I
 For each (Ano, Trimestre, UPA):
   1. Find all households with strictly determined fortnight/week
   2. Check if all determined households have the SAME period
-     (UPA homogeneity check - threshold default: 80%)
+     (UPA proportion check - threshold default: 90%)
   3. If homogeneous: propagate that period to ALL households in the UPA
      (including those without strict determination)
 ```
@@ -862,7 +864,7 @@ For each (Ano, Trimestre, UPA):
 │    - All have fortnight = 3? YES (100% homogeneous)                 │
 │                                                                     │
 │  Result: Propagate fortnight = 3 to C, D, E                         │
-│    → ref_fortnight_upa = 3 for all 5 households                     │
+│    → ref_fortnight_exp = 3 for all 5 households                     │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -888,7 +890,7 @@ crosswalk <- pnadc_identify_periods(pnadc_stacked)
 crosswalk_upa <- pnadc_experimental_periods(
   crosswalk,
   strategy = "upa_aggregation",
-  upa_homogeneity_threshold = 0.80,  # Default: apply if homogeneity >= 80%
+  upa_proportion_threshold = 0.9,  # Default: apply if proportion >= 90%
   verbose = TRUE
 )
 
@@ -901,8 +903,8 @@ crosswalk_upa <- pnadc_experimental_periods(
 # Use UPA-aggregated periods
 crosswalk_upa[, .(
   strict_only = sum(determined_fortnight),
-  with_upa = sum(determined_fortnight | !is.na(ref_fortnight_upa)),
-  improvement = sum(!is.na(ref_fortnight_upa) & !determined_fortnight)
+  with_exp = sum(determined_fortnight | !is.na(ref_fortnight_exp)),
+  improvement = sum(!is.na(ref_fortnight_exp) & !determined_fortnight)
 )]
 ```
 
@@ -910,7 +912,12 @@ crosswalk_upa[, .(
 
 ### Combined Strategy ("both")
 
-For maximum coverage, combine both strategies. The probabilistic strategy is applied first, then UPA aggregation:
+For maximum coverage, combine both strategies. The strategies are applied **sequentially** to maximize identification:
+
+1. **First, probabilistic strategy** is applied (captures observations with narrow date ranges and high confidence)
+2. **Then, UPA aggregation** is applied on top (extends based on strict consensus within UPA-V1014 groups)
+
+The strategies operate independently: UPA aggregation considers only **strict** identifications (not probabilistic assignments). Both strategies write to the same experimental columns (`ref_*_exp`), so the final result is the union of both strategies. This guarantees that "both" identifies at least as many observations as either individual strategy alone.
 
 ```{r combined-strategy, eval=FALSE}
 # Apply both strategies
@@ -918,18 +925,15 @@ crosswalk_both <- pnadc_experimental_periods(
   crosswalk,
   data = pnadc_stacked,
   strategy = "both",
-  upa_homogeneity_threshold = 0.80,
+  upa_proportion_threshold = 0.9,
   verbose = TRUE
 )
 
 # Combined results
 crosswalk_both[, .(
-  strict = sum(determined_fortnight),
-  probabilistic = sum(!is.na(ref_fortnight_likely) & !determined_fortnight),
-  upa_aggregated = sum(!is.na(ref_fortnight_upa) & !determined_fortnight),
-  total_coverage = mean(determined_fortnight |
-                        !is.na(ref_fortnight_likely) |
-                        !is.na(ref_fortnight_upa))
+  strict = sum(determined_fortnight & !probabilistic_assignment, na.rm = TRUE),
+  experimental = sum(!is.na(ref_fortnight_exp) & probabilistic_assignment, na.rm = TRUE),
+  total_coverage = mean(determined_fortnight | !is.na(ref_fortnight_exp))
 )]
 ```
 
@@ -983,20 +987,21 @@ Need fortnight/week analysis?
 
 3. **Neither replaces strict determination**: For rigorous causal analysis or official statistics, strict determination should be preferred despite smaller sample sizes.
 
-4. **Combine with caution**: When using "both" strategies, be aware that different households may have periods assigned via different mechanisms (strict, probabilistic, or UPA).
+4. **Combine with caution**: When using "both" strategies, be aware that different households may have periods assigned via different mechanisms (strict, probabilistic, or UPA). Use the `probabilistic_assignment` flag to distinguish: `FALSE` means strict determination, `TRUE` means assigned via experimental methods.
 
-5. **Validate for your specific use case**: Run sensitivity analysis comparing strict-only results with experimental results to ensure conclusions are robust.
+5. **Validate for your specific use case**: Run sensitivity analysis comparing strict-only results with experimental results to ensure conclusions are robust. Filter with `crosswalk[probabilistic_assignment == FALSE]` to get strict-only assignments.
 
 **Output columns from `pnadc_experimental_periods()`:**
 
-| Column | Strategy | Description |
-|--------|----------|-------------|
-| `ref_fortnight_likely` | Probabilistic | Fortnight assignment (NA if range > 2) |
-| `ref_fortnight_confidence` | Probabilistic | Confidence score 0.5-1.0 |
-| `ref_week_likely` | Probabilistic | Week assignment (NA if range > 2) |
-| `ref_week_confidence` | Probabilistic | Confidence score 0.5-1.0 |
-| `ref_fortnight_upa` | UPA aggregation | UPA-propagated fortnight |
-| `ref_week_upa` | UPA aggregation | UPA-propagated week |
+| Column | Type | Description |
+|--------|------|-------------|
+| `ref_month_exp` | integer | Experimental month assignment (1-3 in quarter) |
+| `ref_month_exp_confidence` | numeric | Confidence score for month assignment (0-1) |
+| `ref_fortnight_exp` | integer | Experimental fortnight assignment (1-6 in quarter) |
+| `ref_fortnight_exp_confidence` | numeric | Confidence score for fortnight assignment (0-1) |
+| `ref_week_exp` | integer | Experimental week assignment (1-14 in quarter) |
+| `ref_week_exp_confidence` | numeric | Confidence score for week assignment (0-1) |
+| `probabilistic_assignment` | logical | TRUE if assigned via experimental method (vs strict) |
 
 ---
 
@@ -1072,13 +1077,13 @@ This means that if you sum `weight_fortnight` for a given fortnight, or `weight_
 
 **Simplified Hierarchical Raking**
 
-Because fortnights and weeks have much lower determination rates (~2-5% and ~1-2% respectively), the hierarchical raking is automatically simplified to avoid sparse cell issues:
+Because fortnights and weeks have much lower determination rates (~7-8% and ~1-2% respectively), the hierarchical raking is automatically simplified to avoid sparse cell issues:
 
 | Calibration Unit | Det. Rate | Cell Levels Used | Rationale |
 |------------------|-----------|------------------|-----------|
 | Month | ~97% | 4 levels (celula1-4) | ~65,000+ obs/period allows fine cells |
-| Fortnight | 2-5% | 2 levels (celula1-2) | ~3,000 obs/period; finer cells too sparse |
-| Week | 1-2% | 1 level (celula1 only) | ~500 obs/period; only age groups stable |
+| Fortnight | ~7-8% | 2 levels (celula1-2) | ~5,000 obs/period; finer cells too sparse |
+| Week | ~1-2% | 1 level (celula1 only) | ~500 obs/period; only age groups stable |
 
 The algorithm also checks minimum cell sizes (default: 10 observations) and skips raking levels if cells become too sparse.
 
@@ -1422,18 +1427,15 @@ crosswalk_exp <- pnadc_experimental_periods(
   crosswalk,
   data = pnadc_stacked,
   strategy = "both",  # Options: "none", "probabilistic", "upa_aggregation", "both"
-  upa_homogeneity_threshold = 0.80,
+  upa_proportion_threshold = 0.9,
   verbose = TRUE
 )
 
 # Check improvement
 crosswalk_exp[, .(
-  strict_fortnight = mean(determined_fortnight),
-  with_prob = mean(determined_fortnight | !is.na(ref_fortnight_likely)),
-  with_upa = mean(determined_fortnight | !is.na(ref_fortnight_upa)),
-  total = mean(determined_fortnight |
-               !is.na(ref_fortnight_likely) |
-               !is.na(ref_fortnight_upa))
+  strict_fortnight = mean(determined_fortnight & !probabilistic_assignment, na.rm = TRUE),
+  with_experimental = mean(!is.na(ref_fortnight_exp)),
+  total = mean(determined_fortnight | !is.na(ref_fortnight_exp))
 )]
 ```
 
@@ -1447,7 +1449,7 @@ Applying probabilistic strategy...
 Applying UPA aggregation strategy...
   Calculating UPA homogeneity rate...
   UPA homogeneity (fortnight): 100.0%
-  UPA homogeneity 100.0% >= threshold 80.0%. Applying UPA aggregation.
+  UPA proportion 100.0% >= threshold 90.0%. Applying UPA aggregation.
   UPA-aggregated fortnight: 4,803,577 additional assignments (54.2% of undetermined)
   UPA homogeneity (week): 100.0%
 

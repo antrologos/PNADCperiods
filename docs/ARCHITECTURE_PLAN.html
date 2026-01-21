@@ -76,6 +76,8 @@
 <td>Input validation</td>
 </tr><tr><td><code><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code></td>
 <td>Experimental probabilistic period assignment</td>
+</tr><tr><td><code><a href="reference/combine_period_crosswalks.html">combine_period_crosswalks()</a></code></td>
+<td>Merge strict and experimental crosswalks</td>
 </tr><tr><td><code><a href="reference/calibrate_monthly_weights.html">calibrate_monthly_weights()</a></code></td>
 <td>Legacy monthly calibration (use <code><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code> instead)</td>
 </tr></tbody></table></div>
@@ -238,13 +240,22 @@
 <table class="table"><colgroup><col width="43%"><col width="56%"></colgroup><thead><tr><th>Strategy</th>
 <th>Description</th>
 </tr></thead><tbody><tr><td><code>probabilistic</code></td>
-<td>For 2-period ranges, assigns based on which period contains most of the date interval</td>
+<td>For 2-period ranges, assigns based on which period contains most of the date interval. Works at UPA-V1014 level for months, household level for fortnights/weeks.</td>
 </tr><tr><td><code>upa_aggregation</code></td>
-<td>Extends strictly identified periods to other observations in same UPA-V1014</td>
+<td>Extends strictly identified periods to other observations in same UPA-V1014 when a consensus exists.</td>
 </tr><tr><td><code>both</code></td>
-<td>Combines probabilistic + UPA aggregation at UPA-V1014 level</td>
-</tr></tbody></table><p><strong>All strategies enforce proper nesting:</strong> experimental fortnights require identified months, experimental weeks require identified fortnights.</p>
-<p>Output columns: <code>ref_month_exp</code>, <code>ref_fortnight_exp</code>, <code>ref_week_exp</code> (positions) with corresponding <code>*_confidence</code> columns.</p>
+<td>Sequentially applies probabilistic first, then UPA aggregation. Guarantees identification rate &gt;= max of individual strategies.</td>
+</tr></tbody></table><p><strong>All strategies enforce proper nesting:</strong> experimental fortnights require identified months (strict or experimental), experimental weeks require identified fortnights (strict or experimental).</p>
+<div class="section level3">
+<h3 id="strategy-details">Strategy Details<a class="anchor" aria-label="anchor" href="#strategy-details"></a></h3>
+<ul><li>
+<strong>Probabilistic:</strong> Calculates confidence as the proportion of the date interval falling within the assigned period. Only assigns when confidence &gt;= threshold (default 0.9).</li>
+<li>
+<strong>UPA Aggregation:</strong> Requires a proportion &gt;= threshold (default 0.9) of observations in the UPA-V1014 group to have strict identification before extending to others.</li>
+<li>
+<strong>Both:</strong> The two strategies operate independently (UPA aggregation considers only strict identifications), so the result is the union of both strategies.</li>
+</ul><p>Output columns: <code>ref_month_exp</code>, <code>ref_fortnight_exp</code>, <code>ref_week_exp</code> (positions) with corresponding <code>*_confidence</code> columns. The <code>probabilistic_assignment</code> flag indicates which observations were assigned experimentally vs strictly.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="calibration-pipeline">Calibration Pipeline<a class="anchor" aria-label="anchor" href="#calibration-pipeline"></a></h2>

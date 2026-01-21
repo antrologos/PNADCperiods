@@ -252,22 +252,18 @@ For poverty analysis using annual PNADC data, see <a href="annual-poverty-analys
 <td>Household identifier</td>
 </tr>
 <tr class="even">
-<td><code>V2003</code></td>
-<td>Person identifier</td>
-</tr>
-<tr class="odd">
 <td><code>V2008</code></td>
 <td>Birth day (1-31, or 99 for unknown)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>V20081</code></td>
 <td>Birth month (1-12, or 99 for unknown)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>V20082</code></td>
 <td>Birth year (or 9999 for unknown)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>V2009</code></td>
 <td>Age</td>
 </tr>
@@ -276,6 +272,10 @@ For poverty analysis using annual PNADC data, see <a href="annual-poverty-analys
 <p><strong>Additional (for <code>calibrate = TRUE</code> in
 <code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code>):</strong></p>
 <table class="table">
+<colgroup>
+<col width="43%">
+<col width="56%">
+</colgroup>
 <thead><tr class="header">
 <th>Variable</th>
 <th>Description</th>
@@ -300,6 +300,11 @@ For poverty analysis using annual PNADC data, see <a href="annual-poverty-analys
 <tr class="odd">
 <td><code>posest_sxi</code></td>
 <td>Post-stratification group</td>
+</tr>
+<tr class="even">
+<td><code>V2003</code></td>
+<td>Person order in household (optional, used for sex-specific
+calibration)</td>
 </tr>
 </tbody>
 </table>
@@ -392,6 +397,10 @@ determination</td>
 <tr class="odd">
 <td><code><a href="../reference/validate_pnadc.html">validate_pnadc()</a></code></td>
 <td>Input data validation</td>
+</tr>
+<tr class="even">
+<td><code><a href="../reference/combine_period_crosswalks.html">combine_period_crosswalks()</a></code></td>
+<td>Merge strict and experimental crosswalks</td>
 </tr>
 </tbody>
 </table>
@@ -626,43 +635,47 @@ INPUTS (per observation):
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
-            ┌───────────────────────┼───────────────────────┐
-            │                       │                       │
-            ▼                       ▼                       ▼
-┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
-│   MONTH PIPELINE      │ │ FORTNIGHT PIPELINE    │ │   WEEK PIPELINE       │
-│   (Steps 4-7)         │ │ (Steps 4-5)           │ │   (Steps 4-5)         │
-├───────────────────────┤ ├───────────────────────┤ ├───────────────────────┤
-│                       │ │                       │ │                       │
-│ Step 4: Aggregate at  │ │ Step 4: Aggregate at  │ │ Step 4: Aggregate at  │
-│   (UPA, V1014) level  │ │   (Ano, Trim, UPA,    │ │   (Ano, Trim, UPA,    │
-│                       │ │    V1008) level       │ │    V1008) level       │
-│ Step 5: CROSS-QUARTER │ │                       │ │                       │
-│   aggregation across  │ │ NO cross-quarter      │ │ NO cross-quarter      │
-│   ALL quarters        │ │ aggregation possible  │ │ aggregation possible  │
-│                       │ │                       │ │                       │
-│ Step 6: Dynamic       │ │ Step 5: Final         │ │ Step 5: Final         │
-│   exception detection │ │   assignment          │ │   assignment          │
-│                       │ │                       │ │                       │
-│ Step 7: Final         │ │                       │ │                       │
-│   assignment          │ │                       │ │                       │
-│                       │ │                       │ │                       │
-└───────────────────────┘ └───────────────────────┘ └───────────────────────┘
-            │                       │                       │
-            ▼                       ▼                       ▼
-┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
-│ Determination: ~97%   │ │ Determination: ~3%    │ │ Determination: ~1%    │
-│                       │ │                       │ │                       │
-│ OUTPUT:               │ │ OUTPUT:               │ │ OUTPUT:               │
-│ - ref_month (Date)    │ │ - ref_fortnight       │ │ - ref_week (Date)     │
-│ - ref_month_in_qtr    │ │ - ref_fortnight_in_q  │ │ - ref_week_in_qtr     │
-│ - ref_month_yyyymm    │ │ - ref_fortnight_yyyyff│ │ - ref_week_yyyyww     │
-└───────────────────────┘ └───────────────────────┘ └───────────────────────┘</code></pre>
-<p><strong>Key insight</strong>: The critical difference is that
-<strong>months benefit from cross-quarter aggregation</strong> (Step 5
-in the month pipeline), while fortnights and weeks cannot aggregate
-constraints across quarters. This is why the monthly determination rate
-(~97%) far exceeds fortnights (~3%) and weeks (~1%).</p>
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          NESTED IDENTIFICATION                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  PHASE 1: MONTH PIPELINE (Steps 4-7)                                        │
+│  ├── Step 4: Aggregate at (UPA, V1014) level                                │
+│  ├── Step 5: CROSS-QUARTER aggregation across ALL quarters                  │
+│  ├── Step 6: Dynamic exception detection                                    │
+│  └── Step 7: Final month assignment                                         │
+│  └── Determination: ~97%                                                    │
+│                         ↓                                                   │
+│  PHASE 2: FORTNIGHT PIPELINE (only if month determined)                     │
+│  ├── Step 4: Aggregate at (Ano, Trimestre, UPA, V1008) level               │
+│  ├── NO cross-quarter aggregation possible                                  │
+│  └── Step 5: Final fortnight assignment                                     │
+│  └── Determination: ~7-8% (strict)                                          │
+│                         ↓                                                   │
+│  PHASE 3: WEEK PIPELINE (only if fortnight determined)                      │
+│  ├── Step 4: Aggregate at (Ano, Trimestre, UPA, V1008) level               │
+│  ├── NO cross-quarter aggregation possible                                  │
+│  └── Step 5: Final week assignment                                          │
+│  └── Determination: ~1-2% (strict)                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ OUTPUT:                                                                     │
+│ - Month:     ref_month (Date), ref_month_in_quarter, ref_month_yyyymm       │
+│ - Fortnight: ref_fortnight (Date), ref_fortnight_in_quarter, ref_yyyyff     │
+│ - Week:      ref_week (Date), ref_week_in_quarter, ref_week_yyyyww          │
+└─────────────────────────────────────────────────────────────────────────────┘</code></pre>
+<p><strong>Key insight</strong>: The identification is
+<strong>nested</strong> - fortnights can only be identified if the month
+is already determined, and weeks can only be identified if the fortnight
+is already determined. Additionally, <strong>months benefit from
+cross-quarter aggregation</strong> (Step 5), while fortnights and weeks
+cannot aggregate constraints across quarters. This is why the monthly
+determination rate (~97%) far exceeds fortnights (~7-8% strict) and
+weeks (~1-2% strict).</p>
 <hr>
 </div>
 <div class="section level3">
@@ -870,7 +883,7 @@ household is always interviewed in the same relative month (e.g., always
 month 2), the specific fortnight or week within that month varies by
 quarter. Therefore, fortnight and week constraints must be evaluated
 within each quarter independently, resulting in much lower determination
-rates (~2-5% for fortnights, ~1-2% for weeks).</p>
+rates (~7-8% for fortnights, ~1-2% for weeks).</p>
 </div>
 <div class="section level4">
 <h4 id="step-6-dynamic-exception-detection">Step 6: Dynamic Exception Detection<a class="anchor" aria-label="anchor" href="#step-6-dynamic-exception-detection"></a>
@@ -1205,7 +1218,7 @@ fortnights/weeks to handle smaller samples.</p></li>
 <span></span>
 <span><span class="co"># For fortnight analysis, filter to determined observations</span></span>
 <span><span class="va">fortnight_data</span> <span class="op">&lt;-</span> <span class="va">crosswalk</span><span class="op">[</span><span class="va">determined_fortnight</span> <span class="op">==</span> <span class="cn">TRUE</span><span class="op">]</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">fortnight_data</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">crosswalk</span><span class="op">)</span>  <span class="co"># ~3%</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">fortnight_data</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">crosswalk</span><span class="op">)</span>  <span class="co"># ~7-8%</span></span>
 <span></span>
 <span><span class="co"># Apply crosswalk with fortnight calibration</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span></span>
@@ -1325,7 +1338,7 @@ Days in fortnight 6 (Mar 16-31): 16, 17, 18, 19, 20     = 5 days
 Date midpoint: March 15 → Falls in fortnight 5
 Confidence: 6/11 ≈ 0.55 (55% probability of fortnight 5)
 
-Result: ref_fortnight_likely = 5, ref_fortnight_confidence = 0.55</code></pre>
+Result: ref_fortnight_exp = 5, ref_fortnight_exp_confidence = 0.55</code></pre>
 <p><strong>Confidence Score Distribution (from 2012-2025
 benchmark):</strong></p>
 <table class="table">
@@ -1393,13 +1406,13 @@ analysis.</p>
 <span><span class="co"># Check results</span></span>
 <span><span class="va">crosswalk_prob</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
 <span>  strict <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">determined_fortnight</span><span class="op">)</span>,</span>
-<span>  likely <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_likely</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  high_conf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">ref_fortnight_confidence</span> <span class="op">&gt;=</span> <span class="fl">0.7</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>  experimental <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_exp</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  high_conf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">ref_fortnight_exp_confidence</span> <span class="op">&gt;=</span> <span class="fl">0.7</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="op">)</span><span class="op">]</span></span>
 <span></span>
 <span><span class="co"># Filter to high-confidence assignments</span></span>
 <span><span class="va">high_conf_fortnights</span> <span class="op">&lt;-</span> <span class="va">crosswalk_prob</span><span class="op">[</span></span>
-<span>  <span class="va">determined_fortnight</span> <span class="op">|</span> <span class="va">ref_fortnight_confidence</span> <span class="op">&gt;=</span> <span class="fl">0.7</span></span>
+<span>  <span class="va">determined_fortnight</span> <span class="op">|</span> <span class="va">ref_fortnight_exp_confidence</span> <span class="op">&gt;=</span> <span class="fl">0.7</span></span>
 <span><span class="op">]</span></span></code></pre></div>
 <hr>
 </div>
@@ -1427,7 +1440,7 @@ windows.</p>
 <pre><code>For each (Ano, Trimestre, UPA):
   1. Find all households with strictly determined fortnight/week
   2. Check if all determined households have the SAME period
-     (UPA homogeneity check - threshold default: 80%)
+     (UPA proportion check - threshold default: 90%)
   3. If homogeneous: propagate that period to ALL households in the UPA
      (including those without strict determination)</code></pre>
 <p><strong>UPA Aggregation Concept:</strong></p>
@@ -1446,7 +1459,7 @@ windows.</p>
 │    - All have fortnight = 3? YES (100% homogeneous)                 │
 │                                                                     │
 │  Result: Propagate fortnight = 3 to C, D, E                         │
-│    → ref_fortnight_upa = 3 for all 5 households                     │
+│    → ref_fortnight_exp = 3 for all 5 households                     │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘</code></pre>
 <p><strong>Results (from 2012-2025 benchmark):</strong></p>
@@ -1496,7 +1509,7 @@ improvement</strong> for weeks.</p>
 <span><span class="va">crosswalk_upa</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_experimental_periods.html">pnadc_experimental_periods</a></span><span class="op">(</span></span>
 <span>  <span class="va">crosswalk</span>,</span>
 <span>  strategy <span class="op">=</span> <span class="st">"upa_aggregation"</span>,</span>
-<span>  upa_homogeneity_threshold <span class="op">=</span> <span class="fl">0.80</span>,  <span class="co"># Default: apply if homogeneity &gt;= 80%</span></span>
+<span>  upa_proportion_threshold <span class="op">=</span> <span class="fl">0.9</span>,  <span class="co"># Default: apply if proportion &gt;= 90%</span></span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -1509,34 +1522,45 @@ improvement</strong> for weeks.</p>
 <span><span class="co"># Use UPA-aggregated periods</span></span>
 <span><span class="va">crosswalk_upa</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
 <span>  strict_only <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">determined_fortnight</span><span class="op">)</span>,</span>
-<span>  with_upa <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">determined_fortnight</span> <span class="op">|</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_upa</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  improvement <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_upa</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">determined_fortnight</span><span class="op">)</span></span>
+<span>  with_exp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">determined_fortnight</span> <span class="op">|</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_exp</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  improvement <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_exp</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">determined_fortnight</span><span class="op">)</span></span>
 <span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
 <hr>
 </div>
 <div class="section level3">
 <h3 id="combined-strategy-both">Combined Strategy (“both”)<a class="anchor" aria-label="anchor" href="#combined-strategy-both"></a>
 </h3>
-<p>For maximum coverage, combine both strategies. The probabilistic
-strategy is applied first, then UPA aggregation:</p>
+<p>For maximum coverage, combine both strategies. The strategies are
+applied <strong>sequentially</strong> to maximize identification:</p>
+<ol style="list-style-type: decimal">
+<li>
+<strong>First, probabilistic strategy</strong> is applied (captures
+observations with narrow date ranges and high confidence)</li>
+<li>
+<strong>Then, UPA aggregation</strong> is applied on top (extends
+based on strict consensus within UPA-V1014 groups)</li>
+</ol>
+<p>The strategies operate independently: UPA aggregation considers only
+<strong>strict</strong> identifications (not probabilistic assignments).
+Both strategies write to the same experimental columns
+(<code>ref_*_exp</code>), so the final result is the union of both
+strategies. This guarantees that “both” identifies at least as many
+observations as either individual strategy alone.</p>
 <div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Apply both strategies</span></span>
 <span><span class="va">crosswalk_both</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_experimental_periods.html">pnadc_experimental_periods</a></span><span class="op">(</span></span>
 <span>  <span class="va">crosswalk</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">pnadc_stacked</span>,</span>
 <span>  strategy <span class="op">=</span> <span class="st">"both"</span>,</span>
-<span>  upa_homogeneity_threshold <span class="op">=</span> <span class="fl">0.80</span>,</span>
+<span>  upa_proportion_threshold <span class="op">=</span> <span class="fl">0.9</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Combined results</span></span>
 <span><span class="va">crosswalk_both</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
-<span>  strict <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">determined_fortnight</span><span class="op">)</span>,</span>
-<span>  probabilistic <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_likely</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">determined_fortnight</span><span class="op">)</span>,</span>
-<span>  upa_aggregated <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_upa</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">determined_fortnight</span><span class="op">)</span>,</span>
-<span>  total_coverage <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_fortnight</span> <span class="op">|</span></span>
-<span>                        <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_likely</span><span class="op">)</span> <span class="op">|</span></span>
-<span>                        <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_upa</span><span class="op">)</span><span class="op">)</span></span>
+<span>  strict <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">determined_fortnight</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">probabilistic_assignment</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  experimental <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_exp</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">probabilistic_assignment</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  total_coverage <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_fortnight</span> <span class="op">|</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_exp</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
 <p><strong>Combined Results (from benchmark):</strong></p>
 <table class="table">
@@ -1640,54 +1664,64 @@ rigorous causal analysis or official statistics, strict determination
 should be preferred despite smaller sample sizes.</p></li>
 <li><p><strong>Combine with caution</strong>: When using “both”
 strategies, be aware that different households may have periods assigned
-via different mechanisms (strict, probabilistic, or UPA).</p></li>
+via different mechanisms (strict, probabilistic, or UPA). Use the
+<code>probabilistic_assignment</code> flag to distinguish:
+<code>FALSE</code> means strict determination, <code>TRUE</code> means
+assigned via experimental methods.</p></li>
 <li><p><strong>Validate for your specific use case</strong>: Run
 sensitivity analysis comparing strict-only results with experimental
-results to ensure conclusions are robust.</p></li>
+results to ensure conclusions are robust. Filter with
+<code>crosswalk[probabilistic_assignment == FALSE]</code> to get
+strict-only assignments.</p></li>
 </ol>
 <p><strong>Output columns from
 <code><a href="../reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code>:</strong></p>
 <table class="table">
 <colgroup>
-<col width="25%">
-<col width="32%">
-<col width="41%">
+<col width="29%">
+<col width="22%">
+<col width="48%">
 </colgroup>
 <thead><tr class="header">
 <th>Column</th>
-<th>Strategy</th>
+<th>Type</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td><code>ref_fortnight_likely</code></td>
-<td>Probabilistic</td>
-<td>Fortnight assignment (NA if range &gt; 2)</td>
+<td><code>ref_month_exp</code></td>
+<td>integer</td>
+<td>Experimental month assignment (1-3 in quarter)</td>
 </tr>
 <tr class="even">
-<td><code>ref_fortnight_confidence</code></td>
-<td>Probabilistic</td>
-<td>Confidence score 0.5-1.0</td>
+<td><code>ref_month_exp_confidence</code></td>
+<td>numeric</td>
+<td>Confidence score for month assignment (0-1)</td>
 </tr>
 <tr class="odd">
-<td><code>ref_week_likely</code></td>
-<td>Probabilistic</td>
-<td>Week assignment (NA if range &gt; 2)</td>
+<td><code>ref_fortnight_exp</code></td>
+<td>integer</td>
+<td>Experimental fortnight assignment (1-6 in quarter)</td>
 </tr>
 <tr class="even">
-<td><code>ref_week_confidence</code></td>
-<td>Probabilistic</td>
-<td>Confidence score 0.5-1.0</td>
+<td><code>ref_fortnight_exp_confidence</code></td>
+<td>numeric</td>
+<td>Confidence score for fortnight assignment (0-1)</td>
 </tr>
 <tr class="odd">
-<td><code>ref_fortnight_upa</code></td>
-<td>UPA aggregation</td>
-<td>UPA-propagated fortnight</td>
+<td><code>ref_week_exp</code></td>
+<td>integer</td>
+<td>Experimental week assignment (1-14 in quarter)</td>
 </tr>
 <tr class="even">
-<td><code>ref_week_upa</code></td>
-<td>UPA aggregation</td>
-<td>UPA-propagated week</td>
+<td><code>ref_week_exp_confidence</code></td>
+<td>numeric</td>
+<td>Confidence score for week assignment (0-1)</td>
+</tr>
+<tr class="odd">
+<td><code>probabilistic_assignment</code></td>
+<td>logical</td>
+<td>TRUE if assigned via experimental method (vs strict)</td>
 </tr>
 </tbody>
 </table>
@@ -1832,7 +1866,7 @@ fortnight, or <code>weight_weekly</code> for a given week, you get the
 total Brazilian population for that period (not a fraction of it).</p>
 <p><strong>Simplified Hierarchical Raking</strong></p>
 <p>Because fortnights and weeks have much lower determination rates
-(~2-5% and ~1-2% respectively), the hierarchical raking is automatically
+(~7-8% and ~1-2% respectively), the hierarchical raking is automatically
 simplified to avoid sparse cell issues:</p>
 <table class="table">
 <colgroup>
@@ -1856,13 +1890,13 @@ simplified to avoid sparse cell issues:</p>
 </tr>
 <tr class="even">
 <td>Fortnight</td>
-<td>2-5%</td>
+<td>~7-8%</td>
 <td>2 levels (celula1-2)</td>
-<td>~3,000 obs/period; finer cells too sparse</td>
+<td>~5,000 obs/period; finer cells too sparse</td>
 </tr>
 <tr class="odd">
 <td>Week</td>
-<td>1-2%</td>
+<td>~1-2%</td>
 <td>1 level (celula1 only)</td>
 <td>~500 obs/period; only age groups stable</td>
 </tr>
@@ -2331,18 +2365,15 @@ strategies:</p>
 <span>  <span class="va">crosswalk</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">pnadc_stacked</span>,</span>
 <span>  strategy <span class="op">=</span> <span class="st">"both"</span>,  <span class="co"># Options: "none", "probabilistic", "upa_aggregation", "both"</span></span>
-<span>  upa_homogeneity_threshold <span class="op">=</span> <span class="fl">0.80</span>,</span>
+<span>  upa_proportion_threshold <span class="op">=</span> <span class="fl">0.9</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Check improvement</span></span>
 <span><span class="va">crosswalk_exp</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
-<span>  strict_fortnight <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_fortnight</span><span class="op">)</span>,</span>
-<span>  with_prob <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_fortnight</span> <span class="op">|</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_likely</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  with_upa <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_fortnight</span> <span class="op">|</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_upa</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  total <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_fortnight</span> <span class="op">|</span></span>
-<span>               <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_likely</span><span class="op">)</span> <span class="op">|</span></span>
-<span>               <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_upa</span><span class="op">)</span><span class="op">)</span></span>
+<span>  strict_fortnight <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_fortnight</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">probabilistic_assignment</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  with_experimental <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_exp</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  total <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_fortnight</span> <span class="op">|</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_exp</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
 <p>Output:</p>
 <pre><code>Applying probabilistic strategy...
@@ -2353,7 +2384,7 @@ strategies:</p>
 Applying UPA aggregation strategy...
   Calculating UPA homogeneity rate...
   UPA homogeneity (fortnight): 100.0%
-  UPA homogeneity 100.0% &gt;= threshold 80.0%. Applying UPA aggregation.
+  UPA proportion 100.0% &gt;= threshold 90.0%. Applying UPA aggregation.
   UPA-aggregated fortnight: 4,803,577 additional assignments (54.2% of undetermined)
   UPA homogeneity (week): 100.0%
 

@@ -133,6 +133,10 @@
 <td><code><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code></td>
 <td>Experimental probabilistic period assignment</td>
 </tr>
+<tr>
+<td><code><a href="reference/combine_period_crosswalks.html">combine_period_crosswalks()</a></code></td>
+<td>Merge strict and experimental crosswalks</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -212,13 +216,14 @@
 </tr>
 </tbody>
 </table>
+<p><strong>Strategies:</strong> - <strong>probabilistic</strong>: For 2-period ranges, assigns based on which period contains most of the date interval (with confidence threshold) - <strong>upa_aggregation</strong>: Extends strictly identified periods to all observations in the same UPA-V1014 when consensus exists - <strong>both</strong>: Sequentially applies probabilistic first, then UPA aggregation. Guarantees rate &gt;= max of individual strategies.</p>
 <p><strong>Key finding:</strong> UPA homogeneity rate = 100% for both fortnights and weeks. This means when any household in a UPA has a determined period, ALL households with determined periods in that UPA have the SAME period.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Apply experimental strategies</span></span>
 <span><span class="va">crosswalk_exp</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods</a></span><span class="op">(</span></span>
 <span>  <span class="va">crosswalk</span>,</span>
 <span>  <span class="va">pnadc_stacked</span>,</span>
-<span>  strategy <span class="op">=</span> <span class="st">"upa_aggregation"</span>  <span class="co"># or "probabilistic" or "both"</span></span>
+<span>  strategy <span class="op">=</span> <span class="st">"both"</span>  <span class="co"># or "probabilistic" or "upa_aggregation"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>These features are marked experimental and may change in future versions. See the <a href="https://antrologos.github.io/mensalizePNADC/articles/determination-rates-benchmark.html">Benchmark Report</a> for detailed results.</p>
 </div>
