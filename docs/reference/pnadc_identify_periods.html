@@ -133,8 +133,11 @@ sub-quarterly time series analysis.</p>
     <p>A data.table crosswalk with columns:</p><dl><dt>Ano, Trimestre, UPA, V1008, V1014</dt>
 <dd><p>Join keys (year, quarter, UPA, household, panel)</p></dd>
 
-<dt>ref_month</dt>
-<dd><p>Reference month as Date (1st of month)</p></dd>
+<dt>ref_month_start</dt>
+<dd><p>Sunday of first IBGE reference week of the month</p></dd>
+
+<dt>ref_month_end</dt>
+<dd><p>Saturday of last IBGE reference week of the month</p></dd>
 
 <dt>ref_month_in_quarter</dt>
 <dd><p>Position in quarter (1, 2, 3) or NA</p></dd>
@@ -142,11 +145,17 @@ sub-quarterly time series analysis.</p>
 <dt>ref_month_yyyymm</dt>
 <dd><p>Integer YYYYMM format (e.g., 202301)</p></dd>
 
+<dt>ref_month_weeks</dt>
+<dd><p>Number of IBGE reference weeks in month (4 or 5)</p></dd>
+
 <dt>determined_month</dt>
 <dd><p>Logical: TRUE if month was determined</p></dd>
 
-<dt>ref_fortnight</dt>
-<dd><p>Reference fortnight as Date (1st or 16th)</p></dd>
+<dt>ref_fortnight_start</dt>
+<dd><p>Sunday of first IBGE week of the fortnight</p></dd>
+
+<dt>ref_fortnight_end</dt>
+<dd><p>Saturday of last IBGE week of the fortnight</p></dd>
 
 <dt>ref_fortnight_in_quarter</dt>
 <dd><p>Position in quarter (1-6) or NA</p></dd>
@@ -157,14 +166,17 @@ sub-quarterly time series analysis.</p>
 <dt>determined_fortnight</dt>
 <dd><p>Logical: TRUE if fortnight was determined</p></dd>
 
-<dt>ref_week</dt>
-<dd><p>Reference week as Date (Monday of week)</p></dd>
+<dt>ref_week_start</dt>
+<dd><p>Sunday of the IBGE reference week</p></dd>
+
+<dt>ref_week_end</dt>
+<dd><p>Saturday of the IBGE reference week</p></dd>
 
 <dt>ref_week_in_quarter</dt>
 <dd><p>Position in quarter (1-14) or NA</p></dd>
 
 <dt>ref_week_yyyyww</dt>
-<dd><p>Integer ISO YYYYWW format</p></dd>
+<dd><p>Integer IBGE YYYYWW format</p></dd>
 
 <dt>determined_week</dt>
 <dd><p>Logical: TRUE if week was determined</p></dd>

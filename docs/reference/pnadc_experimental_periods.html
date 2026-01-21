@@ -81,7 +81,7 @@ UPA aggregation on top. Guarantees identification rate &gt;= max of individual s
 <span>  data <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  strategy <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"none"</span>, <span class="st">"probabilistic"</span>, <span class="st">"upa_aggregation"</span>, <span class="st">"both"</span><span class="op">)</span>,</span>
 <span>  confidence_threshold <span class="op">=</span> <span class="fl">0.9</span>,</span>
-<span>  upa_proportion_threshold <span class="op">=</span> <span class="fl">0.9</span>,</span>
+<span>  upa_proportion_threshold <span class="op">=</span> <span class="fl">0.5</span>,</span>
 <span>  include_derived <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -112,16 +112,16 @@ Default 0.9.</p></dd>
 
 
 <dt id="arg-upa-proportion-threshold">upa_proportion_threshold<a class="anchor" aria-label="anchor" href="#arg-upa-proportion-threshold"></a></dt>
-<dd><p>Numeric (0-1). Minimum proportion of UPA-V1014
-observations (within quarter) that must meet criteria for UPA-level assignment.
-Used by upa_aggregation and combined strategies. Default 0.9.</p></dd>
+<dd><p>Numeric (0-1). Minimum proportion of UPA
+observations (within quarter) that must have strict identification with consensus
+for extending to unidentified observations. Default 0.5.</p></dd>
 
 
 <dt id="arg-include-derived">include_derived<a class="anchor" aria-label="anchor" href="#arg-include-derived"></a></dt>
 <dd><p>Logical. If TRUE (default), output includes derived columns
-compatible with <code><a href="pnadc_apply_periods.html">pnadc_apply_periods()</a></code>: ref_month, ref_month_yyyymm,
-determined_month, etc. This allows experimental output to be used directly
-for weight calibration.</p></dd>
+compatible with <code><a href="pnadc_apply_periods.html">pnadc_apply_periods()</a></code>: ref_month_start, ref_month_end,
+ref_month_yyyymm, ref_month_weeks, determined_month, etc. This allows
+experimental output to be used directly for weight calibration.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
@@ -139,14 +139,17 @@ of date interval in assigned period; values below threshold are removed)</p></li
 <li><p><code>ref_week_exp</code>: Experimentally assigned week position in quarter (1-14, or NA)</p></li>
 <li><p><code>ref_week_exp_confidence</code>: Confidence of week assignment (0-1)</p></li>
 </ul></li>
-<li><p><strong>Derived columns</strong> (when <code>include_derived = TRUE</code>):</p><ul><li><p><code>ref_month</code>, <code>ref_month_in_quarter</code>, <code>ref_month_yyyymm</code>: Combined
-strict + experimental month (strict takes priority)</p></li>
+<li><p><strong>Derived columns</strong> (when <code>include_derived = TRUE</code>):</p><ul><li><p><code>ref_month_start</code>, <code>ref_month_end</code>, <code>ref_month_in_quarter</code>,
+<code>ref_month_yyyymm</code>, <code>ref_month_weeks</code>: Combined strict + experimental month
+(strict takes priority). Start/end are Sunday/Saturday of IBGE month boundaries.</p></li>
 <li><p><code>determined_month</code>: TRUE if month is assigned (strictly or experimentally)</p></li>
-<li><p><code>ref_fortnight</code>, <code>ref_fortnight_in_quarter</code>, <code>ref_fortnight_yyyyff</code>:
-Combined strict + experimental fortnight</p></li>
+<li><p><code>ref_fortnight_start</code>, <code>ref_fortnight_end</code>, <code>ref_fortnight_in_quarter</code>,
+<code>ref_fortnight_yyyyff</code>: Combined strict + experimental fortnight.
+Start/end are Sunday/Saturday of IBGE fortnight boundaries.</p></li>
 <li><p><code>determined_fortnight</code>: TRUE if fortnight is assigned</p></li>
-<li><p><code>ref_week</code>, <code>ref_week_in_quarter</code>, <code>ref_week_yyyyww</code>:
-Combined strict + experimental week</p></li>
+<li><p><code>ref_week_start</code>, <code>ref_week_end</code>, <code>ref_week_in_quarter</code>,
+<code>ref_week_yyyyww</code>: Combined strict + experimental week.
+Start/end are Sunday/Saturday of IBGE week boundaries.</p></li>
 <li><p><code>determined_week</code>: TRUE if week is assigned</p></li>
 <li><p><code>probabilistic_assignment</code>: TRUE if any period was assigned experimentally
 (vs strictly deterministic)</p></li>
@@ -181,9 +184,11 @@ For fortnights and weeks: works at household level</p>
 <h3 id="upa-aggregation-strategy">UPA Aggregation Strategy<a class="anchor" aria-label="anchor" href="#upa-aggregation-strategy"></a></h3>
 
 
-<p>Extends strictly identified periods to all observations in the same UPA-V1014
-within the quarter:</p><ol><li><p>Calculate proportion of UPA-V1014 observations with strictly identified period</p></li>
-<li><p>If proportion &gt;= <code>upa_proportion_threshold</code>, extend to all observations</p></li>
+<p>Extends strictly identified periods based on consensus within geographic groups:</p><ul><li><p><strong>Months</strong>: Uses UPA-V1014 level (panel design ensures same month)</p></li>
+<li><p><strong>Fortnights/Weeks</strong>: Uses UPA level (all households in same UPA
+are interviewed in same fortnight/week within a quarter)</p></li>
+</ul><ol><li><p>Calculate proportion of observations with strictly identified period</p></li>
+<li><p>If proportion &gt;= <code>upa_proportion_threshold</code> AND consensus exists, extend</p></li>
 <li><p>Apply in nested order: months first, then fortnights, then weeks</p></li>
 </ol></div>
 
@@ -194,7 +199,7 @@ within the quarter:</p><ol><li><p>Calculate proportion of UPA-V1014 observations
 <p>Sequentially applies both strategies to maximize identification:</p><ol><li><p>First, apply the probabilistic strategy (captures observations with
 narrow date ranges and high confidence)</p></li>
 <li><p>Then, apply UPA aggregation (extends based on strict consensus
-within UPA-V1014 groups)</p></li>
+within UPA/UPA-V1014 groups)</p></li>
 </ol><p>This guarantees that "both" identifies at least as many observations as
 either individual strategy alone. The strategies operate independently
 (UPA aggregation considers only strict identifications), so the result
