@@ -13,8 +13,8 @@
 #'   \item \strong{upa_aggregation}: Extends strictly identified periods to other
 #'     observations in the same UPA-V1014 within the quarter, if a sufficient
 #'     proportion already have strict identification.
-#'   \item \strong{both}: Combines both strategies - applies probabilistic rule
-#'     at UPA-V1014 level when sufficient proportion have narrow ranges.
+#'   \item \strong{both}: Sequentially applies probabilistic strategy first, then
+#'     UPA aggregation on top. Guarantees identification rate >= max of individual strategies.
 #' }
 #'
 #' @param crosswalk A crosswalk data.table from \code{pnadc_identify_periods()}
@@ -28,16 +28,39 @@
 #' @param upa_proportion_threshold Numeric (0-1). Minimum proportion of UPA-V1014
 #'   observations (within quarter) that must meet criteria for UPA-level assignment.
 #'   Used by upa_aggregation and combined strategies. Default 0.9.
+#' @param include_derived Logical. If TRUE (default), output includes derived columns
+#'   compatible with \code{pnadc_apply_periods()}: ref_month, ref_month_yyyymm,
+#'   determined_month, etc. This allows experimental output to be used directly
+#'   for weight calibration.
 #' @param verbose Logical. If TRUE, print progress information.
 #'
-#' @return A modified crosswalk with additional columns:
+#' @return A modified crosswalk with additional columns. When \code{include_derived = TRUE}
+#'   (default), output is directly compatible with \code{pnadc_apply_periods()}:
 #'   \itemize{
-#'     \item \code{ref_month_exp}: Experimentally assigned month (NA if not assigned)
-#'     \item \code{ref_month_exp_confidence}: Confidence of month assignment (0.5-1.0)
-#'     \item \code{ref_fortnight_exp}: Experimentally assigned fortnight
-#'     \item \code{ref_fortnight_exp_confidence}: Confidence of fortnight assignment
-#'     \item \code{ref_week_exp}: Experimentally assigned week
-#'     \item \code{ref_week_exp_confidence}: Confidence of week assignment
+#'     \item \strong{Experimental columns} (always included):
+#'     \itemize{
+#'       \item \code{ref_month_exp}: Experimentally assigned month position in quarter (1-3, or NA)
+#'       \item \code{ref_month_exp_confidence}: Confidence of month assignment (0-1, proportion
+#'         of date interval in assigned period; values below threshold are removed)
+#'       \item \code{ref_fortnight_exp}: Experimentally assigned fortnight position in quarter (1-6, or NA)
+#'       \item \code{ref_fortnight_exp_confidence}: Confidence of fortnight assignment (0-1)
+#'       \item \code{ref_week_exp}: Experimentally assigned week position in quarter (1-14, or NA)
+#'       \item \code{ref_week_exp_confidence}: Confidence of week assignment (0-1)
+#'     }
+#'     \item \strong{Derived columns} (when \code{include_derived = TRUE}):
+#'     \itemize{
+#'       \item \code{ref_month}, \code{ref_month_in_quarter}, \code{ref_month_yyyymm}: Combined
+#'         strict + experimental month (strict takes priority)
+#'       \item \code{determined_month}: TRUE if month is assigned (strictly or experimentally)
+#'       \item \code{ref_fortnight}, \code{ref_fortnight_in_quarter}, \code{ref_fortnight_yyyyff}:
+#'         Combined strict + experimental fortnight
+#'       \item \code{determined_fortnight}: TRUE if fortnight is assigned
+#'       \item \code{ref_week}, \code{ref_week_in_quarter}, \code{ref_week_yyyyww}:
+#'         Combined strict + experimental week
+#'       \item \code{determined_week}: TRUE if week is assigned
+#'       \item \code{probabilistic_assignment}: TRUE if any period was assigned experimentally
+#'         (vs strictly deterministic)
+#'     }
 #'   }
 #'
 #' @details
@@ -56,7 +79,7 @@
 #'   \item Check that the required parent period is identified
 #'   \item If bounds are narrowed to exactly 2 sequential periods, calculate
 #'     which period contains most of the date interval
-#'   \item Calculate confidence based on the proportion of interval in the likely period
+#'   \item Calculate confidence based on the proportion of interval in the likely period (0-1)
 #'   \item Only assign if confidence >= \code{confidence_threshold}
 #' }
 #'
@@ -75,14 +98,25 @@
 #'
 #' ## Combined Strategy ("both")
 #'
-#' Applies probabilistic rule at UPA-V1014 level when sufficient observations
-#' have narrow ranges:
+#' Sequentially applies both strategies to maximize identification:
 #' \enumerate{
-#'   \item For each UPA-V1014 within quarter, check if proportion >= threshold
-#'     have bounds narrowed to 2 sequential periods
-#'   \item If so, apply probabilistic classification at UPA-V1014 level
-#'   \item Process in nested order: months, then fortnights, then weeks
+#'   \item First, apply the probabilistic strategy (captures observations with
+#'     narrow date ranges and high confidence)
+#'   \item Then, apply UPA aggregation (extends based on strict consensus
+#'     within UPA-V1014 groups)
 #' }
+#'
+#' This guarantees that "both" identifies at least as many observations as
+#' either individual strategy alone. The strategies operate independently
+#' (UPA aggregation considers only strict identifications), so the result
+#' is the union of both strategies.
+#'
+#' ## Integration with Weight Calibration
+#'
+#' With \code{include_derived = TRUE} (default), the output can be passed directly to
+#' \code{pnadc_apply_periods()} for weight calibration. The derived columns combine
+#' strict and experimental assignments, with strict taking priority. Use the
+#' \code{probabilistic_assignment} flag to filter if you only want strict determinations.
 #'
 #' @note
 #' These strategies produce "experimental" assignments, not strict determinations.
@@ -94,8 +128,10 @@
 #'   \item Research into identification algorithm improvements
 #' }
 #'
-#' @seealso \code{\link{pnadc_identify_periods}} to build the crosswalk that
-#'   this function modifies.
+#' @seealso
+#' \code{\link{pnadc_identify_periods}} to build the crosswalk that this function modifies.
+#' \code{\link{pnadc_apply_periods}} to apply period crosswalk and calibrate weights.
+#' \code{\link{combine_period_crosswalks}} to merge strict and experimental crosswalks.
 #'
 #' @examples
 #' \dontrun{
@@ -112,10 +148,17 @@
 #'
 #' # Check how many additional assignments we get
 #' crosswalk_exp[, .(
-#'   strict = sum(!is.na(ref_month_in_quarter)),
-#'   experimental = sum(!is.na(ref_month_exp)),
-#'   total = sum(!is.na(ref_month_in_quarter) | !is.na(ref_month_exp))
+#'   strict = sum(!is.na(ref_month_in_quarter) & !probabilistic_assignment),
+#'   experimental = sum(probabilistic_assignment, na.rm = TRUE),
+#'   total = sum(determined_month)
 #' )]
+#'
+#' # Use directly with calibration (experimental output is compatible)
+#' result <- pnadc_apply_periods(pnadc_data, crosswalk_exp,
+#'                               period = "month", calibrate = TRUE)
+#'
+#' # Or filter to only strict determinations
+#' strict_only <- crosswalk_exp[probabilistic_assignment == FALSE | is.na(probabilistic_assignment)]
 #' }
 #'
 #' @export
@@ -125,6 +168,7 @@ pnadc_experimental_periods <- function(
     strategy = c("none", "probabilistic", "upa_aggregation", "both"),
     confidence_threshold = 0.9,
     upa_proportion_threshold = 0.9,
+    include_derived = TRUE,
     verbose = TRUE
 ) {
 
@@ -132,10 +176,26 @@ pnadc_experimental_periods <- function(
 
   # Validate thresholds
   checkmate::assert_number(confidence_threshold, lower = 0, upper = 1)
+
   checkmate::assert_number(upa_proportion_threshold, lower = 0, upper = 1)
+  checkmate::assert_flag(include_derived)
 
   if (strategy == "none") {
     if (verbose) cat("No experimental strategy applied.\n")
+    if (include_derived) {
+      result <- data.table::copy(crosswalk)
+      # Initialize experimental columns (all NA since no strategy applied)
+      result[, `:=`(
+        ref_month_exp = NA_integer_,
+        ref_month_exp_confidence = NA_real_,
+        ref_fortnight_exp = NA_integer_,
+        ref_fortnight_exp_confidence = NA_real_,
+        ref_week_exp = NA_integer_,
+        ref_week_exp_confidence = NA_real_
+      )]
+      result <- .add_derived_columns_experimental(result, verbose)
+      return(result)
+    }
     return(crosswalk)
   }
 
@@ -160,6 +220,9 @@ pnadc_experimental_periods <- function(
     if (is.null(data)) {
       warning("Probabilistic strategy requires original data to compute date bounds. ",
               "Skipping.")
+      if (include_derived) {
+        result <- .add_derived_columns_experimental(result, verbose)
+      }
       return(result)
     }
     result <- apply_probabilistic_strategy_nested(
@@ -173,11 +236,22 @@ pnadc_experimental_periods <- function(
     if (is.null(data)) {
       warning("Combined strategy requires original data to compute date bounds. ",
               "Skipping.")
+      if (include_derived) {
+        result <- .add_derived_columns_experimental(result, verbose)
+      }
       return(result)
     }
     result <- apply_combined_strategy_nested(
       result, data, confidence_threshold, upa_proportion_threshold, verbose
     )
+  }
+
+  # ==========================================================================
+  # ADD DERIVED COLUMNS FOR COMPATIBILITY WITH pnadc_apply_periods()
+  # ==========================================================================
+
+  if (include_derived) {
+    result <- .add_derived_columns_experimental(result, verbose)
   }
 
   result
@@ -345,11 +419,16 @@ apply_probabilistic_strategy_nested <- function(crosswalk, data, confidence_thre
     days_after_boundary = total_days - days_before_boundary
   )]
 
-  crosswalk[!is.na(total_days) & total_days > 0L, `:=`(
+  # Calculate confidence with division by zero protection
+  crosswalk[!is.na(total_days) & total_days > 0L & !is.na(ref_month_exp), `:=`(
     ref_month_exp_confidence = fifelse(
-      ref_month_exp == upa_month_min_pos,
-      days_before_boundary / total_days,
-      days_after_boundary / total_days
+      total_days > 0L & !is.na(days_before_boundary) & !is.na(days_after_boundary),
+      fifelse(
+        ref_month_exp == upa_month_min_pos,
+        days_before_boundary / total_days,
+        days_after_boundary / total_days
+      ),
+      NA_real_
     )
   )]
 
@@ -457,11 +536,16 @@ apply_probabilistic_strategy_nested <- function(crosswalk, data, confidence_thre
     days_in_second_fortnight = total_interval_days - days_in_first_fortnight
   )]
 
+  # Calculate confidence with division by zero protection
   crosswalk[!is.na(total_interval_days) & total_interval_days > 0L & !is.na(ref_fortnight_exp), `:=`(
     ref_fortnight_exp_confidence = fifelse(
-      ref_fortnight_exp == hh_fortnight_min,
-      days_in_first_fortnight / total_interval_days,
-      days_in_second_fortnight / total_interval_days
+      total_interval_days > 0L & !is.na(days_in_first_fortnight) & !is.na(days_in_second_fortnight),
+      fifelse(
+        ref_fortnight_exp == hh_fortnight_min,
+        days_in_first_fortnight / total_interval_days,
+        days_in_second_fortnight / total_interval_days
+      ),
+      NA_real_
     )
   )]
 
@@ -568,11 +652,16 @@ apply_probabilistic_strategy_nested <- function(crosswalk, data, confidence_thre
     days_in_second_week = total_week_interval - days_in_first_week
   )]
 
+  # Calculate confidence with division by zero protection
   crosswalk[!is.na(total_week_interval) & total_week_interval > 0L & !is.na(ref_week_exp), `:=`(
     ref_week_exp_confidence = fifelse(
-      midpoint_week_yyyyww == hh_week_min,
-      days_in_first_week / total_week_interval,
-      days_in_second_week / total_week_interval
+      total_week_interval > 0L & !is.na(days_in_first_week) & !is.na(days_in_second_week),
+      fifelse(
+        midpoint_week_yyyyww == hh_week_min,
+        days_in_first_week / total_week_interval,
+        days_in_second_week / total_week_interval
+      ),
+      NA_real_
     )
   )]
 
@@ -589,22 +678,27 @@ apply_probabilistic_strategy_nested <- function(crosswalk, data, confidence_thre
   }
 
   # ==========================================================================
-  # CLEANUP
+  # CLEANUP - use shared helper for comprehensive temp column removal
   # ==========================================================================
 
-  temp_cols <- c("upa_date_min", "upa_date_max", "upa_month_min_pos", "upa_month_max_pos",
-                 "month_range", "date_midpoint", "month1_start", "month2_start", "month3_start",
-                 "boundary_date", "days_before_boundary", "days_after_boundary", "total_days",
-                 "hh_date_min", "hh_date_max", "month_identified", "effective_month",
-                 "fortnight_lower", "fortnight_upper", "hh_fortnight_min", "hh_fortnight_max",
-                 "fortnight_range", "hh_date_midpoint", "fortnight_month_num", "boundary_day_15",
-                 "days_in_first_fortnight", "days_in_second_fortnight", "total_interval_days",
-                 "fortnight_identified", "effective_fortnight", "fortnight_month", "fortnight_half",
-                 "fortnight_start_day", "fortnight_end_day", "fortnight_start_date", "fortnight_end_date",
-                 "hh_week_min", "hh_week_max", "hh_week_min_seq", "hh_week_max_seq", "week_range",
-                 "week_date_midpoint", "midpoint_week_yyyyww", "week_boundary_date",
-                 "days_in_first_week", "days_in_second_week", "total_week_interval")
-  crosswalk[, (intersect(temp_cols, names(crosswalk))) := NULL]
+  temp_cols <- c(
+    # Month probabilistic
+    "upa_date_min", "upa_date_max", "upa_month_min_pos", "upa_month_max_pos",
+    "month_range", "date_midpoint", "month1_start", "month2_start", "month3_start",
+    "boundary_date", "days_before_boundary", "days_after_boundary", "total_days",
+    # Fortnight probabilistic
+    "hh_date_min", "hh_date_max", "month_identified", "effective_month",
+    "fortnight_lower", "fortnight_upper", "hh_fortnight_min", "hh_fortnight_max",
+    "fortnight_range", "hh_date_midpoint", "fortnight_month_num", "boundary_day_15",
+    "days_in_first_fortnight", "days_in_second_fortnight", "total_interval_days",
+    # Week probabilistic
+    "fortnight_identified", "effective_fortnight", "fortnight_month", "fortnight_half",
+    "fortnight_start_day", "fortnight_end_day", "fortnight_start_date", "fortnight_end_date",
+    "hh_week_min", "hh_week_max", "hh_week_min_seq", "hh_week_max_seq", "week_range",
+    "week_date_midpoint", "midpoint_week_yyyyww", "week_boundary_date",
+    "days_in_first_week", "days_in_second_week", "total_week_interval"
+  )
+  .cleanup_temp_columns(crosswalk, temp_cols)
 
   if (verbose) {
     cat("  Probabilistic strategy complete.\n")
@@ -795,8 +889,13 @@ apply_upa_aggregation_strategy_nested <- function(crosswalk, threshold, verbose)
 
 #' Apply Combined Strategy (Probabilistic + UPA Aggregation) with Proper Nesting
 #'
-#' Applies probabilistic rule at UPA-V1014 level when sufficient proportion
-#' have narrow ranges.
+#' Sequentially applies both strategies: probabilistic first, then UPA aggregation.
+#' This guarantees that "both" identifies at least as many periods as either
+#' individual strategy alone.
+#'
+#' The previous implementation had an extra `prop_narrow` filter that made it
+#' more restrictive than probabilistic alone. This refactored version ensures
+#' the union behavior users expect from the "both" option.
 #'
 #' @param crosswalk Crosswalk data.table
 #' @param data Original PNADC data
@@ -811,21 +910,62 @@ apply_combined_strategy_nested <- function(crosswalk, data, confidence_threshold
   if (verbose) cat("Applying combined strategy (probabilistic + UPA aggregation, nested)...\n")
 
   # ==========================================================================
-  # STEP 1: Calculate date bounds from original data
+  # STEP 1: Apply probabilistic strategy first
   # ==========================================================================
+  # This captures all observations that can be assigned via probabilistic logic
+  # (narrow date ranges with high confidence).
 
-  if (verbose) cat("  Calculating date bounds...\n")
+  crosswalk <- apply_probabilistic_strategy_nested(
+    crosswalk, data, confidence_threshold, verbose
+  )
+
+  # ==========================================================================
+  # STEP 2: Apply UPA aggregation on top
+  # ==========================================================================
+  # This extends assignments based on strict consensus within UPA-V1014 groups.
+  # The strategies operate independently: UPA aggregation considers only strict
+  # identifications (ref_month_in_quarter), not probabilistic assignments.
+  # The union of both strategies is captured because both write to the
+  # experimental columns (ref_month_exp, etc.) and neither overwrites
+  # existing assignments.
+
+  crosswalk <- apply_upa_aggregation_strategy_nested(
+    crosswalk, upa_threshold, verbose
+  )
+
+  if (verbose) {
+    cat("  Combined strategy complete.\n")
+  }
+
+  crosswalk
+}
+
+
+# =============================================================================
+# SHARED HELPER FUNCTIONS
+# =============================================================================
+
+#' Calculate Date Bounds from Original Data
+#'
+#' Shared preprocessing function used by probabilistic and combined strategies.
+#' Calculates birthday constraints and date bounds for each observation.
+#'
+#' @param data Original PNADC data.table
+#' @return data.table with date_min, date_max, and household-level bounds
+#' @keywords internal
+#' @noRd
+.calculate_date_bounds <- function(data) {
 
   dt <- ensure_data_table(data, copy = TRUE)
 
-  # Basic preprocessing
+  # Basic preprocessing - ensure integer types
   int_cols <- c("Ano", "Trimestre", "V2008", "V20081", "V20082")
   for (col in int_cols) {
-    if (is.character(dt[[col]])) {
+    if (col %in% names(dt) && is.character(dt[[col]])) {
       data.table::set(dt, j = col, value = as.integer(dt[[col]]))
     }
   }
-  if (!is.numeric(dt$V2009)) {
+  if ("V2009" %in% names(dt) && !is.numeric(dt$V2009)) {
     data.table::set(dt, j = "V2009", value = as.numeric(dt$V2009))
   }
 
@@ -873,414 +1013,402 @@ apply_combined_strategy_nested <- function(crosswalk, data, confidence_threshold
        (first_sat_after_birthday - 7L) < date_max & (first_sat_after_birthday - 7L) >= date_min,
      date_max := first_sat_after_birthday - 7L]
 
-  # ==========================================================================
-  # STEP 2: MONTH - Combined probabilistic at UPA-V1014 level
-  # ==========================================================================
+  dt
+}
 
-  if (verbose) cat("  Phase 1: Month combined strategy...\n")
 
-  # Calculate month positions for each observation
-  dt[, `:=`(
-    month_min_pos = month_in_quarter(date_min),
-    month_max_pos = month_in_quarter(date_max)
-  )]
-
-  dt[, month_range := month_max_pos - month_min_pos + 1L]
-  dt[, has_narrow_month_range := month_range == 2L & (month_max_pos - month_min_pos) == 1L]
-
-  # Aggregate at UPA-V1014 within-quarter level
-  upa_month_combined <- dt[, .(
-    n_total = .N,
-    n_narrow = sum(has_narrow_month_range, na.rm = TRUE),
-    # Aggregate date bounds at UPA level
-    upa_date_min = fifelse(all(is.na(date_min)), as.Date(NA), max(date_min, na.rm = TRUE)),
-    upa_date_max = fifelse(all(is.na(date_max)), as.Date(NA), min(date_max, na.rm = TRUE))
-  ), by = .(Ano, Trimestre, UPA, V1014)]
-
-  upa_month_combined[, prop_narrow := n_narrow / n_total]
-
-  # Calculate UPA-level month bounds
-  upa_month_combined[, `:=`(
-    upa_month_min = month_in_quarter(upa_date_min),
-    upa_month_max = month_in_quarter(upa_date_max)
-  )]
-
-  upa_month_combined[, upa_month_range := upa_month_max - upa_month_min + 1L]
-
-  # Qualify: proportion >= threshold AND UPA-level range == 2 sequential
-  upa_month_qualify <- upa_month_combined[
-    prop_narrow >= upa_threshold &
-      upa_month_range == 2L &
-      (upa_month_max - upa_month_min) == 1L &
-      !is.na(upa_date_min) &
-      !is.na(upa_date_max)
-  ]
-
-  if (nrow(upa_month_qualify) > 0) {
-    # Calculate probabilistic assignment
-    upa_month_qualify[, `:=`(
-      date_midpoint = upa_date_min + as.integer((upa_date_max - upa_date_min) / 2)
-    )]
-
-    upa_month_qualify[, likely_month := month_in_quarter(date_midpoint)]
-
-    # Calculate confidence
-    upa_month_qualify[, `:=`(
-      month1_start = make_date(Ano, quarter_month_n(Trimestre, 1L), 1L),
-      month2_start = make_date(Ano, quarter_month_n(Trimestre, 2L), 1L),
-      month3_start = make_date(Ano, quarter_month_n(Trimestre, 3L), 1L)
-    )]
-
-    upa_month_qualify[, boundary_date := fifelse(
-      upa_month_min == 1L, month2_start,
-      fifelse(upa_month_min == 2L, month3_start, as.Date(NA))
-    )]
-
-    # Calculate days in each period - boundary_date is first day of second month
-    upa_month_qualify[!is.na(boundary_date), `:=`(
-      total_days = as.integer(upa_date_max - upa_date_min) + 1L
-    )]
-
-    upa_month_qualify[!is.na(boundary_date), `:=`(
-      days_before = pmax(0L, as.integer(pmin(boundary_date - 1L, upa_date_max) - upa_date_min + 1L))
-    )]
-
-    upa_month_qualify[!is.na(boundary_date), `:=`(
-      days_after = total_days - days_before
-    )]
-
-    upa_month_qualify[total_days > 0L, `:=`(
-      confidence = fifelse(likely_month == upa_month_min, days_before / total_days, days_after / total_days)
-    )]
-
-    # Apply threshold
-    upa_month_qualify <- upa_month_qualify[confidence >= confidence_threshold]
-
-    if (nrow(upa_month_qualify) > 0) {
-      # Join to crosswalk
-      crosswalk[upa_month_qualify, on = .(Ano, Trimestre, UPA, V1014), `:=`(
-        ref_month_exp = fifelse(is.na(ref_month_in_quarter), i.likely_month, ref_month_exp),
-        ref_month_exp_confidence = fifelse(is.na(ref_month_in_quarter), i.confidence, ref_month_exp_confidence)
-      )]
-    }
+#' Clean Up Temporary Columns
+#'
+#' Shared cleanup function to remove temporary columns from a data.table.
+#' Ensures comprehensive cleanup regardless of code path.
+#'
+#' @param dt data.table to clean
+#' @param temp_cols Character vector of column names to remove
+#' @return Modified data.table (invisibly)
+#' @keywords internal
+#' @noRd
+.cleanup_temp_columns <- function(dt, temp_cols) {
+  cols_to_remove <- intersect(temp_cols, names(dt))
+  if (length(cols_to_remove) > 0) {
+    dt[, (cols_to_remove) := NULL]
   }
+  invisible(dt)
+}
 
-  n_month_combined <- sum(!is.na(crosswalk$ref_month_exp) & is.na(crosswalk$ref_month_in_quarter))
-  if (verbose) {
-    cat(sprintf("    Assigned %s months via combined strategy\n",
-                format(n_month_combined, big.mark = ",")))
-  }
 
-  # ==========================================================================
-  # STEP 3: FORTNIGHT - Combined probabilistic at UPA-V1014 level (NESTED)
-  # ==========================================================================
+#' Add Derived Columns for Compatibility with pnadc_apply_periods()
+#'
+#' Combines strict and experimental period assignments into unified columns
+#' that match the output format of pnadc_identify_periods(). Strict assignments
+#' take priority over experimental ones.
+#'
+#' @param crosswalk data.table with strict and experimental period columns
+#' @param verbose Logical. If TRUE, print summary information.
+#' @return Modified crosswalk with derived columns
+#' @keywords internal
+#' @noRd
+.add_derived_columns_experimental <- function(crosswalk, verbose = FALSE) {
 
-  if (verbose) cat("  Phase 2: Fortnight combined strategy (nested)...\n")
+  # Track which assignments are probabilistic (experimental)
+  crosswalk[, probabilistic_assignment := FALSE]
 
-  # NESTING: Only process observations with identified month (strictly OR experimentally)
-  crosswalk[, month_identified := !is.na(ref_month_in_quarter) | !is.na(ref_month_exp)]
-  crosswalk[month_identified == TRUE, effective_month := fifelse(
-    !is.na(ref_month_in_quarter), ref_month_in_quarter, ref_month_exp
+  # -------------------------------------------------------------------------
+  # MONTH: Combine strict + experimental
+  # -------------------------------------------------------------------------
+
+  # If experimental assigned but strict not, mark as probabilistic
+  crosswalk[is.na(ref_month_in_quarter) & !is.na(ref_month_exp),
+            probabilistic_assignment := TRUE]
+
+  # Create unified ref_month_in_quarter (strict takes priority)
+  # Only update if strict is NA and experimental is not
+  crosswalk[is.na(ref_month_in_quarter) & !is.na(ref_month_exp),
+            ref_month_in_quarter := ref_month_exp]
+
+  # Derive ref_month_yyyymm from ref_month_in_quarter
+  crosswalk[!is.na(ref_month_in_quarter), `:=`(
+    ref_month_yyyymm = yyyymm(Ano, quarter_month_n(Trimestre, ref_month_in_quarter))
   )]
 
-  # Calculate fortnight positions for each observation (constrained to identified month)
-  dt[, `:=`(
-    fortnight_min_pos = date_to_fortnight_in_quarter(date_min, Trimestre),
-    fortnight_max_pos = date_to_fortnight_in_quarter(date_max, Trimestre)
-  )]
-
-  # Join month identification status to dt
-  month_status <- unique(crosswalk[, .(Ano, Trimestre, UPA, V1008, V1014, month_identified, effective_month)])
-  dt[month_status, on = .(Ano, Trimestre, UPA, V1008, V1014), `:=`(
-    month_identified = i.month_identified,
-    effective_month = i.effective_month
-  )]
-
-  # Constrain fortnight bounds to identified month
-  dt[month_identified == TRUE, `:=`(
-    fortnight_lower = (effective_month - 1L) * 2L + 1L,
-    fortnight_upper = effective_month * 2L
-  )]
-
-  dt[month_identified == TRUE, `:=`(
-    fortnight_min_pos = pmax(fortnight_min_pos, fortnight_lower, na.rm = TRUE),
-    fortnight_max_pos = pmin(fortnight_max_pos, fortnight_upper, na.rm = TRUE)
-  )]
-
-  dt[, fortnight_range := fortnight_max_pos - fortnight_min_pos + 1L]
-  dt[, has_narrow_fortnight_range := month_identified == TRUE &
-       fortnight_range == 2L &
-       (fortnight_max_pos - fortnight_min_pos) == 1L]
-
-  # Aggregate at UPA-V1014 within-quarter level
-  upa_fortnight_combined <- dt[month_identified == TRUE, .(
-    n_total = .N,
-    n_narrow = sum(has_narrow_fortnight_range, na.rm = TRUE),
-    # Aggregate date bounds at UPA level (for households with identified month)
-    upa_date_min = fifelse(all(is.na(date_min)), as.Date(NA), max(date_min, na.rm = TRUE)),
-    upa_date_max = fifelse(all(is.na(date_max)), as.Date(NA), min(date_max, na.rm = TRUE)),
-    # Only use effective_month if all observations in the group have the same value
-    effective_month = fifelse(
-      uniqueN(effective_month[!is.na(effective_month)]) == 1L,
-      effective_month[!is.na(effective_month)][1L],
-      NA_integer_
+  # Derive ref_month (Date) from ref_month_yyyymm
+  crosswalk[!is.na(ref_month_yyyymm) & is.na(ref_month), `:=`(
+    ref_month = make_date(
+      ref_month_yyyymm %/% 100L,
+      ref_month_yyyymm %% 100L,
+      1L
     )
-  ), by = .(Ano, Trimestre, UPA, V1014)]
-
-  upa_fortnight_combined[, prop_narrow := n_narrow / n_total]
-
-  # Calculate UPA-level fortnight bounds (constrained)
-  upa_fortnight_combined[, `:=`(
-    fortnight_lower = (effective_month - 1L) * 2L + 1L,
-    fortnight_upper = effective_month * 2L
   )]
 
-  upa_fortnight_combined[, `:=`(
-    upa_fortnight_min = pmax(date_to_fortnight_in_quarter(upa_date_min, Trimestre), fortnight_lower, na.rm = TRUE),
-    upa_fortnight_max = pmin(date_to_fortnight_in_quarter(upa_date_max, Trimestre), fortnight_upper, na.rm = TRUE)
+  # Update determined_month flag
+  crosswalk[, determined_month := !is.na(ref_month_in_quarter)]
+
+  # -------------------------------------------------------------------------
+  # FORTNIGHT: Combine strict + experimental
+  # -------------------------------------------------------------------------
+
+  # If experimental assigned but strict not, mark as probabilistic
+  crosswalk[is.na(ref_fortnight_in_quarter) & !is.na(ref_fortnight_exp),
+            probabilistic_assignment := TRUE]
+
+  # Create unified ref_fortnight_in_quarter (strict takes priority)
+  crosswalk[is.na(ref_fortnight_in_quarter) & !is.na(ref_fortnight_exp),
+            ref_fortnight_in_quarter := ref_fortnight_exp]
+
+  # Derive ref_fortnight_yyyyff from ref_fortnight_in_quarter
+  crosswalk[!is.na(ref_fortnight_in_quarter), `:=`(
+    ref_fortnight_yyyyff = fortnight_in_quarter_to_yyyyff(Ano, Trimestre, ref_fortnight_in_quarter)
   )]
 
-  upa_fortnight_combined[, upa_fortnight_range := upa_fortnight_max - upa_fortnight_min + 1L]
-
-  # Qualify: proportion >= threshold AND UPA-level range == 2 sequential
-  upa_fortnight_qualify <- upa_fortnight_combined[
-    prop_narrow >= upa_threshold &
-      upa_fortnight_range == 2L &
-      (upa_fortnight_max - upa_fortnight_min) == 1L &
-      !is.na(upa_date_min) &
-      !is.na(upa_date_max)
-  ]
-
-  if (nrow(upa_fortnight_qualify) > 0) {
-    # Calculate probabilistic assignment
-    upa_fortnight_qualify[, `:=`(
-      date_midpoint = upa_date_min + as.integer((upa_date_max - upa_date_min) / 2)
-    )]
-
-    upa_fortnight_qualify[, likely_fortnight := date_to_fortnight_in_quarter(date_midpoint, Trimestre)]
-
-    # Calculate confidence (boundary at day 15/16)
-    upa_fortnight_qualify[, fortnight_month := ((upa_fortnight_min - 1L) %/% 2L) + 1L]
-    upa_fortnight_qualify[, boundary_day_15 := make_date(Ano, quarter_month_n(Trimestre, fortnight_month), 16L)]
-
-    # Calculate days in each fortnight - boundary_day_15 is day 16 (first day of second fortnight)
-    upa_fortnight_qualify[!is.na(boundary_day_15), `:=`(
-      total_days = as.integer(upa_date_max - upa_date_min) + 1L
-    )]
-
-    upa_fortnight_qualify[!is.na(boundary_day_15), `:=`(
-      days_before = pmax(0L, as.integer(pmin(boundary_day_15 - 1L, upa_date_max) - upa_date_min + 1L))
-    )]
-
-    upa_fortnight_qualify[!is.na(boundary_day_15), `:=`(
-      days_after = total_days - days_before
-    )]
-
-    upa_fortnight_qualify[total_days > 0L, `:=`(
-      confidence = fifelse(likely_fortnight == upa_fortnight_min,
-                           days_before / total_days, days_after / total_days)
-    )]
-
-    # Apply threshold
-    upa_fortnight_qualify <- upa_fortnight_qualify[confidence >= confidence_threshold]
-
-    if (nrow(upa_fortnight_qualify) > 0) {
-      # Join to crosswalk (only for month-identified observations)
-      crosswalk[upa_fortnight_qualify, on = .(Ano, Trimestre, UPA, V1014), `:=`(
-        ref_fortnight_exp = fifelse(
-          is.na(ref_fortnight_in_quarter) & month_identified,
-          i.likely_fortnight,
-          ref_fortnight_exp
-        ),
-        ref_fortnight_exp_confidence = fifelse(
-          is.na(ref_fortnight_in_quarter) & month_identified,
-          i.confidence,
-          ref_fortnight_exp_confidence
-        )
-      )]
-    }
-  }
-
-  n_fortnight_combined <- sum(!is.na(crosswalk$ref_fortnight_exp) & is.na(crosswalk$ref_fortnight_in_quarter))
-  if (verbose) {
-    cat(sprintf("    Assigned %s fortnights via combined strategy\n",
-                format(n_fortnight_combined, big.mark = ",")))
-  }
-
-  # ==========================================================================
-  # STEP 4: WEEK - Combined probabilistic at UPA-V1014 level (NESTED)
-  # ==========================================================================
-
-  if (verbose) cat("  Phase 3: Week combined strategy (nested)...\n")
-
-  # NESTING: Only process observations with identified fortnight (strictly OR experimentally)
-  crosswalk[, fortnight_identified := !is.na(ref_fortnight_in_quarter) | !is.na(ref_fortnight_exp)]
-  crosswalk[fortnight_identified == TRUE, effective_fortnight := fifelse(
-    !is.na(ref_fortnight_in_quarter), ref_fortnight_in_quarter, ref_fortnight_exp
+  # Derive ref_fortnight (Date) from ref_fortnight_yyyyff
+  crosswalk[!is.na(ref_fortnight_yyyyff) & is.na(ref_fortnight), `:=`(
+    ref_fortnight = yyyyff_to_date(ref_fortnight_yyyyff)
   )]
 
-  # Join fortnight identification status to dt
-  fortnight_status <- unique(crosswalk[, .(Ano, Trimestre, UPA, V1008, V1014,
-                                            fortnight_identified, effective_fortnight)])
-  dt[fortnight_status, on = .(Ano, Trimestre, UPA, V1008, V1014), `:=`(
-    fortnight_identified = i.fortnight_identified,
-    effective_fortnight = i.effective_fortnight
+  # Update determined_fortnight flag
+  crosswalk[, determined_fortnight := !is.na(ref_fortnight_in_quarter)]
+
+  # -------------------------------------------------------------------------
+  # WEEK: Combine strict + experimental
+  # -------------------------------------------------------------------------
+
+  # If experimental assigned but strict not, mark as probabilistic
+  crosswalk[is.na(ref_week_in_quarter) & !is.na(ref_week_exp),
+            probabilistic_assignment := TRUE]
+
+  # Create unified ref_week_in_quarter (strict takes priority)
+  crosswalk[is.na(ref_week_in_quarter) & !is.na(ref_week_exp),
+            ref_week_in_quarter := ref_week_exp]
+
+  # For weeks, we need to derive ref_week_yyyyww from the week position
+  # This requires the quarter context to get the actual ISO week
+  # The experimental ref_week_exp is a position in quarter (1-14)
+  # We need to convert this to YYYYWW format
+  crosswalk[!is.na(ref_week_in_quarter) & is.na(ref_week_yyyyww), `:=`(
+    ref_week_yyyyww = week_in_quarter_to_yyyyww(Ano, Trimestre, ref_week_in_quarter)
   )]
 
-  # Calculate week bounds constrained to identified fortnight
-  dt[fortnight_identified == TRUE, `:=`(
-    fortnight_month = ((effective_fortnight - 1L) %/% 2L) + 1L,
-    fortnight_half = ((effective_fortnight - 1L) %% 2L) + 1L
+  # Derive ref_week (Date) from ref_week_yyyyww
+  crosswalk[!is.na(ref_week_yyyyww) & is.na(ref_week), `:=`(
+    ref_week = yyyyww_to_date(ref_week_yyyyww)
   )]
 
-  dt[fortnight_identified == TRUE, `:=`(
-    fortnight_start_day = fifelse(fortnight_half == 1L, 1L, 16L),
-    fortnight_end_day = fifelse(fortnight_half == 1L, 15L,
-                                days_in_month(Ano, quarter_month_n(Trimestre, fortnight_month)))
-  )]
+  # Update determined_week flag
+  crosswalk[, determined_week := !is.na(ref_week_in_quarter)]
 
-  dt[fortnight_identified == TRUE, `:=`(
-    fortnight_start_date = make_date(Ano, quarter_month_n(Trimestre, fortnight_month), fortnight_start_day),
-    fortnight_end_date = make_date(Ano, quarter_month_n(Trimestre, fortnight_month), fortnight_end_day)
-  )]
-
-  dt[fortnight_identified == TRUE, `:=`(
-    week_min = date_to_yyyyww(pmax(date_min, fortnight_start_date)),
-    week_max = date_to_yyyyww(pmin(date_max, fortnight_end_date))
-  )]
-
-  dt[fortnight_identified == TRUE, `:=`(
-    week_min_seq = (week_min %/% 100L) * 53L + (week_min %% 100L),
-    week_max_seq = (week_max %/% 100L) * 53L + (week_max %% 100L)
-  )]
-
-  dt[, week_range := week_max_seq - week_min_seq + 1L]
-  dt[, has_narrow_week_range := fortnight_identified == TRUE &
-       week_range == 2L &
-       (week_max_seq - week_min_seq) == 1L]
-
-  # Aggregate at UPA-V1014 within-quarter level
-  upa_week_combined <- dt[fortnight_identified == TRUE, .(
-    n_total = .N,
-    n_narrow = sum(has_narrow_week_range, na.rm = TRUE),
-    # Aggregate date bounds at UPA level
-    upa_date_min = fifelse(all(is.na(date_min)), as.Date(NA), max(date_min, na.rm = TRUE)),
-    upa_date_max = fifelse(all(is.na(date_max)), as.Date(NA), min(date_max, na.rm = TRUE)),
-    # Use effective_fortnight only if all values within UPA-V1014 agree
-    effective_fortnight = fifelse(
-      uniqueN(effective_fortnight[!is.na(effective_fortnight)]) == 1L,
-      effective_fortnight[!is.na(effective_fortnight)][1L],
-      NA_integer_
-    )
-  ), by = .(Ano, Trimestre, UPA, V1014)]
-
-  upa_week_combined[, prop_narrow := n_narrow / n_total]
-
-  # Calculate UPA-level week bounds (constrained)
-  upa_week_combined[, `:=`(
-    fortnight_month = ((effective_fortnight - 1L) %/% 2L) + 1L,
-    fortnight_half = ((effective_fortnight - 1L) %% 2L) + 1L
-  )]
-
-  upa_week_combined[, `:=`(
-    fortnight_start_day = fifelse(fortnight_half == 1L, 1L, 16L),
-    fortnight_end_day = fifelse(fortnight_half == 1L, 15L,
-                                days_in_month(Ano, quarter_month_n(Trimestre, fortnight_month)))
-  )]
-
-  upa_week_combined[, `:=`(
-    fortnight_start_date = make_date(Ano, quarter_month_n(Trimestre, fortnight_month), fortnight_start_day),
-    fortnight_end_date = make_date(Ano, quarter_month_n(Trimestre, fortnight_month), fortnight_end_day)
-  )]
-
-  upa_week_combined[, `:=`(
-    upa_week_min = date_to_yyyyww(pmax(upa_date_min, fortnight_start_date)),
-    upa_week_max = date_to_yyyyww(pmin(upa_date_max, fortnight_end_date))
-  )]
-
-  upa_week_combined[, `:=`(
-    upa_week_min_seq = (upa_week_min %/% 100L) * 53L + (upa_week_min %% 100L),
-    upa_week_max_seq = (upa_week_max %/% 100L) * 53L + (upa_week_max %% 100L)
-  )]
-
-  upa_week_combined[, upa_week_range := upa_week_max_seq - upa_week_min_seq + 1L]
-
-  # Qualify: proportion >= threshold AND UPA-level range == 2 sequential
-  upa_week_qualify <- upa_week_combined[
-    prop_narrow >= upa_threshold &
-      upa_week_range == 2L &
-      (upa_week_max_seq - upa_week_min_seq) == 1L &
-      !is.na(upa_date_min) &
-      !is.na(upa_date_max)
-  ]
-
-  if (nrow(upa_week_qualify) > 0) {
-    # Calculate probabilistic assignment
-    upa_week_qualify[, `:=`(
-      date_midpoint = upa_date_min + as.integer((upa_date_max - upa_date_min) / 2)
-    )]
-
-    upa_week_qualify[, likely_week := week_in_quarter(date_midpoint, Trimestre, Ano)]
-
-    # Calculate confidence - week_boundary_date is Monday of second week
-    upa_week_qualify[, week_boundary_date := yyyyww_to_date(upa_week_max)]
-
-    upa_week_qualify[!is.na(week_boundary_date), `:=`(
-      total_days = as.integer(upa_date_max - upa_date_min) + 1L
-    )]
-
-    upa_week_qualify[!is.na(week_boundary_date), `:=`(
-      days_before = pmax(0L, as.integer(pmin(week_boundary_date - 1L, upa_date_max) - upa_date_min + 1L))
-    )]
-
-    upa_week_qualify[!is.na(week_boundary_date), `:=`(
-      days_after = total_days - days_before
-    )]
-
-    upa_week_qualify[, midpoint_week_seq := (date_to_yyyyww(date_midpoint) %/% 100L) * 53L +
-                       (date_to_yyyyww(date_midpoint) %% 100L)]
-
-    upa_week_qualify[total_days > 0L, `:=`(
-      confidence = fifelse(midpoint_week_seq == upa_week_min_seq,
-                           days_before / total_days, days_after / total_days)
-    )]
-
-    # Apply threshold
-    upa_week_qualify <- upa_week_qualify[confidence >= confidence_threshold]
-
-    if (nrow(upa_week_qualify) > 0) {
-      # Join to crosswalk (only for fortnight-identified observations)
-      crosswalk[upa_week_qualify, on = .(Ano, Trimestre, UPA, V1014), `:=`(
-        ref_week_exp = fifelse(
-          is.na(ref_week_in_quarter) & fortnight_identified,
-          i.likely_week,
-          ref_week_exp
-        ),
-        ref_week_exp_confidence = fifelse(
-          is.na(ref_week_in_quarter) & fortnight_identified,
-          i.confidence,
-          ref_week_exp_confidence
-        )
-      )]
-    }
-  }
-
-  n_week_combined <- sum(!is.na(crosswalk$ref_week_exp) & is.na(crosswalk$ref_week_in_quarter))
-  if (verbose) {
-    cat(sprintf("    Assigned %s weeks via combined strategy\n",
-                format(n_week_combined, big.mark = ",")))
-  }
-
-  # ==========================================================================
-  # CLEANUP
-  # ==========================================================================
-
-  temp_cols <- c("month_identified", "effective_month", "fortnight_identified", "effective_fortnight")
-  crosswalk[, (intersect(temp_cols, names(crosswalk))) := NULL]
+  # -------------------------------------------------------------------------
+  # Summary
+  # -------------------------------------------------------------------------
 
   if (verbose) {
-    cat("  Combined strategy complete.\n")
+    n_prob_month <- sum(crosswalk$probabilistic_assignment &
+                         crosswalk$determined_month, na.rm = TRUE)
+    n_prob_fortnight <- sum(crosswalk$probabilistic_assignment &
+                             crosswalk$determined_fortnight, na.rm = TRUE)
+    n_prob_week <- sum(crosswalk$probabilistic_assignment &
+                        crosswalk$determined_week, na.rm = TRUE)
+    cat(sprintf("  Derived columns added. Probabilistic assignments: %s months, %s fortnights, %s weeks\n",
+                format(n_prob_month, big.mark = ","),
+                format(n_prob_fortnight, big.mark = ","),
+                format(n_prob_week, big.mark = ",")))
   }
 
   crosswalk
+}
+
+
+#' Convert Week Position in Quarter to YYYYWW Format
+#'
+#' Internal helper to convert a week-in-quarter position (1-14) to ISO YYYYWW format.
+#'
+#' @param year Integer year
+#' @param quarter Integer quarter (1-4)
+#' @param week_in_quarter Integer week position in quarter (1-14)
+#' @return Integer YYYYWW format
+#' @keywords internal
+#' @noRd
+week_in_quarter_to_yyyyww <- function(year, quarter, week_in_quarter) {
+  # Get the first day of the quarter
+  first_month <- quarter_month_n(quarter, 1L)
+  quarter_start <- make_date(year, first_month, 1L)
+
+  # Find the Monday of the first week that starts in this quarter
+  # ISO weeks start on Monday
+  dow_start <- as.integer(format(quarter_start, "%u"))  # 1=Mon, 7=Sun
+  days_to_monday <- fifelse(dow_start == 1L, 0L, 8L - dow_start)
+
+  # First Monday of the quarter
+  first_monday <- quarter_start + days_to_monday
+
+  # Target date is (week_in_quarter - 1) weeks after first Monday
+  target_date <- first_monday + (week_in_quarter - 1L) * 7L
+
+  # Convert to YYYYWW
+  date_to_yyyyww(target_date)
+}
+
+
+# =============================================================================
+# COMBINE CROSSWALKS FUNCTION
+# =============================================================================
+
+#' Combine Strict and Experimental Period Crosswalks
+#'
+#' Merges a strict crosswalk from \code{pnadc_identify_periods()} with an
+#' experimental crosswalk from \code{pnadc_experimental_periods()}, filling
+#' in undetermined periods from the strict crosswalk with experimental
+#' assignments.
+#'
+#' @param strict_crosswalk data.table from \code{pnadc_identify_periods()}
+#' @param experimental_crosswalk data.table from \code{pnadc_experimental_periods()}
+#'   with \code{include_derived = FALSE} (experimental columns only)
+#' @param priority Character. Which source takes priority when both have assignments.
+#'   Default "strict" means strict determinations are never overwritten.
+#'   Use "experimental" to prefer experimental assignments (rarely needed).
+#' @param verbose Logical. If TRUE, print summary of combined assignments.
+#'
+#' @return A combined crosswalk data.table with:
+#'   \itemize{
+#'     \item All columns from strict crosswalk
+#'     \item Experimental columns (ref_month_exp, etc.)
+#'     \item \code{probabilistic_assignment}: TRUE for rows where experimental
+#'       assignment was used to fill a gap
+#'   }
+#'   The combined crosswalk is ready for use with \code{pnadc_apply_periods()}.
+#'
+#' @details
+#' This function is useful when you want to:
+#' \itemize{
+#'   \item Keep strict and experimental crosswalks separate
+#'   \item Apply different confidence thresholds to experimental assignments
+#'   \item Audit which assignments came from which source
+#' }
+#'
+#' If you just want experimental assignments integrated automatically, use
+#' \code{pnadc_experimental_periods()} with \code{include_derived = TRUE}.
+#'
+#' @examples
+#' \dontrun{
+#' # Build strict crosswalk
+#' strict <- pnadc_identify_periods(pnadc_data)
+#'
+#' # Build experimental crosswalk (without derived columns)
+#' experimental <- pnadc_experimental_periods(
+#'   strict,
+#'   pnadc_data,
+#'   strategy = "probabilistic",
+#'   confidence_threshold = 0.95,
+#'   include_derived = FALSE
+#' )
+#'
+#' # Combine them
+#' combined <- combine_period_crosswalks(strict, experimental)
+#'
+#' # Use with calibration
+#' result <- pnadc_apply_periods(pnadc_data, combined,
+#'                               period = "month", calibrate = TRUE)
+#' }
+#'
+#' @seealso \code{\link{pnadc_identify_periods}}, \code{\link{pnadc_experimental_periods}}
+#'
+#' @export
+combine_period_crosswalks <- function(
+    strict_crosswalk,
+    experimental_crosswalk,
+    priority = c("strict", "experimental"),
+    verbose = TRUE
+) {
+
+  priority <- match.arg(priority)
+
+  # Validate inputs
+  checkmate::assert_data_table(strict_crosswalk)
+  checkmate::assert_data_table(experimental_crosswalk)
+
+  # Required join keys
+  join_keys <- c("Ano", "Trimestre", "UPA", "V1008", "V1014")
+
+  missing_strict <- setdiff(join_keys, names(strict_crosswalk))
+  if (length(missing_strict) > 0) {
+    stop("strict_crosswalk missing required columns: ", paste(missing_strict, collapse = ", "))
+  }
+
+  missing_exp <- setdiff(join_keys, names(experimental_crosswalk))
+  if (length(missing_exp) > 0) {
+    stop("experimental_crosswalk missing required columns: ", paste(missing_exp, collapse = ", "))
+  }
+
+  # Copy strict crosswalk as base
+  result <- data.table::copy(strict_crosswalk)
+
+  # Ensure join key types match
+  for (key in join_keys) {
+    if (!is.integer(result[[key]])) {
+      data.table::set(result, j = key, value = as.integer(result[[key]]))
+    }
+    if (!is.integer(experimental_crosswalk[[key]])) {
+      data.table::set(experimental_crosswalk, j = key, value = as.integer(experimental_crosswalk[[key]]))
+    }
+  }
+
+  # Extract experimental columns to merge
+  exp_cols <- c("ref_month_exp", "ref_month_exp_confidence",
+                "ref_fortnight_exp", "ref_fortnight_exp_confidence",
+                "ref_week_exp", "ref_week_exp_confidence")
+
+  exp_cols_present <- intersect(exp_cols, names(experimental_crosswalk))
+  if (length(exp_cols_present) == 0) {
+    warning("No experimental columns found in experimental_crosswalk. ",
+            "Returning strict crosswalk unchanged.")
+    result[, probabilistic_assignment := FALSE]
+    return(result)
+  }
+
+  # Subset experimental crosswalk to join keys + experimental columns
+  exp_subset <- experimental_crosswalk[, c(join_keys, exp_cols_present), with = FALSE]
+
+  # Merge experimental columns
+  result[exp_subset, on = join_keys, `:=`(
+    ref_month_exp = i.ref_month_exp,
+    ref_month_exp_confidence = i.ref_month_exp_confidence,
+    ref_fortnight_exp = i.ref_fortnight_exp,
+    ref_fortnight_exp_confidence = i.ref_fortnight_exp_confidence,
+    ref_week_exp = i.ref_week_exp,
+    ref_week_exp_confidence = i.ref_week_exp_confidence
+  )]
+
+  # Initialize probabilistic_assignment flag
+  result[, probabilistic_assignment := FALSE]
+
+  # Fill gaps based on priority
+  if (priority == "strict") {
+    # Only fill where strict is NA
+    # Month
+    result[is.na(ref_month_in_quarter) & !is.na(ref_month_exp), `:=`(
+      ref_month_in_quarter = ref_month_exp,
+      probabilistic_assignment = TRUE
+    )]
+    # Fortnight
+    result[is.na(ref_fortnight_in_quarter) & !is.na(ref_fortnight_exp), `:=`(
+      ref_fortnight_in_quarter = ref_fortnight_exp,
+      probabilistic_assignment = TRUE
+    )]
+    # Week
+    result[is.na(ref_week_in_quarter) & !is.na(ref_week_exp), `:=`(
+      ref_week_in_quarter = ref_week_exp,
+      probabilistic_assignment = TRUE
+    )]
+  } else {
+    # Experimental takes priority (overwrite strict)
+    result[!is.na(ref_month_exp), `:=`(
+      ref_month_in_quarter = ref_month_exp,
+      probabilistic_assignment = TRUE
+    )]
+    result[!is.na(ref_fortnight_exp), `:=`(
+      ref_fortnight_in_quarter = ref_fortnight_exp,
+      probabilistic_assignment = TRUE
+    )]
+    result[!is.na(ref_week_exp), `:=`(
+      ref_week_in_quarter = ref_week_exp,
+      probabilistic_assignment = TRUE
+    )]
+  }
+
+  # Derive YYYYMM/YYYYFF/YYYYWW and Date columns for newly assigned periods
+  # Month
+  result[probabilistic_assignment == TRUE & !is.na(ref_month_in_quarter), `:=`(
+    ref_month_yyyymm = yyyymm(Ano, quarter_month_n(Trimestre, ref_month_in_quarter)),
+    ref_month = make_date(Ano, quarter_month_n(Trimestre, ref_month_in_quarter), 1L)
+  )]
+
+  # Fortnight
+  result[probabilistic_assignment == TRUE & !is.na(ref_fortnight_in_quarter), `:=`(
+    ref_fortnight_yyyyff = fortnight_in_quarter_to_yyyyff(Ano, Trimestre, ref_fortnight_in_quarter)
+  )]
+  result[probabilistic_assignment == TRUE & !is.na(ref_fortnight_yyyyff), `:=`(
+    ref_fortnight = yyyyff_to_date(ref_fortnight_yyyyff)
+  )]
+
+  # Week
+  result[probabilistic_assignment == TRUE & !is.na(ref_week_in_quarter), `:=`(
+    ref_week_yyyyww = week_in_quarter_to_yyyyww(Ano, Trimestre, ref_week_in_quarter)
+  )]
+  result[probabilistic_assignment == TRUE & !is.na(ref_week_yyyyww), `:=`(
+    ref_week = yyyyww_to_date(ref_week_yyyyww)
+  )]
+
+  # Update determination flags
+  result[, `:=`(
+    determined_month = !is.na(ref_month_in_quarter),
+    determined_fortnight = !is.na(ref_fortnight_in_quarter),
+    determined_week = !is.na(ref_week_in_quarter)
+  )]
+
+  # Summary
+  if (verbose) {
+    n_strict_month <- sum(result$determined_month & !result$probabilistic_assignment, na.rm = TRUE)
+    n_exp_month <- sum(result$determined_month & result$probabilistic_assignment, na.rm = TRUE)
+    n_strict_fortnight <- sum(result$determined_fortnight & !result$probabilistic_assignment, na.rm = TRUE)
+    n_exp_fortnight <- sum(result$determined_fortnight & result$probabilistic_assignment, na.rm = TRUE)
+    n_strict_week <- sum(result$determined_week & !result$probabilistic_assignment, na.rm = TRUE)
+    n_exp_week <- sum(result$determined_week & result$probabilistic_assignment, na.rm = TRUE)
+
+    cat("Combined crosswalk summary:\n")
+    cat(sprintf("  Months: %s strict + %s experimental = %s total (%.1f%% rate)\n",
+                format(n_strict_month, big.mark = ","),
+                format(n_exp_month, big.mark = ","),
+                format(n_strict_month + n_exp_month, big.mark = ","),
+                100 * (n_strict_month + n_exp_month) / nrow(result)))
+    cat(sprintf("  Fortnights: %s strict + %s experimental = %s total (%.1f%% rate)\n",
+                format(n_strict_fortnight, big.mark = ","),
+                format(n_exp_fortnight, big.mark = ","),
+                format(n_strict_fortnight + n_exp_fortnight, big.mark = ","),
+                100 * (n_strict_fortnight + n_exp_fortnight) / nrow(result)))
+    cat(sprintf("  Weeks: %s strict + %s experimental = %s total (%.1f%% rate)\n",
+                format(n_strict_week, big.mark = ","),
+                format(n_exp_week, big.mark = ","),
+                format(n_strict_week + n_exp_week, big.mark = ","),
+                100 * (n_strict_week + n_exp_week) / nrow(result)))
+  }
+
+  result
 }
