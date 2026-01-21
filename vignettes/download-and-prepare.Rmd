@@ -43,9 +43,9 @@ If you already have PNADC data and want to learn the package API first, see [Get
 # Install packages if needed
 install.packages(c("PNADcIBGE", "tidyverse", "fst"))
 
-# Install mensalizePNADC from GitHub
+# Install PNADCperiods from GitHub
 # install.packages("remotes")
-# remotes::install_github("antrologos/mensalizePNADC")
+# remotes::install_github("antrologos/PNADCperiods")
 
 # Load packages
 library(PNADcIBGE)
@@ -364,8 +364,8 @@ Now that you have mensalized PNADC data, you can:
 - Follow the usage patterns in [Get Started](getting-started.html) with your real data
 - See analysis examples in [Applied Examples](applied-examples.html)
 - Learn about the algorithm in [How PNADCperiods Works](how-it-works.html)
-- Visit the [package website](https://antrologos.github.io/mensalizePNADC/) for more resources
+- Visit the [package website](https://antrologos.github.io/PNADCperiods/) for more resources
 
 > **Working with annual PNADC data?** Annual data (visit-specific microdata with comprehensive income variables) requires a different workflow. See [Monthly Poverty Analysis with Annual PNADC Data](annual-poverty-analysis.html) for details on using `pnadc_apply_periods()` with `anchor = "year"`.
 
-For questions or issues, please open an issue on [GitHub](https://github.com/antrologos/mensalizePNADC/issues).
+For questions or issues, please open an issue on [GitHub](https://github.com/antrologos/PNADCperiods/issues).

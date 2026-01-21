@@ -5,7 +5,7 @@
 R package (`PNADCperiods`) that converts Brazil's quarterly PNADC survey data into sub-quarterly time series (monthly, fortnightly, weekly) with optional weight calibration.
 
 **Authors:** Marcos Hecksher (methodology) | Rogerio Barbosa (R package)
-**Repository:** https://github.com/antrologos/mensalizePNADC
+**Repository:** https://github.com/antrologos/PNADCperiods
 
 ## Quick Reference
 
@@ -39,19 +39,19 @@ result <- pnadc_apply_periods(pnadc_2023, crosswalk, weight_var = "V1028", ancho
 | Period | Rate | Notes |
 |--------|------|-------|
 | Month | ~97% | Aggregates across quarters at UPA-V1014 level (panel design) |
-| Fortnight | ~7-8% | Within-quarter only; cannot aggregate across quarters |
-| Week | ~1-2% | Within-quarter only; cannot aggregate across quarters |
+| Fortnight | ~7% | Within-quarter only; cannot aggregate across quarters |
+| Week | ~1.5% | Within-quarter only; cannot aggregate across quarters |
 
 **Always use stacked multi-quarter data for best month determination rate.**
 
 ## Development Workflow
 
 ```r
-devtools::document("mensalizePNADC")  # Update NAMESPACE and man/
-devtools::check("mensalizePNADC")     # R CMD check
-devtools::test("mensalizePNADC")      # Run tests
-devtools::install("mensalizePNADC", dependencies = FALSE)  # Install locally
-pkgdown::build_site("mensalizePNADC")  # Rebuild docs locally
+devtools::document("PNADCperiods")  # Update NAMESPACE and man/
+devtools::check("PNADCperiods")     # R CMD check
+devtools::test("PNADCperiods")      # Run tests
+devtools::install("PNADCperiods", dependencies = FALSE)  # Install locally
+pkgdown::build_site("PNADCperiods")  # Rebuild docs locally
 ```
 
 ### GitHub Pages Deployment
@@ -60,7 +60,7 @@ pkgdown::build_site("mensalizePNADC")  # Rebuild docs locally
 
 To update the online documentation:
 ```bash
-cd "D:\Dropbox\Artigos\mensalizacao_pnad\mensalizePNADC"
+cd "D:\Dropbox\Artigos\mensalizacao_pnad\PNADCperiods"
 pkgdown::build_site()  # Build locally first
 git add .
 git commit -m "Update documentation"
@@ -69,7 +69,7 @@ git push origin refactor/pnadc-periods  # Push to this branch - site rebuilds au
 
 **Do NOT merge to master** - the GitHub Actions workflow triggers on push to `refactor/pnadc-periods`.
 
-Site URL: https://antrologos.github.io/mensalizePNADC/
+Site URL: https://antrologos.github.io/PNADCperiods/
 
 ## Source Files
 
@@ -163,7 +163,7 @@ If output cannot be shown (e.g., depends on user's data), omit the output sectio
 
 ```
 D:\Dropbox\Artigos\mensalizacao_pnad\          # Project root (NOT a git repo)
-└── mensalizePNADC\                            # Git repository is HERE
+└── PNADCperiods\                            # Git repository is HERE
     ├── .git\
     ├── R\
     ├── tests\
@@ -176,7 +176,7 @@ D:\Dropbox\Artigos\mensalizacao_pnad\          # Project root (NOT a git repo)
 cd "D:\Dropbox\Artigos\mensalizacao_pnad" && git status
 
 # CORRECT
-cd "D:\Dropbox\Artigos\mensalizacao_pnad\mensalizePNADC" && git status
+cd "D:\Dropbox\Artigos\mensalizacao_pnad\PNADCperiods" && git status
 ```
 
 Common git errors when using wrong directory:
@@ -188,7 +188,7 @@ Common git errors when using wrong directory:
 1. **Low determination rate** → Stack 2+ years of data
 2. **Missing columns** → Use `validate_pnadc()` to check
 3. **SIDRA API errors** → Check internet; API has rate limits
-4. **Git errors (exit 128/129)** → Use `mensalizePNADC/` directory, not project root
+4. **Git errors (exit 128/129)** → Use `PNADCperiods/` directory, not project root
 5. **Dropbox file locking** → If `devtools::document()` fails with "Invalid argument" error when writing to vignettes, pause Dropbox sync. All vignettes have `purl = FALSE` to prevent .R file creation, but Dropbox can still interfere.
 
 ### Local Data Paths (Rogerio's machine)

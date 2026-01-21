@@ -11,8 +11,8 @@
 <script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Identify Reference Periods in Brazil's PNADC Survey Data">
-<meta name="description" content='Identifies reference periods (months, fortnights, and weeks) in Brazils quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data and optionally computes calibrated weights for sub-quarterly analysis. The core algorithm uses IBGEs "Parada Tecnica" (technical break) rules combined with respondent birthdates to determine which temporal period each survey observation refers to. Achieves ~97% monthly determination rate when using stacked multi-quarter data. Strict fortnight and week determination rates are lower (~8% and ~2% respectively) as they cannot leverage cross-quarter panel aggregation. Experimental strategies (UPA aggregation) can boost fortnight rates to ~58% and week rates to ~14%. For users needing sub-quarterly aggregate estimates, the package provides hierarchical weight calibration to produce period-appropriate survey weights.'>
-<meta property="og:description" content='Identifies reference periods (months, fortnights, and weeks) in Brazils quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data and optionally computes calibrated weights for sub-quarterly analysis. The core algorithm uses IBGEs "Parada Tecnica" (technical break) rules combined with respondent birthdates to determine which temporal period each survey observation refers to. Achieves ~97% monthly determination rate when using stacked multi-quarter data. Strict fortnight and week determination rates are lower (~8% and ~2% respectively) as they cannot leverage cross-quarter panel aggregation. Experimental strategies (UPA aggregation) can boost fortnight rates to ~58% and week rates to ~14%. For users needing sub-quarterly aggregate estimates, the package provides hierarchical weight calibration to produce period-appropriate survey weights.'>
+<meta name="description" content='Identifies reference periods (months, fortnights, and weeks) in Brazils quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data and optionally computes calibrated weights for sub-quarterly analysis. The core algorithm uses IBGEs "Parada Tecnica" (technical break) rules combined with respondent birthdates to determine which temporal period each survey observation refers to. Period identification follows a nested hierarchy enforced by construction: fortnights require months, and weeks require fortnights. Achieves ~97% monthly determination rate when using stacked multi-quarter data. Strict fortnight and week determination rates are lower (~7-8% and ~1-2% respectively) as they cannot leverage cross-quarter panel aggregation. Experimental strategies (probabilistic assignment and UPA aggregation leveraging 100% UPA homogeneity) can boost fortnight rates to ~60% and week rates to ~15%. For users needing sub-quarterly aggregate estimates, the package provides adaptive hierarchical weight calibration (4/2/1 cell levels for month/fortnight/week) to produce period-appropriate survey weights.'>
+<meta property="og:description" content='Identifies reference periods (months, fortnights, and weeks) in Brazils quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data and optionally computes calibrated weights for sub-quarterly analysis. The core algorithm uses IBGEs "Parada Tecnica" (technical break) rules combined with respondent birthdates to determine which temporal period each survey observation refers to. Period identification follows a nested hierarchy enforced by construction: fortnights require months, and weeks require fortnights. Achieves ~97% monthly determination rate when using stacked multi-quarter data. Strict fortnight and week determination rates are lower (~7-8% and ~1-2% respectively) as they cannot leverage cross-quarter panel aggregation. Experimental strategies (probabilistic assignment and UPA aggregation leveraging 100% UPA homogeneity) can boost fortnight rates to ~60% and week rates to ~15%. For users needing sub-quarterly aggregate estimates, the package provides adaptive hierarchical weight calibration (4/2/1 cell levels for month/fortnight/week) to produce period-appropriate survey weights.'>
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -50,7 +50,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="search.json">
 </form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/antrologos/mensalizePNADC/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/antrologos/PNADCperiods/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul>
 </div>
 
@@ -63,26 +63,69 @@
 </h1></div>
 <!-- badges: start -->
 
-<p>Convert Brazil’s quarterly PNADC survey data into sub-quarterly time series (monthly, fortnightly, weekly).</p>
+<p>Convert Brazil’s quarterly PNADC survey data into sub-quarterly time series (monthly, fortnightly, weekly) with proper survey weight calibration.</p>
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>The <code>PNADCperiods</code> package identifies reference periods (months, fortnights, weeks) in Brazil’s quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) microdata and optionally computes calibrated survey weights.</p>
+<p>The <code>PNADCperiods</code> package identifies reference periods (months, fortnights, weeks) in Brazil’s quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) microdata and computes calibrated survey weights for sub-quarterly analysis.</p>
 <p><strong>Why sub-quarterly analysis?</strong> PNADC quarterly statistics are actually moving averages of three months. This package recovers the specific period each observation refers to, enabling true monthly (or finer) labor market analysis.</p>
+<div class="section level3">
+<h3 id="key-features">Key Features<a class="anchor" aria-label="anchor" href="#key-features"></a>
+</h3>
 <ul>
+<li>
+<strong>Nested identification hierarchy</strong>: Weeks require fortnights, fortnights require months (enforced by construction)</li>
 <li>
 <strong>~97% monthly determination rate</strong> when using stacked multi-quarter data</li>
 <li>
-<strong>~8% strict fortnightly rate</strong> (within-quarter constraints only)</li>
+<strong>~7% strict fortnight rate</strong> (within-quarter constraints only)</li>
 <li>
-<strong>~2% strict weekly rate</strong> (within-quarter constraints only)</li>
+<strong>~1.5% strict week rate</strong> (within-quarter constraints only)</li>
 <li>
-<strong>Experimental strategies</strong> can boost fortnight to ~58% and week to ~14% (UPA aggregation)</li>
+<strong>Experimental strategies</strong> boost fortnight to ~58-60% and week to ~14% via UPA aggregation</li>
 <li>
-<strong>Validated methodology</strong> based on Hecksher (2024)</li>
+<strong>IBGE-based calendar</strong>: All periods use IBGE’s official Sunday-Saturday week boundaries</li>
 <li>
-<strong>Fast</strong>: ~1 minute for 28M rows</li>
+<strong>Hierarchical weight calibration</strong> adapted per time granularity</li>
+<li>
+<strong>Fast</strong>: Processes ~450,000 rows/sec (~1 minute for 28M rows)</li>
 </ul>
+</div>
+</div>
+<div class="section level2">
+<h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
+</h2>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Requires R &gt;= 4.0.0</span></span>
+<span></span>
+<span><span class="co"># Install from GitHub</span></span>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"antrologos/PNADCperiods"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># For SIDRA API integration (optional, for weight calibration):</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"sidrar"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="quick-start">Quick Start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
+</h2>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/PNADCperiods/">PNADCperiods</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Load stacked PNADC data (2+ years recommended for best determination rate)</span></span>
+<span><span class="va">pnadc</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"pnadc_stacked.csv"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Step 1: Build crosswalk (identify reference periods)</span></span>
+<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Step 2: Apply to data (with optional weight calibration)</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">crosswalk</span>,</span>
+<span>                               weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
+<span>                               anchor <span class="op">=</span> <span class="st">"quarter"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Analyze by month</span></span>
+<span><span class="va">result</span><span class="op">[</span><span class="va">determined_month</span> <span class="op">==</span> <span class="cn">TRUE</span>, <span class="fu">.</span><span class="op">(</span></span>
+<span>  employed <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">weight_monthly</span> <span class="op">*</span> <span class="op">(</span><span class="va">ocupado</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="op">)</span>, by <span class="op">=</span> <span class="va">ref_month_yyyymm</span><span class="op">]</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="key-functions">Key Functions<a class="anchor" aria-label="anchor" href="#key-functions"></a>
@@ -99,27 +142,31 @@
 <tbody>
 <tr>
 <td><code><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods()</a></code></td>
-<td>Build crosswalk: identify reference months, fortnights, and weeks</td>
+<td>Build crosswalk: identify reference months, fortnights, and weeks (nested)</td>
 </tr>
 <tr>
 <td><code><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code></td>
-<td>Apply crosswalk to data + optional weight calibration</td>
+<td>Apply crosswalk to data + hierarchical weight calibration</td>
 </tr>
 <tr>
 <td><code><a href="reference/identify_reference_month.html">identify_reference_month()</a></code></td>
-<td>Reference month identification only</td>
+<td>Standalone month identification</td>
 </tr>
 <tr>
 <td><code><a href="reference/identify_reference_fortnight.html">identify_reference_fortnight()</a></code></td>
-<td>Reference fortnight identification only</td>
+<td>Standalone fortnight identification</td>
 </tr>
 <tr>
 <td><code><a href="reference/identify_reference_week.html">identify_reference_week()</a></code></td>
-<td>Reference week identification only</td>
+<td>Standalone week identification</td>
 </tr>
 <tr>
-<td><code><a href="reference/calibrate_monthly_weights.html">calibrate_monthly_weights()</a></code></td>
-<td>Hierarchical rake weighting for monthly weights</td>
+<td><code><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code></td>
+<td>Experimental probabilistic/UPA aggregation strategies</td>
+</tr>
+<tr>
+<td><code><a href="reference/combine_period_crosswalks.html">combine_period_crosswalks()</a></code></td>
+<td>Merge strict and experimental crosswalks</td>
 </tr>
 <tr>
 <td><code><a href="reference/fetch_monthly_population.html">fetch_monthly_population()</a></code></td>
@@ -129,103 +176,259 @@
 <td><code><a href="reference/validate_pnadc.html">validate_pnadc()</a></code></td>
 <td>Validate input data has required columns</td>
 </tr>
-<tr>
-<td><code><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code></td>
-<td>Experimental probabilistic period assignment</td>
-</tr>
-<tr>
-<td><code><a href="reference/combine_period_crosswalks.html">combine_period_crosswalks()</a></code></td>
-<td>Merge strict and experimental crosswalks</td>
-</tr>
 </tbody>
 </table>
 </div>
 <div class="section level2">
-<h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
+<h2 id="nested-identification-hierarchy">Nested Identification Hierarchy<a class="anchor" aria-label="anchor" href="#nested-identification-hierarchy"></a>
 </h2>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Requires R &gt;= 4.0.0</span></span>
-<span></span>
-<span><span class="co"># Install from GitHub</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"antrologos/mensalizePNADC"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># For SIDRA API integration (optional):</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"sidrar"</span><span class="op">)</span></span></code></pre></div>
+<p>The algorithm enforces strict nesting <strong>by construction</strong>:</p>
+<pre><code>determined_week =&gt; determined_fortnight =&gt; determined_month</code></pre>
+<ul>
+<li>
+<strong>Phase 1</strong>: Identify MONTHS using cross-quarter aggregation at UPA-V1014 level</li>
+<li>
+<strong>Phase 2</strong>: Identify FORTNIGHTS only within determined months (household level, within-quarter)</li>
+<li>
+<strong>Phase 3</strong>: Identify WEEKS only within determined fortnights (household level, within-quarter)</li>
+</ul>
+<p>This means fortnights can <strong>only</strong> be identified for observations with determined months, and weeks can <strong>only</strong> be identified for observations with determined fortnights.</p>
 </div>
 <div class="section level2">
-<h2 id="quick-example">Quick Example<a class="anchor" aria-label="anchor" href="#quick-example"></a>
+<h2 id="period-definitions">Period Definitions<a class="anchor" aria-label="anchor" href="#period-definitions"></a>
 </h2>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/mensalizePNADC/">PNADCperiods</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Load stacked PNADC data (2+ years recommended for best determination rate)</span></span>
-<span><span class="va">pnadc</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"pnadc_stacked.csv"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Step 1: Build crosswalk (identify reference periods)</span></span>
-<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Step 2: Apply to data (with optional weight calibration)</span></span>
-<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">crosswalk</span>,</span>
-<span>                               weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
-<span>                               anchor <span class="op">=</span> <span class="st">"quarter"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Use in analysis</span></span>
-<span><span class="va">result</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span>n <span class="op">=</span> <span class="va">.N</span><span class="op">)</span>, by <span class="op">=</span> <span class="va">ref_month_yyyymm</span><span class="op">]</span></span></code></pre></div>
-<p><strong>Key parameters for <code><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code>:</strong> - <code>weight_var</code>: Which weight column to use (<code>"V1028"</code> for quarterly, <code>"V1032"</code> for annual) - <code>anchor</code>: Calibration anchor (<code>"quarter"</code> or <code>"year"</code>) - <code>calibrate = TRUE</code>: Compute calibrated weights (default: TRUE) - <code>calibration_unit</code>: Granularity for calibration (<code>"month"</code>, <code>"fortnight"</code>, or <code>"week"</code>)</p>
-<p><strong>Calibration strategy:</strong> - All time periods (month, fortnight, week) calibrate to the <strong>full Brazilian population</strong> from SIDRA - Hierarchical raking is automatically simplified for finer granularities: - Monthly: 4 cell levels (full demographic/geographic hierarchy) - Fortnight: 2 cell levels (age + region) - Weekly: 1 cell level (age groups only)</p>
-<p><strong>Crosswalk output columns:</strong> - <code>ref_month</code>, <code>ref_month_in_quarter</code>, <code>ref_month_yyyymm</code>, <code>determined_month</code> - <code>ref_fortnight</code>, <code>ref_fortnight_in_quarter</code>, <code>ref_fortnight_yyyyff</code>, <code>determined_fortnight</code> - <code>ref_week</code>, <code>ref_week_in_quarter</code>, <code>ref_week_yyyyww</code>, <code>determined_week</code></p>
-<p><strong>Required input columns:</strong> - For identification: <code>Ano</code>, <code>Trimestre</code>, <code>UPA</code>, <code>V1008</code>, <code>V1014</code>, <code>V2008</code>, <code>V20081</code>, <code>V20082</code>, <code>V2009</code> - For weights: add <code>V1028</code> (or <code>V1032</code>), <code>UF</code>, <code>posest</code>, <code>posest_sxi</code></p>
-<p>For complete examples, see the <a href="https://antrologos.github.io/mensalizePNADC/articles/getting-started.html">Get Started guide</a>.</p>
-</div>
-<div class="section level2">
-<h2 id="experimental-features">Experimental Features<a class="anchor" aria-label="anchor" href="#experimental-features"></a>
-</h2>
-<p>The <code><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code> function provides experimental strategies to improve fortnight and week determination rates:</p>
+<div class="section level3">
+<h3 id="ibge-calendar">IBGE Calendar<a class="anchor" aria-label="anchor" href="#ibge-calendar"></a>
+</h3>
+<p>All periods use IBGE’s official calendar where weeks run Sunday-Saturday:</p>
 <table class="table">
+<colgroup>
+<col width="40%">
+<col width="60%">
+</colgroup>
 <thead><tr>
-<th>Strategy</th>
-<th>Fortnight %</th>
-<th>Week %</th>
+<th>Period</th>
+<th>Definition</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Month</strong></td>
+<td>4-5 IBGE weeks; first week has &gt;= 4 days in the calendar month</td>
+</tr>
+<tr>
+<td><strong>Fortnight</strong></td>
+<td>First half (days 1-15) or second half (days 16+) of a month</td>
+</tr>
+<tr>
+<td><strong>Week</strong></td>
+<td>Sunday-Saturday; belongs to the month where its Saturday falls</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="output-columns">Output Columns<a class="anchor" aria-label="anchor" href="#output-columns"></a>
+</h3>
+<p>The crosswalk contains IBGE-based period boundaries:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Month columns</span></span>
+<span><span class="va">ref_month_start</span>      <span class="co"># Sunday of first IBGE week of the month</span></span>
+<span><span class="va">ref_month_end</span>        <span class="co"># Saturday of last IBGE week of the month</span></span>
+<span><span class="va">ref_month_in_quarter</span> <span class="co"># Position in quarter (1, 2, 3)</span></span>
+<span><span class="va">ref_month_yyyymm</span>     <span class="co"># Integer YYYYMM format (e.g., 202301)</span></span>
+<span><span class="va">ref_month_weeks</span>      <span class="co"># Number of IBGE weeks in month (4 or 5)</span></span>
+<span><span class="va">determined_month</span>     <span class="co"># TRUE if month was determined</span></span>
+<span></span>
+<span><span class="co"># Fortnight columns</span></span>
+<span><span class="va">ref_fortnight_start</span>       <span class="co"># Sunday of first IBGE week of the fortnight</span></span>
+<span><span class="va">ref_fortnight_end</span>         <span class="co"># Saturday of last IBGE week of the fortnight</span></span>
+<span><span class="va">ref_fortnight_in_quarter</span>  <span class="co"># Position in quarter (1-6)</span></span>
+<span><span class="va">ref_fortnight_yyyyff</span>      <span class="co"># Integer YYYYFF format (01-24 per year)</span></span>
+<span><span class="va">determined_fortnight</span>      <span class="co"># TRUE if fortnight was determined</span></span>
+<span></span>
+<span><span class="co"># Week columns</span></span>
+<span><span class="va">ref_week_start</span>       <span class="co"># Sunday of the IBGE week</span></span>
+<span><span class="va">ref_week_end</span>         <span class="co"># Saturday of the IBGE week</span></span>
+<span><span class="va">ref_week_in_quarter</span>  <span class="co"># Position in quarter (1-14)</span></span>
+<span><span class="va">ref_week_yyyyww</span>      <span class="co"># Integer IBGE YYYYWW format</span></span>
+<span><span class="va">determined_week</span>      <span class="co"># TRUE if week was determined</span></span></code></pre></div>
+</div>
+</div>
+<div class="section level2">
+<h2 id="weight-calibration">Weight Calibration<a class="anchor" aria-label="anchor" href="#weight-calibration"></a>
+</h2>
+<p>The <code><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code> function performs hierarchical rake weighting with automatic adaptation per time granularity:</p>
+<table class="table">
+<colgroup>
+<col width="36%">
+<col width="26%">
+<col width="22%">
+<col width="14%">
+</colgroup>
+<thead><tr>
+<th>Calibration Unit</th>
+<th>Cell Levels</th>
+<th>Smoothing</th>
 <th>Notes</th>
 </tr></thead>
 <tbody>
 <tr>
-<td>Strict only</td>
-<td>7.64%</td>
-<td>1.54%</td>
-<td>Baseline</td>
+<td><code>"month"</code></td>
+<td>4 (full hierarchy)</td>
+<td>3-period rolling mean</td>
+<td>Age, region, state, post-stratum</td>
 </tr>
 <tr>
-<td>+ Probabilistic</td>
-<td>13.61%</td>
-<td>1.82%</td>
-<td>Adds confidence scores</td>
+<td><code>"fortnight"</code></td>
+<td>2 (simplified)</td>
+<td>7-period rolling mean</td>
+<td>Age + region only</td>
 </tr>
 <tr>
-<td>+ UPA aggregation</td>
-<td><strong>57.69%</strong></td>
-<td><strong>14.36%</strong></td>
-<td>Best coverage</td>
-</tr>
-<tr>
-<td>+ Both</td>
-<td><strong>60.33%</strong></td>
-<td><strong>14.60%</strong></td>
-<td>Maximum coverage</td>
+<td><code>"week"</code></td>
+<td>1 (minimal)</td>
+<td>None</td>
+<td>Age groups only</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Strategies:</strong> - <strong>probabilistic</strong>: For 2-period ranges, assigns based on which period contains most of the date interval (with confidence threshold) - <strong>upa_aggregation</strong>: Extends strictly identified periods to all observations in the same UPA-V1014 when consensus exists - <strong>both</strong>: Sequentially applies probabilistic first, then UPA aggregation. Guarantees rate &gt;= max of individual strategies.</p>
-<p><strong>Key finding:</strong> UPA homogeneity rate = 100% for both fortnights and weeks. This means when any household in a UPA has a determined period, ALL households with determined periods in that UPA have the SAME period.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Apply experimental strategies</span></span>
+<p>All time periods calibrate to the <strong>full Brazilian population</strong> from SIDRA (not divided).</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Monthly calibration (default)</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">crosswalk</span>,</span>
+<span>                               weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
+<span>                               anchor <span class="op">=</span> <span class="st">"quarter"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Fortnight calibration</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">crosswalk</span>,</span>
+<span>                               weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
+<span>                               anchor <span class="op">=</span> <span class="st">"quarter"</span>,</span>
+<span>                               calibration_unit <span class="op">=</span> <span class="st">"fortnight"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Weekly calibration</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">crosswalk</span>,</span>
+<span>                               weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
+<span>                               anchor <span class="op">=</span> <span class="st">"quarter"</span>,</span>
+<span>                               calibration_unit <span class="op">=</span> <span class="st">"week"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="required-input-columns">Required Input Columns<a class="anchor" aria-label="anchor" href="#required-input-columns"></a>
+</h2>
+<table class="table">
+<colgroup>
+<col width="22%">
+<col width="77%">
+</colgroup>
+<thead><tr>
+<th>For</th>
+<th>Required Columns</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><strong>Period identification</strong></td>
+<td>
+<code>Ano</code>, <code>Trimestre</code>, <code>UPA</code>, <code>V1008</code>, <code>V1014</code>, <code>V2008</code>, <code>V20081</code>, <code>V20082</code>, <code>V2009</code>
+</td>
+</tr>
+<tr>
+<td><strong>Weight calibration</strong></td>
+<td>Add: <code>V1028</code> (or <code>V1032</code>), <code>UF</code>, <code>posest</code>, <code>posest_sxi</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Use <code><a href="reference/validate_pnadc.html">validate_pnadc()</a></code> to check your data before processing.</p>
+</div>
+<div class="section level2">
+<h2 id="experimental-strategies">Experimental Strategies<a class="anchor" aria-label="anchor" href="#experimental-strategies"></a>
+</h2>
+<p>The <code><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code> function provides experimental strategies to boost fortnight and week determination rates:</p>
+<table class="table">
+<colgroup>
+<col width="22%">
+<col width="29%">
+<col width="18%">
+<col width="29%">
+</colgroup>
+<thead><tr>
+<th>Strategy</th>
+<th>Fortnight %</th>
+<th>Week %</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>Strict only</td>
+<td>~7%</td>
+<td>~1.5%</td>
+<td>Baseline (deterministic)</td>
+</tr>
+<tr>
+<td><code>"probabilistic"</code></td>
+<td>~14%</td>
+<td>~2%</td>
+<td>Assigns based on date interval midpoint</td>
+</tr>
+<tr>
+<td><code>"upa_aggregation"</code></td>
+<td>~58%</td>
+<td>~14%</td>
+<td>Extends via UPA consensus</td>
+</tr>
+<tr>
+<td><code>"both"</code></td>
+<td>~60%</td>
+<td>~15%</td>
+<td>Sequential: probabilistic then UPA</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key finding</strong>: UPA homogeneity rate = 100% for both fortnights and weeks within quarters.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Build strict crosswalk</span></span>
+<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Apply experimental strategies</span></span>
 <span><span class="va">crosswalk_exp</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods</a></span><span class="op">(</span></span>
 <span>  <span class="va">crosswalk</span>,</span>
-<span>  <span class="va">pnadc_stacked</span>,</span>
-<span>  strategy <span class="op">=</span> <span class="st">"both"</span>  <span class="co"># or "probabilistic" or "upa_aggregation"</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<p>These features are marked experimental and may change in future versions. See the <a href="https://antrologos.github.io/mensalizePNADC/articles/determination-rates-benchmark.html">Benchmark Report</a> for detailed results.</p>
+<span>  <span class="va">pnadc</span>,</span>
+<span>  strategy <span class="op">=</span> <span class="st">"both"</span>,</span>
+<span>  confidence_threshold <span class="op">=</span> <span class="fl">0.9</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Check results</span></span>
+<span><span class="va">crosswalk_exp</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
+<span>  strict <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_month_in_quarter</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">probabilistic_assignment</span><span class="op">)</span>,</span>
+<span>  experimental <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">probabilistic_assignment</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  total <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">determined_month</span><span class="op">)</span></span>
+<span><span class="op">)</span><span class="op">]</span></span>
+<span></span>
+<span><span class="co"># Use directly with calibration</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">crosswalk_exp</span>,</span>
+<span>                               weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
+<span>                               anchor <span class="op">=</span> <span class="st">"quarter"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="test-coverage">Test Coverage<a class="anchor" aria-label="anchor" href="#test-coverage"></a>
+</h2>
+<p>The package has comprehensive tests ensuring:</p>
+<ul>
+<li>
+<strong>Nesting enforcement</strong>: Fortnight requires month, week requires fortnight (always)</li>
+<li>
+<strong>Value consistency</strong>: Fortnights fall within their month’s bounds, weeks within fortnight bounds</li>
+<li>
+<strong>IBGE boundaries</strong>: ref_month_start is always Sunday, ref_month_end is always Saturday</li>
+<li>
+<strong>Input validation</strong>: Detects missing columns, invalid years/quarters, invalid birth dates</li>
+<li>
+<strong>Calibration logic</strong>: Proper weight adjustment and population target matching</li>
+<li>
+<strong>Edge cases</strong>: NA handling, empty data, year boundaries, single-quarter data</li>
+</ul>
+<p>Run tests with:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/test.html" class="external-link">test</a></span><span class="op">(</span><span class="st">"PNADCperiods"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
@@ -241,48 +444,64 @@
 </tr></thead>
 <tbody>
 <tr>
-<td><a href="https://antrologos.github.io/mensalizePNADC/articles/getting-started.html">Get Started</a></td>
+<td><a href="https://antrologos.github.io/PNADCperiods/articles/getting-started.html">Get Started</a></td>
 <td>Installation and first steps</td>
 </tr>
 <tr>
-<td><a href="https://antrologos.github.io/mensalizePNADC/articles/download-and-prepare.html">Download Data</a></td>
+<td><a href="https://antrologos.github.io/PNADCperiods/articles/download-and-prepare.html">Download Data</a></td>
 <td>Prepare PNADC microdata</td>
 </tr>
 <tr>
-<td><a href="https://antrologos.github.io/mensalizePNADC/articles/applied-examples.html">Applied Examples</a></td>
+<td><a href="https://antrologos.github.io/PNADCperiods/articles/applied-examples.html">Applied Examples</a></td>
 <td>COVID, recession, minimum wage validation</td>
 </tr>
 <tr>
-<td><a href="https://antrologos.github.io/mensalizePNADC/articles/how-it-works.html">How It Works</a></td>
+<td><a href="https://antrologos.github.io/PNADCperiods/articles/how-it-works.html">How It Works</a></td>
 <td>Algorithm details</td>
 </tr>
 <tr>
-<td><a href="https://antrologos.github.io/mensalizePNADC/articles/annual-poverty-analysis.html">Annual Poverty Analysis</a></td>
+<td><a href="https://antrologos.github.io/PNADCperiods/articles/annual-poverty-analysis.html">Annual Poverty Analysis</a></td>
 <td>Using annual visit data</td>
 </tr>
 <tr>
-<td><a href="https://antrologos.github.io/mensalizePNADC/articles/complex-survey-design.html">Complex Survey Design</a></td>
+<td><a href="https://antrologos.github.io/PNADCperiods/articles/complex-survey-design.html">Complex Survey Design</a></td>
 <td>Survey design considerations</td>
 </tr>
 <tr>
-<td><a href="https://antrologos.github.io/mensalizePNADC/articles/determination-rates-benchmark.html">Benchmark Report</a></td>
+<td><a href="https://antrologos.github.io/PNADCperiods/articles/determination-rates-benchmark.html">Benchmark Report</a></td>
 <td>Determination rates on complete PNADC data</td>
 </tr>
 <tr>
-<td><a href="https://antrologos.github.io/mensalizePNADC/reference/index.html">Reference</a></td>
+<td><a href="https://antrologos.github.io/PNADCperiods/reference/index.html">Reference</a></td>
 <td>Function documentation</td>
 </tr>
 </tbody>
 </table>
 </div>
 <div class="section level2">
+<h2 id="tips-for-best-results">Tips for Best Results<a class="anchor" aria-label="anchor" href="#tips-for-best-results"></a>
+</h2>
+<ol style="list-style-type: decimal">
+<li>
+<strong>Stack multiple quarters</strong>: Use 2+ years of data for best monthly determination rates (~97%)</li>
+<li>
+<strong>Use <code><a href="reference/validate_pnadc.html">validate_pnadc()</a></code></strong>: Check your data has all required columns before processing</li>
+<li>
+<strong>Choose the right anchor</strong>: Use <code>anchor = "quarter"</code> with V1028 weights, <code>anchor = "year"</code> with V1032 weights</li>
+<li>
+<strong>Check determination rates</strong>: The crosswalk has a <code>determination_rates</code> attribute with rates for each period type</li>
+<li>
+<strong>Consider experimental strategies</strong>: If you need higher fortnight/week rates and can accept probabilistic assignments</li>
+</ol>
+</div>
+<div class="section level2">
 <h2 id="citation">Citation<a class="anchor" aria-label="anchor" href="#citation"></a>
 </h2>
 <p>If you use this package in your research, please cite:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/citation.html" class="external-link">citation</a></span><span class="op">(</span><span class="st">"PNADCperiods"</span><span class="op">)</span></span></code></pre></div>
 <blockquote>
-<p>Hecksher, M. &amp; Barbosa, R. (2024). PNADCperiods: Identify Reference Periods in Brazil’s PNADC Survey Data. R package. <a href="https://github.com/antrologos/mensalizePNADC" class="external-link uri">https://github.com/antrologos/mensalizePNADC</a></p>
+<p>Hecksher, M. &amp; Barbosa, R. (2024). PNADCperiods: Identify Reference Periods in Brazil’s PNADC Survey Data. R package. <a href="https://github.com/antrologos/PNADCperiods" class="external-link uri">https://github.com/antrologos/PNADCperiods</a></p>
 </blockquote>
 </div>
 <div class="section level2">
@@ -290,7 +509,7 @@
 </h2>
 <ul>
 <li>
-<strong>Bug reports</strong>: <a href="https://github.com/antrologos/mensalizePNADC/issues" class="external-link">GitHub Issues</a>
+<strong>Bug reports</strong>: <a href="https://github.com/antrologos/PNADCperiods/issues" class="external-link">GitHub Issues</a>
 </li>
 <li>
 <strong>Questions</strong>: Open a GitHub issue with the “question” label</li>
@@ -323,8 +542,8 @@
   </main><aside class="col-md-3"><div class="links">
 <h2 data-toc-skip>Links</h2>
 <ul class="list-unstyled">
-<li><a href="https://github.com/antrologos/mensalizePNADC/" class="external-link">Browse source code</a></li>
-<li><a href="https://github.com/antrologos/mensalizePNADC/issues" class="external-link">Report a bug</a></li>
+<li><a href="https://github.com/antrologos/PNADCperiods/" class="external-link">Browse source code</a></li>
+<li><a href="https://github.com/antrologos/PNADCperiods/issues" class="external-link">Report a bug</a></li>
 <li><a href="https://www.ibge.gov.br/estatisticas/sociais/trabalho/9171-pesquisa-nacional-por-amostra-de-domicilios-continua-mensal.html" class="external-link">Original methodology (Hecksher 2024)</a></li>
 </ul>
 </div>
@@ -359,9 +578,9 @@
 <div class="dev-status">
 <h2 data-toc-skip>Dev status</h2>
 <ul class="list-unstyled">
-<li><a href="https://github.com/antrologos/mensalizePNADC/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/antrologos/mensalizePNADC/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a></li>
-<li><a href="https://github.com/antrologos/mensalizePNADC/actions/workflows/pkgdown.yaml" class="external-link"><img src="https://github.com/antrologos/mensalizePNADC/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"></a></li>
-<li><a href="https://codecov.io/gh/antrologos/mensalizePNADC" class="external-link"><img src="https://codecov.io/gh/antrologos/mensalizePNADC/branch/master/graph/badge.svg" alt="codecov"></a></li>
+<li><a href="https://github.com/antrologos/PNADCperiods/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/antrologos/PNADCperiods/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a></li>
+<li><a href="https://github.com/antrologos/PNADCperiods/actions/workflows/pkgdown.yaml" class="external-link"><img src="https://github.com/antrologos/PNADCperiods/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"></a></li>
+<li><a href="https://codecov.io/gh/antrologos/PNADCperiods" class="external-link"><img src="https://codecov.io/gh/antrologos/PNADCperiods/branch/master/graph/badge.svg" alt="codecov"></a></li>
 <li><a href="https://lifecycle.r-lib.org/articles/stages.html" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a></li>
 <li><a href="https://opensource.org/licenses/MIT" class="external-link"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a></li>
 </ul>

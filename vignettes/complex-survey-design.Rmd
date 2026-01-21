@@ -35,7 +35,7 @@ knitr::opts_chunk$set(
 
 When you compute a statistic from survey data---say, the unemployment rate is 7.2%---that number alone doesn't tell you much. Is 7.2% meaningfully different from last month's 7.0%? Could the true rate plausibly be 6.5% or 8.0%? Without **standard errors** and **confidence intervals**, you can't answer these questions. You're flying blind.
 
-This matters especially when tracking changes over time. Monthly data from `mensalizePNADC` reveals dynamics hidden in quarterly averages, but those sharp month-to-month movements could be real economic changes or just sampling variability. Standard errors let you distinguish signal from noise.
+This matters especially when tracking changes over time. Monthly data from `PNADCperiods` reveals dynamics hidden in quarterly averages, but those sharp month-to-month movements could be real economic changes or just sampling variability. Standard errors let you distinguish signal from noise.
 
 The challenge is that PNADC uses a **complex sample design**. It's not a simple random sample where standard formulas apply. Instead, PNADC uses:
 
@@ -45,7 +45,7 @@ The challenge is that PNADC uses a **complex sample design**. It's not a simple 
 
 Ignoring this design typically **underestimates** standard errors, sometimes dramatically. A naive analysis might claim statistically significant changes that are actually within the margin of error.
 
-This vignette shows two strategies for proper variance estimation with the monthly weights from `mensalizePNADC`:
+This vignette shows two strategies for proper variance estimation with the monthly weights from `PNADCperiods`:
 
 1. **Linearization approach**: Using design variables directly---simple and fast
 2. **Replication weights approach**: Adjusting IBGE's 200 bootstrap weights---more computationally intensive but exact
@@ -425,7 +425,7 @@ ggplot(results_by_sex, aes(x = period, y = participation, color = sex, fill = se
     y = "Labor Force Participation Rate",
     color = "Sex",
     fill = "Sex",
-    caption = "Source: PNADC/IBGE. Monthly weights from mensalizePNADC. Variance estimated via Taylor linearization."
+    caption = "Source: PNADC/IBGE. Monthly weights from PNADCperiods. Variance estimated via Taylor linearization."
   ) +
 
   theme_minimal(base_size = 11) +
@@ -537,7 +537,7 @@ ggplot(gap_results, aes(x = period, y = gap)) +
     subtitle = "Monthly series with 95% CI. Dashed line = pre-COVID average. Gap widened during pandemic.",
     x = NULL,
     y = "Participation Gap (percentage points)",
-    caption = "Source: PNADC/IBGE. Monthly weights from mensalizePNADC."
+    caption = "Source: PNADC/IBGE. Monthly weights from PNADCperiods."
   ) +
 
   theme_minimal(base_size = 11) +

@@ -29,7 +29,7 @@
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="search.json"></form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/antrologos/mensalizePNADC/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/antrologos/PNADCperiods/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul></div>
 
 
@@ -39,7 +39,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>CLAUDE.md</h1>
-      <small class="dont-index">Source: <a href="https://github.com/antrologos/mensalizePNADC/blob/HEAD/CLAUDE.md" class="external-link"><code>CLAUDE.md</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/antrologos/PNADCperiods/blob/HEAD/CLAUDE.md" class="external-link"><code>CLAUDE.md</code></a></small>
     </div>
 
 <div id="claudemd" class="section level1">
@@ -47,12 +47,12 @@
 <div class="section level2">
 <h2 id="project-overview">Project Overview<a class="anchor" aria-label="anchor" href="#project-overview"></a></h2>
 <p>R package (<code>PNADCperiods</code>) that converts Brazil’s quarterly PNADC survey data into sub-quarterly time series (monthly, fortnightly, weekly) with optional weight calibration.</p>
-<p><strong>Authors:</strong> Marcos Hecksher (methodology) | Rogerio Barbosa (R package) <strong>Repository:</strong> <a href="https://github.com/antrologos/mensalizePNADC" class="external-link uri">https://github.com/antrologos/mensalizePNADC</a></p>
+<p><strong>Authors:</strong> Marcos Hecksher (methodology) | Rogerio Barbosa (R package) <strong>Repository:</strong> <a href="https://github.com/antrologos/PNADCperiods" class="external-link uri">https://github.com/antrologos/PNADCperiods</a></p>
 </div>
 <div class="section level2">
 <h2 id="quick-reference">Quick Reference<a class="anchor" aria-label="anchor" href="#quick-reference"></a></h2>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/mensalizePNADC/">PNADCperiods</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/PNADCperiods/">PNADCperiods</a></span><span class="op">)</span></span>
 <span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc_stacked</span><span class="op">)</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc_2023</span>, <span class="va">crosswalk</span>, weight_var <span class="op">=</span> <span class="st">"V1028"</span>, anchor <span class="op">=</span> <span class="st">"quarter"</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
@@ -96,10 +96,10 @@
 <td>~97%</td>
 <td>Aggregates across quarters at UPA-V1014 level (panel design)</td>
 </tr><tr><td>Fortnight</td>
-<td>~7-8%</td>
+<td>~7%</td>
 <td>Within-quarter only; cannot aggregate across quarters</td>
 </tr><tr><td>Week</td>
-<td>~1-2%</td>
+<td>~1.5%</td>
 <td>Within-quarter only; cannot aggregate across quarters</td>
 </tr></tbody></table><p><strong>Always use stacked multi-quarter data for best month determination rate.</strong></p>
 </div>
@@ -107,22 +107,22 @@
 <div class="section level2">
 <h2 id="development-workflow">Development Workflow<a class="anchor" aria-label="anchor" href="#development-workflow"></a></h2>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/document.html" class="external-link">document</a></span><span class="op">(</span><span class="st">"mensalizePNADC"</span><span class="op">)</span>  <span class="co"># Update NAMESPACE and man/</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/check.html" class="external-link">check</a></span><span class="op">(</span><span class="st">"mensalizePNADC"</span><span class="op">)</span>     <span class="co"># R CMD check</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/test.html" class="external-link">test</a></span><span class="op">(</span><span class="st">"mensalizePNADC"</span><span class="op">)</span>      <span class="co"># Run tests</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install.html" class="external-link">install</a></span><span class="op">(</span><span class="st">"mensalizePNADC"</span>, dependencies <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>  <span class="co"># Install locally</span></span>
-<span><span class="fu">pkgdown</span><span class="fu">::</span><span class="fu"><a href="https://pkgdown.r-lib.org/reference/build_site.html" class="external-link">build_site</a></span><span class="op">(</span><span class="st">"mensalizePNADC"</span><span class="op">)</span>  <span class="co"># Rebuild docs locally</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/document.html" class="external-link">document</a></span><span class="op">(</span><span class="st">"PNADCperiods"</span><span class="op">)</span>  <span class="co"># Update NAMESPACE and man/</span></span>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/check.html" class="external-link">check</a></span><span class="op">(</span><span class="st">"PNADCperiods"</span><span class="op">)</span>     <span class="co"># R CMD check</span></span>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/test.html" class="external-link">test</a></span><span class="op">(</span><span class="st">"PNADCperiods"</span><span class="op">)</span>      <span class="co"># Run tests</span></span>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install.html" class="external-link">install</a></span><span class="op">(</span><span class="st">"PNADCperiods"</span>, dependencies <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>  <span class="co"># Install locally</span></span>
+<span><span class="fu">pkgdown</span><span class="fu">::</span><span class="fu"><a href="https://pkgdown.r-lib.org/reference/build_site.html" class="external-link">build_site</a></span><span class="op">(</span><span class="st">"PNADCperiods"</span><span class="op">)</span>  <span class="co"># Rebuild docs locally</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="github-pages-deployment">GitHub Pages Deployment<a class="anchor" aria-label="anchor" href="#github-pages-deployment"></a></h3>
 <p><strong>CRITICAL:</strong> The pkgdown site publishes from the <code>refactor/pnadc-periods</code> branch, NOT master/main.</p>
 <p>To update the online documentation:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad\mensalizePNADC"</span></span>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad\PNADCperiods"</span></span>
 <span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">pkgdown::build_site()</span>  <span class="co"># Build locally first</span></span>
 <span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="fu">git</span> add .</span>
 <span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Update documentation"</span></span>
 <span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="fu">git</span> push origin refactor/pnadc-periods  <span class="co"># Push to this branch - site rebuilds automatically</span></span></code></pre></div>
 <p><strong>Do NOT merge to master</strong> - the GitHub Actions workflow triggers on push to <code>refactor/pnadc-periods</code>.</p>
-<p>Site URL: <a href="https://antrologos.github.io/mensalizePNADC/" class="uri">https://antrologos.github.io/mensalizePNADC/</a></p>
+<p>Site URL: <a href="https://antrologos.github.io/PNADCperiods/" class="uri">https://antrologos.github.io/PNADCperiods/</a></p>
 </div>
 </div>
 <div class="section level2">
@@ -229,7 +229,7 @@
 <h3 id="git-repository-location">Git Repository Location<a class="anchor" aria-label="anchor" href="#git-repository-location"></a></h3>
 <p><strong>CRITICAL:</strong> The git repository is inside the package directory, NOT the project root.</p>
 <pre><code>D:\Dropbox\Artigos\mensalizacao_pnad\          # Project root (NOT a git repo)
-└── mensalizePNADC\                            # Git repository is HERE
+└── PNADCperiods\                            # Git repository is HERE
     ├── .git\
     ├── R\
     ├── tests\
@@ -239,7 +239,7 @@
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad"</span> <span class="kw">&amp;&amp;</span> <span class="fu">git</span> status</span>
 <span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a></span>
 <span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co"># CORRECT</span></span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad\mensalizePNADC"</span> <span class="kw">&amp;&amp;</span> <span class="fu">git</span> status</span></code></pre></div>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad\PNADCperiods"</span> <span class="kw">&amp;&amp;</span> <span class="fu">git</span> status</span></code></pre></div>
 <p>Common git errors when using wrong directory: - Exit code 128: <code>fatal: not a git repository</code> - Exit code 129: <code>warning: Not a git repository</code></p>
 </div>
 <div class="section level3">
@@ -251,7 +251,7 @@
 <li>
 <strong>SIDRA API errors</strong> → Check internet; API has rate limits</li>
 <li>
-<strong>Git errors (exit 128/129)</strong> → Use <code>mensalizePNADC/</code> directory, not project root</li>
+<strong>Git errors (exit 128/129)</strong> → Use <code>PNADCperiods/</code> directory, not project root</li>
 <li>
 <strong>Dropbox file locking</strong> → If <code><a href="https://devtools.r-lib.org/reference/document.html" class="external-link">devtools::document()</a></code> fails with “Invalid argument” error when writing to vignettes, pause Dropbox sync. All vignettes have <code>purl = FALSE</code> to prevent .R file creation, but Dropbox can still interfere.</li>
 </ol></div>

@@ -48,7 +48,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/antrologos/mensalizePNADC/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/antrologos/PNADCperiods/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul>
 </div>
 
@@ -65,7 +65,7 @@
       <h1>Monthly Poverty Analysis with Annual PNADC Data</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/antrologos/mensalizePNADC/blob/HEAD/vignettes/annual-poverty-analysis.Rmd" class="external-link"><code>vignettes/annual-poverty-analysis.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/antrologos/PNADCperiods/blob/HEAD/vignettes/annual-poverty-analysis.Rmd" class="external-link"><code>vignettes/annual-poverty-analysis.Rmd</code></a></small>
       <div class="d-none name"><code>annual-poverty-analysis.Rmd</code></div>
     </div>
 
@@ -88,7 +88,7 @@ Run code/check_vignette_sync.R to verify synchronization before release.
 <p>This vignette requires the following packages:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Core packages</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/mensalizePNADC/">PNADCperiods</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/PNADCperiods/">PNADCperiods</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="http://www.fstpackage.org" class="external-link">fst</a></span><span class="op">)</span></span>
 <span></span>
@@ -359,7 +359,7 @@ with official IBGE statistics and simplifies the workflow.</p>
 <p>First, load stacked quarterly PNADC data and run the mensalization
 algorithm:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/mensalizePNADC/">PNADCperiods</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/PNADCperiods/">PNADCperiods</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="http://www.fstpackage.org" class="external-link">fst</a></span><span class="op">)</span></span>
 <span></span>

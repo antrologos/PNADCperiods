@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 
 ## Overview
 
-The `PNADCperiods` package converts Brazil's quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data into sub-quarterly time series. It identifies which specific **month**, **fortnight** (quinzena), or **week** each survey observation refers to, achieving a **97% determination rate** for months on stacked multi-quarter data.
+The `PNADCperiods` package converts Brazil's quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data into sub-quarterly time series. It identifies which specific **month**, **fortnight** (quinzena), or **week** each survey observation refers to, achieving a **~97% determination rate** for months when using stacked multi-quarter data.
 
 **Why does this matter?** PNADC quarterly statistics are actually moving averages of three months, which obscures:
 
@@ -28,6 +28,8 @@ The `PNADCperiods` package converts Brazil's quarterly PNADC (Pesquisa Nacional 
 
 PNADCperiods recovers the specific reference period, enabling true monthly (or finer) labor market analysis.
 
+**Key feature:** The identification follows a **nested hierarchy enforced by construction**: fortnights can only be determined if months are determined, and weeks can only be determined if fortnights are determined.
+
 For a detailed explanation of the algorithm, see the [How PNADCperiods Works](how-it-works.html) vignette.
 
 ---
@@ -36,7 +38,7 @@ For a detailed explanation of the algorithm, see the [How PNADCperiods Works](ho
 
 ```{r install}
 # Install from GitHub
-devtools::install_github("antrologos/mensalizePNADC")
+devtools::install_github("antrologos/PNADCperiods")
 ```
 ```{r}
 # Load the package
@@ -55,11 +57,11 @@ library(data.table)
 
 The package uses a **two-function workflow**:
 
-1. **`pnadc_identify_periods()`** - Builds a universal crosswalk with reference periods
+1. **`pnadc_identify_periods()`** - Builds a crosswalk with reference periods (months, fortnights, weeks)
 2. **`pnadc_apply_periods()`** - Applies crosswalk to data and optionally calibrates weights
 
 This separation allows you to:
-- Build the crosswalk once from stacked data
+- Build the crosswalk once from stacked data (which contains birthday variables)
 - Apply it to any quarterly or annual dataset
 - Choose your calibration approach flexibly
 
@@ -86,8 +88,6 @@ The algorithm needs these columns from your PNADC data:
 
 ### Step 1: Load Your Data
 
-If you don't have stacked PNADC data yet, see [Download and Prepare Data](download-and-prepare.html) for a complete workflow.
-
 ```{r load-data}
 # Load your stacked quarterly PNADC data
 pnadc <- fread("pnadc_stacked.csv")
@@ -97,7 +97,7 @@ cat("Rows:", nrow(pnadc), "\n")
 cat("Quarters:", uniqueN(pnadc[, .(Ano, Trimestre)]), "\n")
 ```
 
-**Important:** The algorithm works best with **stacked multi-quarter data**. Processing a single quarter yields only ~65-75% determination rate, while stacking 2+ years achieves ~97%.
+**Important:** The algorithm works best with **stacked multi-quarter data**. Processing a single quarter yields only ~73% determination rate, while stacking 2+ years achieves ~97%.
 
 ### Step 2: Build the Crosswalk
 
@@ -106,26 +106,46 @@ cat("Quarters:", uniqueN(pnadc[, .(Ano, Trimestre)]), "\n")
 crosswalk <- pnadc_identify_periods(pnadc, verbose = TRUE)
 ```
 
-Output (from real PNADC 2020-2024 data):
+Output (from real PNADC 2012-2025 data):
 ```
-Building reference period crosswalk...
-  Preprocessing data (shared computation)...
-  Converting date bounds to period positions...
-  Aggregating constraints and determining periods...
-  Applying exception rules...
-  Assigning reference periods...
-  Building crosswalk...
+Building reference period crosswalk (nested identification)...
 
-Crosswalk complete:
-  - 3,159,265 unique household-quarter observations
-  - Month determination: 94.2%
-  - Fortnight determination: 2.8%
-  - Week determination: 0.9%
+Phase 1: Identifying MONTHS (all observations)...
+  Step 1.1: Preprocessing data...
+  Step 1.2: Computing valid interview Saturdays...
+  Step 1.3: Applying birthday constraints...
+  Step 1.5: Converting to month positions...
+  Step 1.6: Aggregating at UPA-panel level (cross-quarter)...
+  Step 1.7: Detecting exception cases...
+  Step 1.8: Determining reference months...
+  -> Month determination: 96.7% (9,281,135 of 9,598,723 households)
+
+Phase 2: Identifying FORTNIGHTS (within determined months)...
+  Processing 27,536,744 observations with determined months...
+  Step 2.2: Aggregating at household level (within quarter)...
+  Step 2.4: Determining reference fortnights...
+  -> Fortnight determination: 7.4% (705,580 of 9,598,723 households)
+
+Phase 3: Identifying WEEKS (within determined fortnights)...
+  Processing 2,582,636 observations with determined fortnights...
+  Step 3.2: Aggregating at household level (within quarter)...
+  Step 3.4: Determining reference weeks...
+  -> Week determination: 1.6% (152,764 of 9,598,723 households)
+
+Phase 4: Building crosswalk...
+
+========================================
+Crosswalk complete (nested identification):
+  - 9,598,723 unique household-quarter observations
+  - Month determination:     96.69%
+  - Fortnight determination:   7.35% (nested within months)
+  - Week determination:        1.59% (nested within fortnights)
+========================================
 ```
 
 ### Step 3: Understand the Crosswalk
 
-The crosswalk contains one row per **household-quarter** combination (keyed by `Ano`, `Trimestre`, `UPA`, `V1008`, `V1014`) with three granularity levels:
+The crosswalk contains one row per **household-quarter** combination (keyed by `Ano`, `Trimestre`, `UPA`, `V1008`, `V1014`) with IBGE calendar-based output columns:
 
 | Output Column | Type | Description |
 |---------------|------|-------------|
@@ -136,19 +156,23 @@ The crosswalk contains one row per **household-quarter** combination (keyed by `
 | `V1008` | Integer | Household identifier |
 | `V1014` | Integer | Panel group (1-8) |
 | **Month** | | |
-| `ref_month` | Date | Reference month as Date (e.g., "2023-01-01") |
+| `ref_month_start` | Date | First day (Sunday) of the IBGE reference month |
+| `ref_month_end` | Date | Last day (Saturday) of the IBGE reference month |
+| `ref_month_weeks` | Integer | Number of weeks in the reference month (4 or 5) |
 | `ref_month_in_quarter` | Integer | Position in quarter: 1, 2, 3, or NA |
 | `ref_month_yyyymm` | Integer | YYYYMM format (e.g., 202301) |
 | `determined_month` | Logical | TRUE if month was determined |
 | **Fortnight** | | |
-| `ref_fortnight` | Date | Reference fortnight (1st or 16th of month) |
+| `ref_fortnight_start` | Date | First day (Sunday) of the reference fortnight |
+| `ref_fortnight_end` | Date | Last day (Saturday) of the reference fortnight |
 | `ref_fortnight_in_quarter` | Integer | Position 1-6, or NA |
-| `ref_fortnight_yyyyff` | Integer | YYYYFF format (1-24 per year) |
+| `ref_fortnight_yyyyff` | Integer | YYYYFF format (e.g., 202303 = 3rd fortnight of 2023) |
 | `determined_fortnight` | Logical | TRUE if fortnight was determined |
 | **Week** | | |
-| `ref_week` | Date | Reference week (Monday of week) |
-| `ref_week_in_quarter` | Integer | Position 1-14, or NA |
-| `ref_week_yyyyww` | Integer | ISO YYYYWW format |
+| `ref_week_start` | Date | First day (Sunday) of the reference week |
+| `ref_week_end` | Date | Last day (Saturday) of the reference week |
+| `ref_week_in_quarter` | Integer | Position 1-13, or NA |
+| `ref_week_yyyyww` | Integer | YYYYWW format (e.g., 202315) |
 | `determined_week` | Logical | TRUE if week was determined |
 
 ```{r view-crosswalk}
@@ -203,10 +227,10 @@ This affects how the calibration targets are computed: quarterly data calibrates
 | Value | Calibrates to | Best for |
 |-------|---------------|----------|
 | `"month"` (default) | Monthly population totals | Most analyses; highest determination rate (~97%) |
-| `"fortnight"` | Fortnightly totals | When you need bi-weekly precision (low determination ~2-5%) |
-| `"week"` | Weekly totals | Fine-grained analysis (very low determination ~1-2%) |
+| `"fortnight"` | Fortnightly totals | Short-term analysis (strict rate ~7%, up to ~60% with experimental) |
+| `"week"` | Weekly totals | High-frequency monitoring (strict rate ~1.5%, up to ~15% with experimental) |
 
-**What is calibration?** Weight calibration adjusts the survey weights so that weighted totals match known population benchmarks (from IBGE's SIDRA API). This ensures your monthly estimates sum to the correct population totals. Without calibration, sub-quarterly estimates may not properly aggregate to known quarterly totals.
+**What is calibration?** Weight calibration adjusts the survey weights so that weighted totals match known population benchmarks (from IBGE's SIDRA API). This ensures your monthly estimates sum to the correct population totals. The package uses adaptive hierarchical raking with 4/2/1 cell levels for month/fortnight/week respectively.
 
 ---
 
@@ -280,7 +304,8 @@ result <- pnadc_apply_periods(pnadc, crosswalk,
                                weight_var = "V1028",
                                anchor = "quarter",
                                calibrate = FALSE)
-# Result has ref_month, ref_fortnight, ref_week but no weight_monthly
+# Result has ref_month_start/end, ref_fortnight_start/end, ref_week_start/end
+# but no weight_monthly column
 ```
 
 ---
@@ -308,7 +333,7 @@ monthly_pop <- result[, .(
 
 ### Why Stack Multiple Quarters?
 
-PNADC uses a **rotating panel** where each household (identified by UPA + V1014) is interviewed in 5 consecutive quarters. The same household is always interviewed in the **same relative month position** within each quarter.
+PNADC uses a **rotating panel** where each household (identified by UPA + V1014) is interviewed in 5 consecutive quarters. Crucially, the same household is always interviewed in the **same relative month position** within each quarter.
 
 This means birthday constraints from **any** quarter can determine the month for **all** quarters:
 
@@ -328,18 +353,16 @@ Cross-quarter aggregation:
 
 | Processing Mode | Month Rate | Fortnight Rate | Week Rate |
 |-----------------|------------|----------------|-----------|
-| Single quarter | 65-75% | ~3% | ~1% |
-| Stacked (2+ years) | **~97%** | ~8% | ~2% |
+| Single quarter | ~73% | ~7% | ~1.5% |
+| Stacked (2+ years) | **~97%** | ~7% | ~1.5% |
 
-**Important:** Strict fortnight and week determination rates remain low (~8% and ~2%) regardless of stacking because their constraints cannot aggregate across quarters—each quarter's interview timing is independent at the sub-monthly level. Only month determination benefits from cross-quarter aggregation through the rotating panel design.
-
-**Experimental strategies:** The `pnadc_experimental_periods()` function can boost fortnight rates to ~58% and week rates to ~14% using UPA aggregation. See the [Benchmark Report](determination-rates-benchmark.html) for details.
+**Important:** Strict fortnight and week determination rates remain at ~7% and ~1.5% regardless of stacking because their constraints cannot aggregate across quarters - each quarter's interview timing is independent at the sub-monthly level. Only month determination benefits from cross-quarter aggregation through the rotating panel design.
 
 ### What Makes Observations Indeterminate?
 
 About 3% of observations remain indeterminate for months because:
 
-- **Incomplete panel coverage**: First/last quarters in your data have fewer panel visits
+- **Incomplete panel coverage**: First/last 4 quarters in your data have fewer panel visits
 - **Missing birth dates**: Some respondents don't report birth date (V2008=99, etc.)
 - **Small households**: Fewer people means fewer birthday constraints
 - **Unit non-response**: Some households don't respond in all quarters
@@ -350,38 +373,38 @@ For the full algorithm explanation, see [How PNADCperiods Works](how-it-works.ht
 
 ## Experimental Strategies for Improved Rates
 
-For fortnight and week analysis, experimental strategies can significantly improve determination rates:
+For fortnight and week analysis, experimental strategies can significantly improve determination rates by leveraging a key empirical finding: **100% UPA homogeneity** - when any household in a UPA has a strictly determined period, ALL households with determined periods in that UPA have the SAME period.
 
 ```{r experimental}
 # Build standard crosswalk first
 crosswalk <- pnadc_identify_periods(pnadc_stacked)
 
-# Apply experimental UPA aggregation strategy
+# Apply experimental strategies
 crosswalk_exp <- pnadc_experimental_periods(
   crosswalk,
-  pnadc_stacked,
-  strategy = "upa_aggregation"  # or "probabilistic" or "both"
+  data = pnadc_stacked,
+  strategy = "both"  # or "probabilistic" or "upa_aggregation"
 )
 
 # Check improvement
 crosswalk_exp[, .(
   fortnight_strict = mean(determined_fortnight),
-  fortnight_upa = mean(determined_fortnight | !is.na(ref_fortnight_upa)),
+  fortnight_with_exp = mean(determined_fortnight | !is.na(ref_fortnight_exp)),
   week_strict = mean(determined_week),
-  week_upa = mean(determined_week | !is.na(ref_week_upa))
+  week_with_exp = mean(determined_week | !is.na(ref_week_exp))
 )]
 ```
 
 | Strategy | Fortnight % | Week % | Notes |
 |----------|-------------|--------|-------|
-| Strict only | 7.64% | 1.54% | Baseline |
-| + Probabilistic | 13.61% | 1.82% | Adds confidence scores |
-| + UPA aggregation | **57.69%** | **14.36%** | Best coverage |
-| + Both | **60.33%** | **14.60%** | Maximum coverage |
+| Strict only | ~7% | ~1.5% | Definitive determinations only |
+| + Probabilistic | ~14% | ~2% | Adds confidence scores |
+| + UPA aggregation | ~58% | ~14% | Leverages 100% UPA homogeneity |
+| + Both | **~60%** | **~15%** | Maximum coverage |
 
-**Key finding:** UPA homogeneity rate = 100%. When any household in a UPA has a strictly determined period, ALL households with determined periods in that UPA have the SAME period.
+**Note:** Experimental strategies are intended for sensitivity analysis and research purposes. For rigorous causal analysis, strict determination should be preferred.
 
-See the [Benchmark Report](determination-rates-benchmark.html) for detailed methodology and results.
+See the [How PNADCperiods Works](how-it-works.html) vignette for detailed documentation on experimental strategies.
 
 ---
 
@@ -393,7 +416,7 @@ See the [Benchmark Report](determination-rates-benchmark.html) for detailed meth
 
 - **Annual PNADC data**: Working with annual income data? See [Monthly Poverty Analysis with Annual PNADC Data](annual-poverty-analysis.html) for the workflow using annual data.
 
-- **Benchmark report**: See [Determination Rates Benchmark](determination-rates-benchmark.html) for comprehensive benchmarks on complete 2012-2025 PNADC data.
+- **Algorithm details**: See [How PNADCperiods Works](how-it-works.html) for the complete methodology, including experimental strategies and weight calibration.
 
 - **Function reference**: Browse the [Reference](../reference/index.html) for documentation of all exported functions.
 
@@ -423,6 +446,15 @@ pnadc_apply_periods(
   keep_all = TRUE,   # Return all rows (including undetermined)?
   verbose = TRUE     # Show progress?
 )
+
+# Optional: Experimental strategies for improved fortnight/week rates
+pnadc_experimental_periods(
+  crosswalk,         # Crosswalk from pnadc_identify_periods()
+  data = NULL,       # Original data (required for probabilistic strategy)
+  strategy = "both", # "none", "probabilistic", "upa_aggregation", or "both"
+  upa_proportion_threshold = 0.9,  # Threshold for UPA aggregation
+  verbose = TRUE
+)
 ```
 
 ### Performance
@@ -430,11 +462,11 @@ pnadc_apply_periods(
 | Metric | Value |
 |--------|-------|
 | Month determination rate | **~97%** (on stacked data) |
-| Fortnight determination rate (strict) | ~8% |
-| Week determination rate (strict) | ~2% |
-| Fortnight rate (+ UPA aggregation) | **~58%** |
-| Week rate (+ UPA aggregation) | **~14%** |
-| Processing time (identification) | ~1 minute for 28M rows |
+| Fortnight determination rate (strict) | ~7% |
+| Week determination rate (strict) | ~1.5% |
+| Fortnight rate (+ experimental) | **~60%** |
+| Week rate (+ experimental) | **~15%** |
+| Processing time (identification) | ~2.5 minutes for 28M rows |
 | Processing time (with calibration) | ~5 minutes for 28M rows |
 
-See the [Benchmark Report](determination-rates-benchmark.html) for comprehensive benchmarks on 2012-2025 data.
+See the [How PNADCperiods Works](how-it-works.html) vignette for comprehensive benchmarks on 2012-2025 data.

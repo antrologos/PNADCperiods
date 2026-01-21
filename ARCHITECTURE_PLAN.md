@@ -78,8 +78,8 @@ The crosswalk is a `data.table` at household-quarter level:
 | Period | Rate | Reason |
 |--------|------|--------|
 | Month | ~97% | Aggregates at UPA-V1014 level across ALL quarters (panel design) |
-| Fortnight | ~2-5% | Nested under month; household-level within quarter only |
-| Week | ~1-2% | Nested under fortnight; household-level within quarter only |
+| Fortnight | ~7% | Nested under month; household-level within quarter only |
+| Week | ~1.5% | Nested under fortnight; household-level within quarter only |
 
 **Key insight:** Only month identification benefits from stacking data across quarters. Fortnights and weeks are determined solely from birthday constraints within a single quarter, AND require their parent period to be determined first.
 

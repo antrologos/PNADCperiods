@@ -5,31 +5,51 @@
 #' survey, PNADC (Pesquisa Nacional por Amostra de Domicilios Continua - IBGE),
 #' allowing for analyzing the survey data at sub-quarterly temporal granularity.
 #'
-#' The package offers two main capabilities:
+#' The package offers three main capabilities:
 #' \enumerate{
 #'   \item \strong{Reference period identification}: Determines which temporal
 #'     period (month, fortnight, or week) within each quarter each survey
 #'     observation refers to, using IBGE's "Parada Tecnica" rules and
-#'     respondent birthdates
-#'   \item \strong{Period-specific weight computation}: Adjusts survey weights
-#'     for sub-quarterly estimates using hierarchical rake weighting
+#'     respondent birthdates. The identification is \strong{nested by construction}:
+#'     fortnights require months, and weeks require fortnights.
+#'   \item \strong{Period-specific weight calibration}: Adjusts survey weights
+#'     for sub-quarterly estimates using adaptive hierarchical rake weighting
+#'     (4/2/1 cell levels for month/fortnight/week respectively)
+#'   \item \strong{Experimental strategies}: Probabilistic assignment and UPA
+#'     aggregation to boost fortnight/week determination rates for sensitivity
+#'     analysis
 #' }
 #'
-#' The package is highly optimized for large datasets: approximately 1 minute to
-#' process 28.4 million rows (450,000 rows/sec), with ~97 percent determination
-#' rate for months, ~2-5 percent for fortnights, and ~1-2 percent for weeks.
-#' Uses pre-computed lookup tables for 20x faster date creation.
+#' \strong{Determination rates (strict):}
+#' \itemize{
+#'   \item Monthly: ~97\% (with stacked multi-quarter data)
+#'   \item Fortnight: ~7-8\%
+#'   \item Week: ~1-2\%
+#' }
 #'
-#' \strong{Note:} Fortnight and week determination rates are inherently low because
-#' they cannot leverage cross-quarter aggregation like months can. Only birthday
-#' constraints within a single quarter are available to narrow the interview window.
+#' \strong{With experimental strategies:}
+#' \itemize{
+#'   \item Fortnight: up to ~60\% (via UPA aggregation leveraging 100\% homogeneity)
+#'   \item Week: up to ~15\%
+#' }
+#'
+#' The package is highly optimized for large datasets: approximately 2.5 minutes to
+#' process 28.4 million rows (~177,000 rows/sec). Uses pre-computed lookup tables
+#' for 20x faster date creation.
+#'
+#' \strong{Note:} Strict fortnight and week determination rates are inherently low
+#' because they cannot leverage cross-quarter aggregation like months can. Only
+#' birthday constraints within a single quarter are available to narrow the
+#' interview window.
 #'
 #' The main functions are:
 #' \itemize{
-#'   \item \code{\link{pnadc_identify_periods}}: Builds a universal crosswalk
-#'     containing month, fortnight, and week reference periods
+#'   \item \code{\link{pnadc_identify_periods}}: Builds a crosswalk containing
+#'     month, fortnight, and week reference periods with IBGE calendar-based dates
 #'   \item \code{\link{pnadc_apply_periods}}: Applies the crosswalk to any
 #'     PNADC dataset and optionally calibrates weights
+#'   \item \code{\link{pnadc_experimental_periods}}: Applies experimental strategies
+#'     (probabilistic, UPA aggregation) for improved fortnight/week determination
 #' }
 #'
 #' @references

@@ -41,8 +41,8 @@ The `PNADCperiods` package transforms Brazil's quarterly PNADC (Pesquisa Naciona
 
 1. **Multi-granularity period identification**: Determines which specific time period each observation refers to
    - **Monthly** (~97% determination rate) - suitable for most analyses
-   - **Fortnight** (7.64% strict, up to 60% with experimental strategies) - for short-term analysis
-   - **Weekly** (1.54% strict, up to 15% with experimental strategies) - for high-frequency monitoring
+   - **Fortnight** (~7% strict, up to 60% with experimental strategies) - for short-term analysis
+   - **Weekly** (~1.5% strict, up to 15% with experimental strategies) - for high-frequency monitoring
 
 2. **Flexible weight calibration**: Adjusts survey weights for sub-quarterly estimates
    - Calibrates to official monthly population totals (SIDRA API)
@@ -74,15 +74,16 @@ This vignette walks through the complete methodology:
    - UPA-panel aggregation (households interviewed together)
    - Cross-quarter constraint propagation
    - Dynamic exception detection for edge cases
-3. **Experimental strategies** for improved fortnight/week determination:
+3. **Nested identification hierarchy** - How fortnights require months, and weeks require fortnights
+4. **Experimental strategies** for improved fortnight/week determination:
    - Probabilistic assignment for narrow date ranges
    - UPA aggregation leveraging 100% homogeneity finding
-4. **Weight calibration approaches**:
+5. **Weight calibration approaches**:
    - Quarterly data: redistribute quarterly totals across 3 months
    - Annual data: redistribute yearly totals across 12 months
    - Fortnight/weekly data: simplified raking for smaller samples
-5. **Performance characteristics** - Determination rates, processing speed, data quality
-6. **Best practices** - Input data requirements, handling indeterminate cases, validation
+6. **Performance characteristics** - Determination rates, processing speed, data quality
+7. **Best practices** - Input data requirements, handling indeterminate cases, validation
 
 ### Prerequisites
 
@@ -123,12 +124,46 @@ If you're looking for applied examples with real policy questions, see the [Appl
 
 ### Output Variables
 
+The crosswalk returned by `pnadc_identify_periods()` contains IBGE calendar-based output columns:
+
+**Month columns:**
+
 | Variable | Type | Description |
 |----------|------|-------------|
-| `ref_month` | Date | First day of reference month (e.g., "2023-01-01") |
+| `ref_month_start` | Date | First day (Sunday) of the IBGE reference month |
+| `ref_month_end` | Date | Last day (Saturday) of the IBGE reference month |
+| `ref_month_weeks` | Integer | Number of weeks in the reference month (4 or 5) |
 | `ref_month_in_quarter` | Integer | Position: 1, 2, 3, or NA if indeterminate |
 | `ref_month_yyyymm` | Integer | YYYYMM format (e.g., 202301) |
-| `weight_monthly` | Numeric | Monthly weight (if `calibrate = TRUE`); NA for indeterminate |
+| `determined_month` | Logical | TRUE if month is definitively determined |
+
+**Fortnight columns:**
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `ref_fortnight_start` | Date | First day (Sunday) of the reference fortnight |
+| `ref_fortnight_end` | Date | Last day (Saturday) of the reference fortnight |
+| `ref_fortnight_in_quarter` | Integer | Position: 1-6, or NA if indeterminate |
+| `ref_fortnight_yyyyff` | Integer | YYYYFF format (e.g., 202303 = 3rd fortnight of 2023) |
+| `determined_fortnight` | Logical | TRUE if fortnight is definitively determined |
+
+**Week columns:**
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `ref_week_start` | Date | First day (Sunday) of the reference week |
+| `ref_week_end` | Date | Last day (Saturday) of the reference week |
+| `ref_week_in_quarter` | Integer | Position: 1-13, or NA if indeterminate |
+| `ref_week_yyyyww` | Integer | YYYYWW format (e.g., 202315) |
+| `determined_week` | Logical | TRUE if week is definitively determined |
+
+**After applying `pnadc_apply_periods()` with `calibrate = TRUE`:**
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `weight_monthly` | Numeric | Monthly calibrated weight; NA for indeterminate |
+| `weight_fortnight` | Numeric | Fortnight calibrated weight (if `calibration_unit = "fortnight"`) |
+| `weight_weekly` | Numeric | Weekly calibrated weight (if `calibration_unit = "week"`) |
 
 ### Functions
 
@@ -137,21 +172,21 @@ If you're looking for applied examples with real policy questions, see the [Appl
 | `pnadc_identify_periods()` | Main function: build crosswalk with months/fortnights/weeks |
 | `pnadc_apply_periods()` | Apply crosswalk + calibrate weights (quarterly or annual) |
 | `pnadc_experimental_periods()` | Experimental strategies for improved fortnight/week determination |
-| `identify_reference_month()` | Just reference month identification |
-| `identify_reference_fortnight()` | Fortnight (quinzena) identification |
-| `identify_reference_week()` | Week identification |
-| `calibrate_monthly_weights()` | Rake weighting for monthly weights (quarterly data) |
+| `combine_period_crosswalks()` | Merge strict and experimental crosswalks |
+| `identify_reference_month()` | Standalone reference month identification |
+| `identify_reference_fortnight()` | Standalone fortnight (quinzena) identification |
+| `identify_reference_week()` | Standalone week identification |
+| `calibrate_monthly_weights()` | Legacy monthly calibration function |
 | `fetch_monthly_population()` | Fetch population from SIDRA API |
 | `validate_pnadc()` | Input data validation |
-| `combine_period_crosswalks()` | Merge strict and experimental crosswalks |
 
 ### Performance Summary
 
 | Metric | Result |
 |--------|--------|
-| Monthly determination rate | **96.69%** (full history, 2012-2025) |
-| Fortnight determination rate (strict) | **7.64%** |
-| Weekly determination rate (strict) | **1.54%** |
+| Monthly determination rate | **~97%** (full history, 2012-2025) |
+| Fortnight determination rate (strict) | **~7%** |
+| Weekly determination rate (strict) | **~1.5%** |
 | Processing time (basic mode) | **~2.5 minutes** for 28.4M rows (~177,000 rows/sec) |
 | Processing time (with weights) | **~5 minutes** |
 | Best period (2013-2019) | 97-99% monthly determination |
@@ -163,10 +198,10 @@ The package includes experimental strategies to improve fortnight and week deter
 
 | Strategy | Fortnight Rate | Week Rate | Notes |
 |----------|----------------|-----------|-------|
-| Strict (default) | 7.64% | 1.54% | Definitive determinations only |
-| + Probabilistic | 13.61% | 1.82% | Adds probability-weighted assignments |
-| + UPA Aggregation | 57.69% | 14.36% | Leverages 100% UPA homogeneity |
-| + Both | **60.33%** | **14.60%** | Maximum coverage |
+| Strict (default) | ~7% | ~1.5% | Definitive determinations only |
+| + Probabilistic | ~13-14% | ~2% | Adds probability-weighted assignments |
+| + UPA Aggregation | ~57-58% | ~14-15% | Leverages 100% UPA homogeneity |
+| + Both | **~60%** | **~15%** | Maximum coverage |
 
 See the [Experimental Strategies](#experimental-strategies) section for details.
 
@@ -174,7 +209,7 @@ See the [Experimental Strategies](#experimental-strategies) section for details.
 
 ## Why Stacked Data Matters
 
-The algorithm achieves **97% determination rate** when processing **stacked multi-quarter data**. If you process quarters individually, you'll only get ~73% determination.
+The algorithm achieves **~97% determination rate** when processing **stacked multi-quarter data**. If you process quarters individually, you'll only get ~73% determination.
 
 The figure below shows how determination rate improves as more quarters are stacked, computed from real PNADC data (2012-2025):
 
@@ -193,7 +228,7 @@ The figure below shows how determination rate improves as more quarters are stac
 | 32 (8 years) | 18,088,581 | **97.4%** |
 | 55 (full history) | 28,395,273 | 97.0% |
 
-Note that the rate peaks around 32 quarters and then stabilizes. This is because the boundary quarters (first 4 and last 4 of any series) have inherently lower rates due to incomplete panel coverage.
+Note that the rate peaks around 32 quarters and then stabilizes. This occurs because the boundary quarters (first 4 and last 4 of any series) have inherently lower rates due to incomplete panel coverage.
 
 **Why does stacking help?** PNADC uses a **rotating panel** where each household (UPA + V1014) is interviewed for 5 consecutive quarters. Crucially, the same household is always interviewed in the **same relative month position** (always month 1, always month 2, or always month 3).
 
@@ -204,7 +239,7 @@ UPA=123456, V1014=1 appears in 5 quarters:
 
   2023-Q1: month_min=1, month_max=2 (ambiguous: Jan or Feb)
   2023-Q2: month_min=1, month_max=3 (ambiguous: Apr, May, or Jun)
-  2023-Q3: month_min=2, month_max=2 (DETERMINED: August)  ← Birthday constraint!
+  2023-Q3: month_min=2, month_max=2 (DETERMINED: August)  <- Birthday constraint!
   2023-Q4: month_min=1, month_max=2 (ambiguous: Oct or Nov)
   2024-Q1: month_min=2, month_max=3 (ambiguous: Feb or Mar)
 
@@ -212,7 +247,7 @@ Cross-quarter aggregation:
   upa_month_min = max(1, 1, 2, 1, 2) = 2
   upa_month_max = min(2, 3, 2, 2, 3) = 2
 
-Result: ALL 5 quarters → ref_month_in_quarter = 2
+Result: ALL 5 quarters -> ref_month_in_quarter = 2
 ```
 
 **Recommended**: Stack at least 2 years (8 quarters) of data before calling `pnadc_identify_periods()` to achieve >96% determination.
@@ -228,71 +263,74 @@ This section details how the package identifies reference periods (months, fortn
 The reference period identification follows a pipeline with shared initial steps and period-specific aggregation:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    REFERENCE PERIOD IDENTIFICATION PIPELINE                 │
-│                       (Months, Fortnights, and Weeks)                       │
-└─────────────────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------------------+
+|                    REFERENCE PERIOD IDENTIFICATION PIPELINE                  |
+|                       (Months, Fortnights, and Weeks)                        |
++-----------------------------------------------------------------------------+
 
 INPUTS (per observation):
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│     Year     │  │    Quarter   │  │    Birthday  │  │      Age     │
-│    (Ano)     │  │  (Trimestre) │  │  (V2008/1/2) │  │    (V2009)   │
-└──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
-        │                │                  │                 │
-        └────────────────┴──────────────────┴─────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        SHARED COMPUTATION (All Periods)                     │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  STEP 1: Calculate Valid Interview Saturdays (IBGE Rules)                   │
-│          Output: date_min, date_max for each quarter                        │
-│                                                                             │
-│  STEP 2: Apply Birthday Constraints                                         │
-│          Narrow date window using age vs birth year comparison              │
-│                                                                             │
-│  STEP 3: Convert Dates to Period Positions                                  │
-│          Compute: month_min/max, fortnight_min/max, week_min/max            │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          NESTED IDENTIFICATION                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  PHASE 1: MONTH PIPELINE (Steps 4-7)                                        │
-│  ├── Step 4: Aggregate at (UPA, V1014) level                                │
-│  ├── Step 5: CROSS-QUARTER aggregation across ALL quarters                  │
-│  ├── Step 6: Dynamic exception detection                                    │
-│  └── Step 7: Final month assignment                                         │
-│  └── Determination: ~97%                                                    │
-│                         ↓                                                   │
-│  PHASE 2: FORTNIGHT PIPELINE (only if month determined)                     │
-│  ├── Step 4: Aggregate at (Ano, Trimestre, UPA, V1008) level               │
-│  ├── NO cross-quarter aggregation possible                                  │
-│  └── Step 5: Final fortnight assignment                                     │
-│  └── Determination: ~7-8% (strict)                                          │
-│                         ↓                                                   │
-│  PHASE 3: WEEK PIPELINE (only if fortnight determined)                      │
-│  ├── Step 4: Aggregate at (Ano, Trimestre, UPA, V1008) level               │
-│  ├── NO cross-quarter aggregation possible                                  │
-│  └── Step 5: Final week assignment                                          │
-│  └── Determination: ~1-2% (strict)                                          │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ OUTPUT:                                                                     │
-│ - Month:     ref_month (Date), ref_month_in_quarter, ref_month_yyyymm       │
-│ - Fortnight: ref_fortnight (Date), ref_fortnight_in_quarter, ref_yyyyff     │
-│ - Week:      ref_week (Date), ref_week_in_quarter, ref_week_yyyyww          │
-└─────────────────────────────────────────────────────────────────────────────┘
++--------------+  +--------------+  +--------------+  +--------------+
+|     Year     |  |    Quarter   |  |    Birthday  |  |      Age     |
+|    (Ano)     |  |  (Trimestre) |  |  (V2008/1/2) |  |    (V2009)   |
++--------------+  +--------------+  +--------------+  +--------------+
+        |                |                  |                 |
+        +----------------+------------------+-----------------+
+                                    |
+                                    v
++-----------------------------------------------------------------------------+
+|                        SHARED COMPUTATION (All Periods)                      |
++-----------------------------------------------------------------------------+
+|                                                                              |
+|  STEP 1: Calculate Valid Interview Saturdays (IBGE Rules)                    |
+|          Output: date_min, date_max for each quarter                         |
+|                                                                              |
+|  STEP 2: Apply Birthday Constraints                                          |
+|          Narrow date window using age vs birth year comparison               |
+|                                                                              |
+|  STEP 3: Convert Dates to Period Positions                                   |
+|          Compute: month_min/max, fortnight_min/max, week_min/max             |
+|                                                                              |
++-----------------------------------------------------------------------------+
+                                    |
+                                    v
++-----------------------------------------------------------------------------+
+|               NESTED IDENTIFICATION (enforced by construction)               |
++-----------------------------------------------------------------------------+
+|                                                                              |
+|  PHASE 1: MONTH PIPELINE (Steps 4-7)                                         |
+|  |-- Step 4: Aggregate at (UPA, V1014) level                                 |
+|  |-- Step 5: CROSS-QUARTER aggregation across ALL quarters                   |
+|  |-- Step 6: Dynamic exception detection                                     |
+|  +-- Step 7: Final month assignment                                          |
+|  +-- Determination: ~97%                                                     |
+|                         |                                                    |
+|                         v (only if month determined)                         |
+|  PHASE 2: FORTNIGHT PIPELINE                                                 |
+|  |-- Step 4: Aggregate at (Ano, Trimestre, UPA, V1008) level                 |
+|  |-- NO cross-quarter aggregation possible                                   |
+|  +-- Step 5: Final fortnight assignment                                      |
+|  +-- Determination: ~7% (strict)                                           |
+|                         |                                                    |
+|                         v (only if fortnight determined)                     |
+|  PHASE 3: WEEK PIPELINE                                                      |
+|  |-- Step 4: Aggregate at (Ano, Trimestre, UPA, V1008) level                 |
+|  |-- NO cross-quarter aggregation possible                                   |
+|  +-- Step 5: Final week assignment                                           |
+|  +-- Determination: ~1.5% (strict)                                           |
+|                                                                              |
++-----------------------------------------------------------------------------+
+                                    |
+                                    v
++-----------------------------------------------------------------------------+
+| OUTPUT (IBGE calendar-based):                                                |
+| - Month:     ref_month_start/end (Date), ref_month_weeks, ref_month_yyyymm   |
+| - Fortnight: ref_fortnight_start/end (Date), ref_fortnight_yyyyff            |
+| - Week:      ref_week_start/end (Date), ref_week_yyyyww                      |
+| - Flags:     determined_month, determined_fortnight, determined_week         |
++-----------------------------------------------------------------------------+
 ```
 
-**Key insight**: The identification is **nested** - fortnights can only be identified if the month is already determined, and weeks can only be identified if the fortnight is already determined. Additionally, **months benefit from cross-quarter aggregation** (Step 5), while fortnights and weeks cannot aggregate constraints across quarters. This is why the monthly determination rate (~97%) far exceeds fortnights (~7-8% strict) and weeks (~1-2% strict).
+**Key insight**: The identification is **nested by construction** - fortnights can only be identified if the month is already determined, and weeks can only be identified if the fortnight is already determined. This guarantee is built into the algorithm, not enforced by post-hoc cleanup. Additionally, **months benefit from cross-quarter aggregation** (Step 5), while fortnights and weeks cannot aggregate constraints across quarters. This explains why the monthly determination rate (~97%) far exceeds fortnights (~7% strict) and weeks (~1.5% strict).
 
 ---
 
@@ -302,7 +340,7 @@ The following three steps are computed once and shared across all period types (
 
 #### Step 1: Valid Interview Saturdays (IBGE Rules)
 
-As previously stated, IBGE defines that a reference week belongs to a month only if it has at least **4 days within that month**. Since reference weeks end on Saturdays, we look at the Saturdays of each month to determine valid interview dates.
+IBGE defines that a reference week belongs to a month only if it has at least **4 days within that month**. Since reference weeks end on Saturdays, we examine the Saturdays of each month to determine valid interview dates.
 
 **How we calculate the first valid Saturday:**
 
@@ -343,9 +381,9 @@ The valid Saturday calculation defines the **possible interview date range** for
 
 ### Step 2: Birthday Constraints
 
-IBGE calculates age precisely using the precise birthdate and the interview reference date (and most persons inform birthdates). In other words, IBGE **calculates age on the Saturday** that ends the reference week of the interview. 
+IBGE calculates age precisely using the exact birthdate and the interview reference date (most persons report birthdates). In other words, IBGE **calculates age on the Saturday** that ends the reference week of the interview.
 
-So, comparing the calculated age to the birth year, we can determine if the interview (i.e. the reference date) happened before or after the person's birthday that year. This allows us to further narrow down the possible interview date window.
+By comparing the calculated age to the birth year, we can determine whether the interview (i.e., the reference date) occurred before or after the person's birthday that year. This allows us to further narrow down the possible interview date window.
 
 ```
 visit_before_birthday = (Survey_Year - Birth_Year) - Calculated_Age
@@ -367,8 +405,8 @@ Check age: 2023 - 1990 = 33
 Check first Saturday on or after birthday:
            first_Saturday_on_or_after(March 15) = March 18, 2023
 
-New date constraints: 
-            date_min = max(date_min, first_Saturday_on_or_after(March 15))                        
+New date constraints:
+            date_min = max(date_min, first_Saturday_on_or_after(March 15))
             date_min = max(Jan 7, March 18) = March 18
 
 This person can only have been interviewed in MARCH (Month 3 of Q1).
@@ -394,7 +432,7 @@ Constraint: date_max = min(date_max, Saturday_before(birthday))
 This person can only have been interviewed in JANUARY or early FEBRUARY.
 ```
 
-**Unknown birthdays**: When V2008=99, V20081=99, or V20082=9999, that person's birthday cannot constrain the date. However, they may still be determined through aggregation by UPA-Panel level (Step 4) or cross-quarter aggregation (Step 5).
+**Unknown birthdays**: When V2008=99, V20081=99, or V20082=9999, that person's birthday cannot constrain the date. However, they may still be determined through aggregation at the UPA-Panel level (Step 4) or cross-quarter aggregation (Step 5).
 
 ---
 
@@ -428,17 +466,19 @@ fortnight_pos = (month_pos - 1) * 2 + half_of_month
 | 2 | Fortnight 3 | Fortnight 4 |
 | 3 | Fortnight 5 | Fortnight 6 |
 
-**Week positions (ISO week number):**
+**Week positions (IBGE calendar):**
 
-Weeks use the ISO 8601 standard for consistent numbering:
-```
-week_yyyyww = YYYY * 100 + ISO_week_number
-```
+Weeks follow the IBGE calendar convention where weeks run **Sunday to Saturday**. The first week of a month must have at least 4 days in that month:
 
-ISO weeks:
-- Start on Monday
-- Week 1 is the first week containing at least 4 days of the new year
-- Can span year boundaries (e.g., December 30 might be in week 1 of next year)
+```
+For each date:
+  ref_week_yyyyww = Year * 100 + week_number_in_year
+
+IBGE weeks:
+- Start on Sunday, end on Saturday
+- First week of month must have >= 4 days in that month
+- Reference months contain either 4 or 5 complete weeks
+```
 
 The resulting period positions feed into Step 4 (aggregation), which differs by period type. See the separate pipelines below for months, fortnights, and weeks.
 
@@ -446,7 +486,7 @@ The resulting period positions feed into Step 4 (aggregation), which differs by 
 
 ### Month Identification Pipeline (Steps 4-7)
 
-The month identification pipeline uses cross-quarter aggregation to achieve ~97% determination. This is the most powerful identification because the same UPA-V1014 panel group is always interviewed in the same relative month across all their quarterly visits.
+The month identification pipeline uses cross-quarter aggregation to achieve ~97% determination. This high rate is possible because the same UPA-V1014 panel group is always interviewed in the same relative month across all their quarterly visits.
 
 #### Step 4: UPA-Panel Aggregation
 
@@ -480,7 +520,7 @@ Person C:            [========]
 Intersection:        [==]      <- Only February satisfies all
 ```
 
-**Note**: Fortnights and weeks use a different aggregation key — see the Fortnight and Week Identification section below.
+**Note**: Fortnights and weeks use a different aggregation key - see the Fortnight and Week Identification section below.
 
 #### Step 5: Cross-Quarter Aggregation
 
@@ -494,11 +534,11 @@ For each (UPA, V1014) group across ALL quarters:
 
 This is why processing stacked data improves determination from ~70% to ~97%.
 
-**Critical distinction**: This cross-quarter aggregation is what makes monthly determination so effective (~97%), but it **cannot be applied to fortnights or weeks**. Even though a household is always interviewed in the same relative month (e.g., always month 2), the specific fortnight or week within that month varies by quarter. Therefore, fortnight and week constraints must be evaluated within each quarter independently, resulting in much lower determination rates (~7-8% for fortnights, ~1-2% for weeks).
+**Critical distinction**: This cross-quarter aggregation is what makes monthly determination so effective (~97%), but it **cannot be applied to fortnights or weeks**. Even though a household is always interviewed in the same relative month (e.g., always month 2), the specific fortnight or week within that month varies by quarter. Therefore, fortnight and week constraints must be evaluated within each quarter independently, resulting in much lower determination rates (~7% for fortnights, ~1.5% for weeks).
 
 #### Step 6: Dynamic Exception Detection
 
-In some quarters, the standard rule (first reference week with ≥4 days) may produce impossible results. For instance, `upa_month_min > upa_month_max`. Quarters in which this happens are flagged as needing an exception. We then implement an **alternative rule**: first reference week with ≥3 days
+In some quarters, the standard rule (first reference week with at least 4 days) may produce impossible results, such as `upa_month_min > upa_month_max`. Quarters in which this happens are flagged as needing an exception. We then implement an **alternative rule**: first reference week with at least 3 days.
 
 **How dynamic detection works**: The algorithm calculates month positions using both rules simultaneously:
 
@@ -507,9 +547,9 @@ In some quarters, the standard rule (first reference week with ≥4 days) may pr
 | Standard | >=4 days in month | day <= 3 |
 | Alternative | >=3 days in month | day <= 2 |
 
-Exceptions are detected and applied at the month level within each quarter. For example, in 2016q3, only month 3 (September) needs the exception -- months 1 and 2 use the standard rule. Here's why: under the standard rule, September's first valid Saturday would be September 10th (since September 3rd has only 3 days in the month). But some UPA-V1014 groups have constraints that require September 3rd to be valid. The exception rule (≥3 days instead of ≥4) makes September 3rd valid for these groups, assigning the week of August 28th-September 3rd to September's reference month rather than August's.
+Exceptions are detected and applied at the month level within each quarter. For example, in 2016q3, only month 3 (September) needs the exception - months 1 and 2 use the standard rule. Here's why: under the standard rule, September's first valid Saturday would be September 10th (since September 3rd has only 3 days in the month). But some UPA-V1014 groups have constraints that require September 3rd to be valid. The exception rule (>=3 days instead of >=4) makes September 3rd valid for these groups, assigning the week of August 28th-September 3rd to September's reference month rather than August's.
 
-And the algorithm proceeds as follows:
+The algorithm proceeds as follows:
 
 ```
 For each UPA-V1014:
@@ -552,13 +592,22 @@ Indeterminate observations are then removed from monthly analysis (if `keep_all 
 
 The package also identifies **fortnights** (quinzenas) and **weeks** within each quarter. These use the same shared computation (Steps 1-3) as months, but with a critical difference: **they cannot aggregate across quarters**, resulting in much lower determination rates.
 
+#### Nested Identification Hierarchy
+
+The identification follows a strict nesting hierarchy, enforced **by construction** in the algorithm:
+
+1. **Fortnights require months**: A fortnight can only be determined if the reference month is already determined
+2. **Weeks require fortnights**: A week can only be determined if the reference fortnight is already determined
+
+This nesting is not a post-hoc cleanup - it's built into the algorithm. The package tests verify this guarantee holds for all observations.
+
 #### Why Lower Determination Rates?
 
 | Period | Strict Rate | With Experimental | Aggregation Scope |
 |--------|-------------|-------------------|-------------------|
-| **Month** | ~97% | — | Cross-quarter (UPA, V1014) |
-| **Fortnight** | 7.64% | up to 60.33% | Within-quarter (Ano, Trimestre, UPA, V1008) |
-| **Week** | 1.54% | up to 14.60% | Within-quarter (Ano, Trimestre, UPA, V1008) |
+| **Month** | ~97% | - | Cross-quarter (UPA, V1014) |
+| **Fortnight** | ~7% | up to ~60% | Within-quarter (Ano, Trimestre, UPA, V1008) |
+| **Week** | ~1.5% | up to ~15% | Within-quarter (Ano, Trimestre, UPA, V1008) |
 
 The key difference: **months benefit from cross-quarter aggregation** (Step 5), while fortnights and weeks cannot.
 
@@ -608,7 +657,8 @@ If hh_fortnight_min == hh_fortnight_max -> DETERMINED
 
 | Variable | Description |
 |----------|-------------|
-| `ref_fortnight` | First day of reference fortnight |
+| `ref_fortnight_start` | First day (Sunday) of reference fortnight |
+| `ref_fortnight_end` | Last day (Saturday) of reference fortnight |
 | `ref_fortnight_in_quarter` | Position 1-6, or NA if indeterminate |
 | `ref_fortnight_yyyyff` | YYYYFF format (e.g., 202303 = 3rd fortnight of 2023, i.e., Feb 1-15) |
 | `determined_fortnight` | Logical: TRUE if determined |
@@ -624,16 +674,17 @@ Month 2: Weeks 5-8 (or 4-8)
 Month 3: Weeks 9-13 (or 8-13)
 ```
 
-The algorithm uses ISO week numbers for consistency:
+The algorithm uses the IBGE calendar (Sunday-Saturday weeks):
 
-**Step 3 (Week version)**: Convert dates to ISO week numbers
+**Step 3 (Week version)**: Convert dates to week numbers
 
 ```
 For each date:
-  ref_week_yyyyww = ISO week number (YYYYWW format)
+  ref_week_yyyyww = Year * 100 + week_number
 
-ISO weeks start on Monday and can span year boundaries.
-For example, week 1 of 2024 might include days from late December 2023.
+IBGE weeks:
+- Run Sunday to Saturday
+- First week of month must have >= 4 days in that month
 ```
 
 **Step 4 (Week version)**: Aggregate at household level **within quarter**
@@ -650,9 +701,10 @@ If hh_week_min == hh_week_max -> DETERMINED
 
 | Variable | Description |
 |----------|-------------|
-| `ref_week` | First day (Monday) of reference week |
+| `ref_week_start` | First day (Sunday) of reference week |
+| `ref_week_end` | Last day (Saturday) of reference week |
 | `ref_week_in_quarter` | Position 1-13, or NA if indeterminate |
-| `ref_week_yyyyww` | ISO week format (e.g., 202315 = week 15 of 2023) |
+| `ref_week_yyyyww` | YYYYWW format (e.g., 202315 = week 15 of 2023) |
 | `determined_week` | Logical: TRUE if determined |
 
 #### Practical Implications
@@ -661,13 +713,13 @@ If hh_week_min == hh_week_max -> DETERMINED
 
 | Granularity | Strict Rate | With Experimental | Use Cases |
 |-------------|-------------|-------------------|-----------|
-| **Monthly** | ~97% | — | Most analyses: labor market trends, poverty dynamics |
-| **Fortnight** | 7.64% | up to 60% | Short-term shock analysis |
-| **Weekly** | 1.54% | up to 15% | High-frequency monitoring |
+| **Monthly** | ~97% | - | Most analyses: labor market trends, poverty dynamics |
+| **Fortnight** | ~7% | up to ~60% | Short-term shock analysis |
+| **Weekly** | ~1.5% | up to ~15% | High-frequency monitoring |
 
 **Important considerations:**
 
-1. **Sample size decreases rapidly**: With strict determination only, fortnight (~7.64%) and week (~1.54%) provide small samples. However, experimental strategies can significantly increase these rates.
+1. **Sample size decreases rapidly**: With strict determination only, fortnight (~7%) and week (~1.5%) provide small samples. However, experimental strategies can significantly increase these rates.
 
 2. **Experimental strategies available**: The `pnadc_experimental_periods()` function provides probabilistic assignment and UPA aggregation strategies that can increase fortnight determination to ~60% and week to ~15%. See the [Experimental Strategies](#experimental-strategies) section.
 
@@ -689,7 +741,7 @@ crosswalk[, .(
 
 # For fortnight analysis, filter to determined observations
 fortnight_data <- crosswalk[determined_fortnight == TRUE]
-nrow(fortnight_data) / nrow(crosswalk)  # ~7-8%
+nrow(fortnight_data) / nrow(crosswalk)  # ~7%
 
 # Apply crosswalk with fortnight calibration
 result <- pnadc_apply_periods(
@@ -729,9 +781,9 @@ Crosswalk complete:
 
 ## Experimental Strategies {#experimental-strategies}
 
-The standard algorithm produces strict (definitive) determination rates of ~7.64% for fortnights and ~1.54% for weeks. For applications requiring larger sub-monthly samples, the package provides **experimental strategies** that can increase these rates substantially.
+The standard algorithm produces strict (definitive) determination rates of ~7% for fortnights and ~1.5% for weeks. For applications requiring larger sub-monthly samples, the package provides **experimental strategies** that can increase these rates substantially.
 
-> **Important**: Experimental strategies produce "likely" assignments based on additional assumptions. They are intended for sensitivity analysis, robustness checks, and research purposes—not for replacing strict determination in rigorous analysis.
+> **Important**: Experimental strategies produce "likely" assignments based on additional assumptions. They are intended for sensitivity analysis, robustness checks, and research purposes - not for replacing strict determination in rigorous analysis.
 
 ### Overview of Experimental Strategies
 
@@ -739,9 +791,9 @@ The `pnadc_experimental_periods()` function provides two strategies that can be 
 
 | Strategy | Mechanism | Fortnight Improvement | Week Improvement |
 |----------|-----------|----------------------|------------------|
-| **Probabilistic** | For 2-period ranges, assign the more likely period | 7.64% → 13.61% (+5.97 pp) | 1.54% → 1.82% (+0.28 pp) |
-| **UPA Aggregation** | Propagate determined periods to other households in UPA | 7.64% → 57.69% (+50.04 pp) | 1.54% → 14.36% (+12.82 pp) |
-| **Both** | Apply both strategies sequentially | 7.64% → **60.33%** | 1.54% → **14.60%** |
+| **Probabilistic** | For 2-period ranges, assign the more likely period | ~7% -> ~14% (+6 pp) | ~1.5% -> ~2% (+0.3 pp) |
+| **UPA Aggregation** | Propagate determined periods to other households in UPA | ~7% -> ~58% (+50 pp) | ~1.5% -> ~14% (+13 pp) |
+| **Both** | Apply both strategies sequentially | ~7% -> **~60%** | ~1.5% -> **~15%** |
 
 ![Experimental strategies dramatically improve fortnight and week determination rates](figures/how-it-works/fig-experimental-strategies.png){width=100%}
 
@@ -770,8 +822,8 @@ Fortnight boundary: March 15/16
 Days in fortnight 5 (Mar 1-15):  10, 11, 12, 13, 14, 15 = 6 days
 Days in fortnight 6 (Mar 16-31): 16, 17, 18, 19, 20     = 5 days
 
-Date midpoint: March 15 → Falls in fortnight 5
-Confidence: 6/11 ≈ 0.55 (55% probability of fortnight 5)
+Date midpoint: March 15 -> Falls in fortnight 5
+Confidence: 6/11 ~ 0.55 (55% probability of fortnight 5)
 
 Result: ref_fortnight_exp = 5, ref_fortnight_exp_confidence = 0.55
 ```
@@ -790,9 +842,9 @@ Result: ref_fortnight_exp = 5, ref_fortnight_exp_confidence = 0.55
 - **Median confidence**: 0.548
 - **Range**: [0.516, 0.950]
 
-For weeks, all probabilistic assignments have confidence ≈ 0.571 (fixed 2-week range).
+For weeks, all probabilistic assignments have confidence ~0.571 (fixed 2-week range).
 
-**Interpretation**: Most probabilistic assignments have relatively low confidence (55-60%), meaning they're only slightly better than a coin flip. Use these assignments with caution and consider filtering to higher confidence values (≥0.7) for more reliable analysis.
+**Interpretation**: Most probabilistic assignments have relatively low confidence (55-60%), meaning they're only slightly better than a coin flip. Use these assignments with caution and consider filtering to higher confidence values (>=0.7) for more reliable analysis.
 
 **Code example:**
 
@@ -849,24 +901,24 @@ For each (Ano, Trimestre, UPA):
 **UPA Aggregation Concept:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    UPA = 123456 (Q1 2023)                           │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  Household A: fortnight = 3 (DETERMINED via birthday constraints)   │
-│  Household B: fortnight = 3 (DETERMINED via birthday constraints)   │
-│  Household C: fortnight = NA (undetermined)                         │
-│  Household D: fortnight = NA (undetermined)                         │
-│  Household E: fortnight = NA (undetermined)                         │
-│                                                                     │
-│  UPA Homogeneity Check:                                             │
-│    - Determined households: A, B                                    │
-│    - All have fortnight = 3? YES (100% homogeneous)                 │
-│                                                                     │
-│  Result: Propagate fortnight = 3 to C, D, E                         │
-│    → ref_fortnight_exp = 3 for all 5 households                     │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
++---------------------------------------------------------------------+
+|                    UPA = 123456 (Q1 2023)                            |
++---------------------------------------------------------------------+
+|                                                                      |
+|  Household A: fortnight = 3 (DETERMINED via birthday constraints)    |
+|  Household B: fortnight = 3 (DETERMINED via birthday constraints)    |
+|  Household C: fortnight = NA (undetermined)                          |
+|  Household D: fortnight = NA (undetermined)                          |
+|  Household E: fortnight = NA (undetermined)                          |
+|                                                                      |
+|  UPA Homogeneity Check:                                              |
+|    - Determined households: A, B                                     |
+|    - All have fortnight = 3? YES (100% homogeneous)                  |
+|                                                                      |
+|  Result: Propagate fortnight = 3 to C, D, E                          |
+|    -> ref_fortnight_exp = 3 for all 5 households                     |
+|                                                                      |
++---------------------------------------------------------------------+
 ```
 
 **Results (from 2012-2025 benchmark):**
@@ -874,9 +926,9 @@ For each (Ano, Trimestre, UPA):
 | Metric | Fortnight | Week |
 |--------|-----------|------|
 | UPA Homogeneity Rate | **100.0%** | **100.0%** |
-| Strictly determined | 733,744 (7.64%) | 147,692 (1.54%) |
-| UPA-aggregated (additional) | 4,803,577 (+50.04%) | 1,230,647 (+12.82%) |
-| **Total** | **5,537,321 (57.69%)** | **1,378,339 (14.36%)** |
+| Strictly determined | 733,744 (~7.6%) | 147,692 (~1.5%) |
+| UPA-aggregated (additional) | 4,803,577 (+50%) | 1,230,647 (+13%) |
+| **Total** | **5,537,321 (~58%)** | **1,378,339 (~14%)** |
 
 The UPA aggregation strategy provides **7.5x improvement** for fortnights and **9.3x improvement** for weeks.
 
@@ -941,8 +993,8 @@ crosswalk_both[, .(
 
 | Period | Strict | + Probabilistic | + UPA | Total |
 |--------|--------|-----------------|-------|-------|
-| Fortnight | 7.64% | +5.97% | +50.04% | **60.33%** |
-| Week | 1.54% | +0.28% | +12.82% | **14.60%** |
+| Fortnight | ~7% | +~6% | +~50% | **~60%** |
+| Week | ~1.5% | +~0.3% | +~13% | **~15%** |
 
 ---
 
@@ -959,21 +1011,21 @@ crosswalk_both[, .(
 
 ```
 Need fortnight/week analysis?
-├── Strict sample (~7.64% / ~1.54%) sufficient?
-│   └── YES → Use pnadc_identify_periods() only
-│   └── NO  → Continue
-│
-├── Need definitive determinations only?
-│   └── YES → Use strict (accept smaller sample)
-│   └── NO  → Continue
-│
-├── Confidence scores important?
-│   └── YES → Use probabilistic strategy
-│            Filter to confidence >= 0.7 for reliability
-│   └── NO  → Continue
-│
-└── Maximum coverage needed?
-    └── YES → Use UPA aggregation or both
+|-- Strict sample (~7% / ~1.5%) sufficient?
+|   +-- YES -> Use pnadc_identify_periods() only
+|   +-- NO  -> Continue
+|
+|-- Need definitive determinations only?
+|   +-- YES -> Use strict (accept smaller sample)
+|   +-- NO  -> Continue
+|
+|-- Confidence scores important?
+|   +-- YES -> Use probabilistic strategy
+|              Filter to confidence >= 0.7 for reliability
+|   +-- NO  -> Continue
+|
++-- Maximum coverage needed?
+    +-- YES -> Use UPA aggregation or both
               (leverages 100% UPA homogeneity)
 ```
 
@@ -981,7 +1033,7 @@ Need fortnight/week analysis?
 
 ### Caveats and Limitations
 
-1. **Probabilistic assignments are uncertain**: Mean confidence is ~0.58, meaning many assignments are only marginally better than random. Consider filtering to confidence ≥ 0.7 for analysis.
+1. **Probabilistic assignments are uncertain**: Mean confidence is ~0.58, meaning many assignments are only marginally better than random. Consider filtering to confidence >= 0.7 for analysis.
 
 2. **UPA aggregation assumes scheduling patterns persist**: The 100% homogeneity finding is based on 2012-2025 data. If IBGE changes interview scheduling, this assumption may weaken.
 
@@ -1077,13 +1129,13 @@ This means that if you sum `weight_fortnight` for a given fortnight, or `weight_
 
 **Simplified Hierarchical Raking**
 
-Because fortnights and weeks have much lower determination rates (~7-8% and ~1-2% respectively), the hierarchical raking is automatically simplified to avoid sparse cell issues:
+Because fortnights and weeks have much lower determination rates (~7% and ~1.5% respectively), the hierarchical raking is automatically simplified to avoid sparse cell issues:
 
 | Calibration Unit | Det. Rate | Cell Levels Used | Rationale |
 |------------------|-----------|------------------|-----------|
 | Month | ~97% | 4 levels (celula1-4) | ~65,000+ obs/period allows fine cells |
-| Fortnight | ~7-8% | 2 levels (celula1-2) | ~5,000 obs/period; finer cells too sparse |
-| Week | ~1-2% | 1 level (celula1 only) | ~500 obs/period; only age groups stable |
+| Fortnight | ~7% | 2 levels (celula1-2) | ~5,000 obs/period; finer cells too sparse |
+| Week | ~1.5% | 1 level (celula1 only) | ~500 obs/period; only age groups stable |
 
 The algorithm also checks minimum cell sizes (default: 10 observations) and skips raking levels if cells become too sparse.
 
@@ -1151,7 +1203,7 @@ PNADC's quarterly structure creates subtle artifacts in monthly estimates:
 
 2. **Boundary effects**: The first and last months of a quarter can have different characteristics than middle months due to how interviews are scheduled around "Parada Tecnica" (technical breaks).
 
-3. **Cell-level imbalances**: Within demographic cells (age × region × stratum), the month-to-month sample sizes can vary, creating artificial jumps even when the true population is stable.
+3. **Cell-level imbalances**: Within demographic cells (age x region x stratum), the month-to-month sample sizes can vary, creating artificial jumps even when the true population is stable.
 
 Weight smoothing addresses these issues by applying a rolling mean to the calibration adjustments at the cell level, reducing artificial volatility while preserving genuine trends.
 
@@ -1228,32 +1280,32 @@ This separation is deliberate: the crosswalk is built once from stacked quarterl
 ### The Two-Step Workflow
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        TWO-STEP WORKFLOW                                     │
-└─────────────────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------------------+
+|                        TWO-STEP WORKFLOW                                     |
++-----------------------------------------------------------------------------+
 
 STEP 1: Build Crosswalk (run once, from quarterly data)
-┌───────────────────────────────────────────────────────────────────────┐
-│ pnadc_identify_periods(quarterly_stacked)                             │
-│                                                                       │
-│ Input:  Stacked quarterly PNADC (needs birthday variables)            │
-│ Output: Crosswalk with ref_month, ref_fortnight, ref_week per         │
-│         (UPA, V1014) household-panel group                            │
-└───────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
++-----------------------------------------------------------------------+
+| pnadc_identify_periods(quarterly_stacked)                              |
+|                                                                        |
+| Input:  Stacked quarterly PNADC (needs birthday variables)             |
+| Output: Crosswalk with ref_month, ref_fortnight, ref_week per          |
+|         (UPA, V1014) household-panel group                             |
++-----------------------------------------------------------------------+
+                                    |
+                                    v
 STEP 2: Apply to Target Data (run for each analysis)
-┌───────────────────────────────────────────────────────────────────────┐
-│ pnadc_apply_periods(target_data, crosswalk, ...)                      │
-│                                                                       │
-│ Input:  Any PNADC data (quarterly OR annual) + crosswalk              │
-│ Output: Data with reference periods + calibrated weights              │
-│                                                                       │
-│ Key parameters:                                                       │
-│   - weight_var: "V1028" (quarterly) or "V1032" (annual)               │
-│   - anchor: "quarter" (quarterly) or "year" (annual)                  │
-│   - calibration_unit: "month", "fortnight", or "week"                 │
-└───────────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------------+
+| pnadc_apply_periods(target_data, crosswalk, ...)                       |
+|                                                                        |
+| Input:  Any PNADC data (quarterly OR annual) + crosswalk               |
+| Output: Data with reference periods + calibrated weights               |
+|                                                                        |
+| Key parameters:                                                        |
+|   - weight_var: "V1028" (quarterly) or "V1032" (annual)                |
+|   - anchor: "quarter" (quarterly) or "year" (annual)                   |
+|   - calibration_unit: "month", "fortnight", or "week"                  |
++-----------------------------------------------------------------------+
 ```
 
 ### Quarterly vs. Annual PNADC Data
@@ -1492,30 +1544,30 @@ Based on real PNADC data (2012-2025, 55 quarters, 28.4M observations, 9.6M house
 
 | Period | Determined | Total | Rate |
 |--------|------------|-------|------|
-| Month | 9,281,135 | 9,598,723 | **96.69%** |
-| Fortnight | 733,744 | 9,598,723 | **7.64%** |
-| Week | 147,692 | 9,598,723 | **1.54%** |
+| Month | 9,281,135 | 9,598,723 | **~97%** |
+| Fortnight | 733,744 | 9,598,723 | **~7%** |
+| Week | 147,692 | 9,598,723 | **~1.5%** |
 
 **Rates by year (monthly):**
 
 | Year | N | Monthly Rate | Fortnight Rate | Week Rate |
 |------|---|--------------|----------------|-----------|
 | 2012 | 695K | 96.3% | 8.5% | 1.7% |
-| 2013-2019 | 5.2M | 97-99% | 7-9% | 1-2% |
-| 2020-2021 | 1.1M | 93-96% | 7-8% | 1-2% |
-| 2022-2024 | 2.1M | 95-97% | 7-8% | 1-2% |
+| 2013-2019 | 5.2M | 97-99% | ~7% | ~1.5% |
+| 2020-2021 | 1.1M | 93-96% | ~7% | ~1.5% |
+| 2022-2024 | 2.1M | 95-97% | ~7% | ~1.5% |
 | 2025 | 541K | 93% | 7% | 1% |
 
 **With experimental strategies:**
 
 | Strategy | Fortnight | Week |
 |----------|-----------|------|
-| Strict only | 7.64% | 1.54% |
-| + Probabilistic | 13.61% | 1.82% |
-| + UPA Aggregation | 57.69% | 14.36% |
-| + Both | **60.33%** | **14.60%** |
+| Strict only | ~7% | ~1.5% |
+| + Probabilistic | ~13-14% | ~2% |
+| + UPA Aggregation | ~57-58% | ~14-15% |
+| + Both | **~60%** | **~15%** |
 
-**Why boundary quarters have lower rates**: The first 4 and last 4 quarters of any consecutive quarterly dataset will always include (UPA, V1014) groups with fewer than 5 visits in the data. This makes mensalization efficiency suboptimal at the boundaries. In a dataset with 9 consecutive quarters, for example, only the 5th quarter will have full utilization -- because among people observed in the 5th quarter, all of them will have all their visits in the data, from those on their 1st visit in the 5th quarter to those on their 5th visit in the 5th quarter. This is an inherent consequence of PNADC's rotating panel design (5 visits over 5 quarters).
+**Why boundary quarters have lower rates**: The first 4 and last 4 quarters of any consecutive quarterly dataset will always include (UPA, V1014) groups with fewer than 5 visits in the data. This makes mensalization efficiency suboptimal at the boundaries. In a dataset with 9 consecutive quarters, for example, only the 5th quarter will have full utilization - because among people observed in the 5th quarter, all of them will have all their visits in the data, from those on their 1st visit in the 5th quarter to those on their 5th visit in the 5th quarter. This is an inherent consequence of PNADC's rotating panel design (5 visits over 5 quarters).
 
 ### Optimization Tips
 
@@ -1551,7 +1603,7 @@ Based on real PNADC data (2012-2025, 55 quarters, 28.4M observations, 9.6M house
 
 5. **Use `weight_monthly` for general analysis**: The rake-weighted output is appropriate for most purposes.
 
-6. **Consider experimental strategies for fortnights/weeks**: If you need larger fortnight/week samples, use `pnadc_experimental_periods()` with UPA aggregation (leveraging 100% homogeneity) to achieve up to 60% fortnight and 15% week determination. See [Experimental Strategies](#experimental-strategies).
+6. **Consider experimental strategies for fortnights/weeks**: If you need larger fortnight/week samples, use `pnadc_experimental_periods()` with UPA aggregation (leveraging 100% homogeneity) to achieve up to ~60% fortnight and ~15% week determination. See [Experimental Strategies](#experimental-strategies).
 
 ---
 
@@ -1679,7 +1731,7 @@ monthly_labor <- result[!is.na(ref_month_in_quarter), .(
   labor_force = sum(weight_monthly * (VD4001 == 1), na.rm = TRUE),
   employed = sum(weight_monthly * (VD4002 == 1), na.rm = TRUE),
   n_obs = .N
-), by = .(ref_month_yyyymm, ref_month)]
+), by = .(ref_month_yyyymm, ref_month_start)]
 
 monthly_labor[, unemployment_rate := (labor_force - employed) / labor_force * 100]
 
@@ -1692,7 +1744,7 @@ summary(monthly_labor$n_obs)  # Should be ~65,000+ per month
 
 # Basic plot (requires ggplot2)
 # library(ggplot2)
-# ggplot(monthly_labor, aes(x = ref_month, y = unemployment_rate)) +
+# ggplot(monthly_labor, aes(x = ref_month_start, y = unemployment_rate)) +
 #   geom_line() +
 #   geom_point(size = 1) +
 #   labs(title = "Monthly Unemployment Rate - Brazil",
@@ -1723,4 +1775,4 @@ summary(monthly_labor$n_obs)  # Should be ~65,000+ per month
 - [Annual Poverty Analysis](annual-poverty-analysis.html) - Monthly poverty analysis with annual PNADC income data
 - [IBGE PNADC Documentation](https://www.ibge.gov.br/estatisticas/sociais/trabalho/9171-pesquisa-nacional-por-amostra-de-domicilios-continua-mensal.html)
 - Package function reference: `?pnadc_identify_periods`, `?pnadc_apply_periods`
-- Source code: [GitHub repository](https://github.com/antrologos/mensalizePNADC)
+- Source code: [GitHub repository](https://github.com/antrologos/PNADCperiods)
