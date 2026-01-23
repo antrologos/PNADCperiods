@@ -11,8 +11,8 @@
 <script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Identify Reference Periods in Brazil's PNADC Survey Data">
-<meta name="description" content='Identifies reference periods (months, fortnights, and weeks) in Brazils quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data and optionally computes calibrated weights for sub-quarterly analysis. The core algorithm uses IBGEs "Parada Tecnica" (technical break) rules combined with respondent birthdates to determine which temporal period each survey observation refers to. Period identification follows a nested hierarchy enforced by construction: fortnights require months, and weeks require fortnights. Achieves ~97% monthly determination rate when using stacked multi-quarter data. Strict fortnight and week determination rates are lower (~7-8% and ~1-2% respectively) as they cannot leverage cross-quarter panel aggregation. Experimental strategies (probabilistic assignment and UPA aggregation leveraging 100% UPA homogeneity) can boost fortnight rates to ~60% and week rates to ~15%. For users needing sub-quarterly aggregate estimates, the package provides adaptive hierarchical weight calibration (4/2/1 cell levels for month/fortnight/week) to produce period-appropriate survey weights.'>
-<meta property="og:description" content='Identifies reference periods (months, fortnights, and weeks) in Brazils quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data and optionally computes calibrated weights for sub-quarterly analysis. The core algorithm uses IBGEs "Parada Tecnica" (technical break) rules combined with respondent birthdates to determine which temporal period each survey observation refers to. Period identification follows a nested hierarchy enforced by construction: fortnights require months, and weeks require fortnights. Achieves ~97% monthly determination rate when using stacked multi-quarter data. Strict fortnight and week determination rates are lower (~7-8% and ~1-2% respectively) as they cannot leverage cross-quarter panel aggregation. Experimental strategies (probabilistic assignment and UPA aggregation leveraging 100% UPA homogeneity) can boost fortnight rates to ~60% and week rates to ~15%. For users needing sub-quarterly aggregate estimates, the package provides adaptive hierarchical weight calibration (4/2/1 cell levels for month/fortnight/week) to produce period-appropriate survey weights.'>
+<meta name="description" content='Identifies reference periods (months, fortnights, and weeks) in Brazils quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data and computes calibrated weights for sub-quarterly analysis. The core algorithm uses IBGEs "Parada Técnica" (technical break) rules combined with respondent birthdates to determine which temporal period each survey observation refers to. Period identification follows a nested hierarchy enforced by construction: fortnights require months, weeks require fortnights. Achieves ~97% monthly determination rate when using stacked multi-quarter data. Strict fortnight and week rates are lower (~6% and ~1.5% respectively) as they cannot leverage cross-quarter panel aggregation. Experimental strategies (probabilistic assignment and UPA aggregation) can boost fortnight rates to ~27% and week rates to ~2%. The package provides adaptive hierarchical weight calibration (4/2/1 cell levels for month/ fortnight/week) with period-specific smoothing to produce survey weights calibrated to IBGE SIDRA population totals.'>
+<meta property="og:description" content='Identifies reference periods (months, fortnights, and weeks) in Brazils quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data and computes calibrated weights for sub-quarterly analysis. The core algorithm uses IBGEs "Parada Técnica" (technical break) rules combined with respondent birthdates to determine which temporal period each survey observation refers to. Period identification follows a nested hierarchy enforced by construction: fortnights require months, weeks require fortnights. Achieves ~97% monthly determination rate when using stacked multi-quarter data. Strict fortnight and week rates are lower (~6% and ~1.5% respectively) as they cannot leverage cross-quarter panel aggregation. Experimental strategies (probabilistic assignment and UPA aggregation) can boost fortnight rates to ~27% and week rates to ~2%. The package provides adaptive hierarchical weight calibration (4/2/1 cell levels for month/ fortnight/week) with period-specific smoothing to produce survey weights calibrated to IBGE SIDRA population totals.'>
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -82,11 +82,13 @@
 <li>
 <strong>~1.5% strict week rate</strong> (within-quarter constraints only)</li>
 <li>
-<strong>Experimental strategies</strong> boost fortnight to ~27-28% and week to ~2% via probabilistic + UPA aggregation</li>
+<strong>Experimental strategies</strong> boost fortnight to ~27% and week to ~2% via probabilistic + UPA aggregation</li>
 <li>
 <strong>IBGE-based calendar</strong>: All periods use IBGE’s official Sunday-Saturday week boundaries</li>
 <li>
-<strong>Hierarchical weight calibration</strong> adapted per time granularity</li>
+<strong>Adaptive weight calibration</strong>: Hierarchical raking with period-specific smoothing (4/2/1 cell levels)</li>
+<li>
+<strong>SIDRA integration</strong>: Automatic population target fetching from IBGE API</li>
 <li>
 <strong>Fast</strong>: Processes ~450,000 rows/sec (~1 minute for 28M rows)</li>
 </ul>
@@ -149,18 +151,6 @@
 <td>Apply crosswalk to data + hierarchical weight calibration</td>
 </tr>
 <tr>
-<td><code><a href="reference/identify_reference_month.html">identify_reference_month()</a></code></td>
-<td>Standalone month identification</td>
-</tr>
-<tr>
-<td><code><a href="reference/identify_reference_fortnight.html">identify_reference_fortnight()</a></code></td>
-<td>Standalone fortnight identification</td>
-</tr>
-<tr>
-<td><code><a href="reference/identify_reference_week.html">identify_reference_week()</a></code></td>
-<td>Standalone week identification</td>
-</tr>
-<tr>
 <td><code><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code></td>
 <td>Experimental probabilistic/UPA aggregation strategies</td>
 </tr>
@@ -213,11 +203,11 @@
 <tbody>
 <tr>
 <td><strong>Month</strong></td>
-<td>4-5 IBGE weeks; first week has &gt;= 4 days in the calendar month</td>
+<td>4 IBGE reference weeks (28 days); first week has &gt;= 4 days in the calendar month</td>
 </tr>
 <tr>
 <td><strong>Fortnight</strong></td>
-<td>First half (days 1-15) or second half (days 16+) of a month</td>
+<td>2 IBGE weeks; first fortnight = weeks 1-2, second fortnight = weeks 3-4 of each month</td>
 </tr>
 <tr>
 <td><strong>Week</strong></td>
@@ -230,28 +220,30 @@
 <h3 id="output-columns">Output Columns<a class="anchor" aria-label="anchor" href="#output-columns"></a>
 </h3>
 <p>The crosswalk contains IBGE-based period boundaries:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Month columns</span></span>
-<span><span class="va">ref_month_start</span>      <span class="co"># Sunday of first IBGE week of the month</span></span>
-<span><span class="va">ref_month_end</span>        <span class="co"># Saturday of last IBGE week of the month</span></span>
-<span><span class="va">ref_month_in_quarter</span> <span class="co"># Position in quarter (1, 2, 3)</span></span>
-<span><span class="va">ref_month_yyyymm</span>     <span class="co"># Integer YYYYMM format (e.g., 202301)</span></span>
-<span><span class="va">ref_month_weeks</span>      <span class="co"># Number of IBGE weeks in month (4 or 5)</span></span>
-<span><span class="va">determined_month</span>     <span class="co"># TRUE if month was determined</span></span>
-<span></span>
-<span><span class="co"># Fortnight columns</span></span>
-<span><span class="va">ref_fortnight_start</span>       <span class="co"># Sunday of first IBGE week of the fortnight</span></span>
-<span><span class="va">ref_fortnight_end</span>         <span class="co"># Saturday of last IBGE week of the fortnight</span></span>
-<span><span class="va">ref_fortnight_in_quarter</span>  <span class="co"># Position in quarter (1-6)</span></span>
-<span><span class="va">ref_fortnight_yyyyff</span>      <span class="co"># Integer YYYYFF format (01-24 per year)</span></span>
-<span><span class="va">determined_fortnight</span>      <span class="co"># TRUE if fortnight was determined</span></span>
-<span></span>
-<span><span class="co"># Week columns</span></span>
-<span><span class="va">ref_week_start</span>       <span class="co"># Sunday of the IBGE week</span></span>
-<span><span class="va">ref_week_end</span>         <span class="co"># Saturday of the IBGE week</span></span>
-<span><span class="va">ref_week_in_quarter</span>  <span class="co"># Position in quarter (1-14)</span></span>
-<span><span class="va">ref_week_yyyyww</span>      <span class="co"># Integer IBGE YYYYWW format</span></span>
-<span><span class="va">determined_week</span>      <span class="co"># TRUE if week was determined</span></span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># Join keys (for merging with PNADC data)</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>Ano, Trimestre, UPA, V1008, V1014</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co"># Month columns</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>ref_month_start      <span class="co"># Sunday of first IBGE week of the month</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>ref_month_end        <span class="co"># Saturday of last IBGE week of the month</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>ref_month_in_quarter <span class="co"># Position in quarter (1, 2, 3)</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>ref_month_yyyymm     <span class="co"># Integer YYYYMM format (e.g., 202301)</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>ref_month_weeks      <span class="co"># Number of IBGE weeks in month (always 4)</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>determined_month     <span class="co"># TRUE if month was determined</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co"># Fortnight columns</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a>ref_fortnight_start       <span class="co"># Sunday of first IBGE week of the fortnight</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>ref_fortnight_end         <span class="co"># Saturday of last IBGE week of the fortnight</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>ref_fortnight_in_quarter  <span class="co"># Position in quarter (1-6)</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>ref_fortnight_yyyyff      <span class="co"># Integer YYYYFF format (01-24 per year)</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a>determined_fortnight      <span class="co"># TRUE if fortnight was determined</span></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="co"># Week columns</span></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a>ref_week_start       <span class="co"># Sunday of the IBGE week</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a>ref_week_end         <span class="co"># Saturday of the IBGE week</span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a>ref_week_in_quarter  <span class="co"># Position in quarter (1-12)</span></span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a>ref_week_yyyyww      <span class="co"># Integer IBGE YYYYWW format</span></span>
+<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a>determined_week      <span class="co"># TRUE if week was determined</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -345,65 +337,56 @@
 <p>The <code><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code> function provides experimental strategies to boost fortnight and week determination rates:</p>
 <table class="table">
 <colgroup>
-<col width="22%">
-<col width="29%">
-<col width="18%">
-<col width="29%">
+<col width="31%">
+<col width="40%">
+<col width="28%">
 </colgroup>
 <thead><tr>
 <th>Strategy</th>
-<th>Fortnight %</th>
-<th>Week %</th>
 <th>Description</th>
+<th>Nesting</th>
 </tr></thead>
 <tbody>
 <tr>
-<td>Strict only</td>
-<td>~6%</td>
-<td>~1.5%</td>
-<td>Baseline (deterministic)</td>
-</tr>
-<tr>
 <td><code>"probabilistic"</code></td>
-<td>~21%</td>
-<td>~0.6%</td>
-<td>Assigns based on date interval midpoint</td>
+<td>Assigns based on date interval midpoint when range spans 2 periods</td>
+<td>Respects month→fortnight→week</td>
 </tr>
 <tr>
 <td><code>"upa_aggregation"</code></td>
-<td>~22%</td>
-<td>~0.6%</td>
-<td>Extends via UPA consensus</td>
+<td>Extends via UPA/UPA-V1014 consensus when proportion threshold met</td>
+<td>Respects month→fortnight→week</td>
 </tr>
 <tr>
 <td><code>"both"</code></td>
-<td>~27-28%</td>
-<td>~2%</td>
-<td>Sequential: probabilistic then UPA</td>
+<td>Sequential: probabilistic first, then UPA aggregation</td>
+<td>Union of both strategies</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Key finding</strong>: UPA homogeneity rate = 100% for both fortnights and weeks within quarters.</p>
+<p>All strategies enforce proper nesting: experimental fortnights require identified months (strict or experimental), and experimental weeks require identified fortnights.</p>
+<p><strong>Key finding</strong>: UPA homogeneity rate = 100% for fortnights and weeks within quarters.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Build strict crosswalk</span></span>
 <span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Apply experimental strategies</span></span>
+<span><span class="co"># Apply experimental strategies (output is directly compatible with pnadc_apply_periods)</span></span>
 <span><span class="va">crosswalk_exp</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods</a></span><span class="op">(</span></span>
 <span>  <span class="va">crosswalk</span>,</span>
 <span>  <span class="va">pnadc</span>,</span>
 <span>  strategy <span class="op">=</span> <span class="st">"both"</span>,</span>
-<span>  confidence_threshold <span class="op">=</span> <span class="fl">0.9</span></span>
+<span>  confidence_threshold <span class="op">=</span> <span class="fl">0.9</span>,</span>
+<span>  upa_proportion_threshold <span class="op">=</span> <span class="fl">0.5</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Check results</span></span>
+<span><span class="co"># Check results - the output includes a probabilistic_assignment flag</span></span>
 <span><span class="va">crosswalk_exp</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
-<span>  strict <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_month_in_quarter</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">probabilistic_assignment</span><span class="op">)</span>,</span>
-<span>  experimental <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">probabilistic_assignment</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
-<span>  total <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">determined_month</span><span class="op">)</span></span>
+<span>  strict_months <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">determined_month</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">probabilistic_assignment</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  experimental_months <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">probabilistic_assignment</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  total_fortnights <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">determined_fortnight</span><span class="op">)</span></span>
 <span><span class="op">)</span><span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Use directly with calibration</span></span>
+<span><span class="co"># Use directly with calibration (experimental output is fully compatible)</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">crosswalk_exp</span>,</span>
 <span>                               weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
 <span>                               anchor <span class="op">=</span> <span class="st">"quarter"</span><span class="op">)</span></span></code></pre></div>

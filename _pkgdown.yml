@@ -67,6 +67,7 @@ reference:
   desc: Functions for fetching external data
   contents:
   - fetch_monthly_population
+  - clear_sidra_cache
 
 - title: Utilities
   desc: Helper and validation functions

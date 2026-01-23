@@ -117,7 +117,7 @@ bi-weekly time series analysis.</p>
 <li><p><code>ref_fortnight_end</code>: Reference fortnight end (Saturday of last IBGE week)</p></li>
 <li><p><code>ref_fortnight_in_quarter</code>: Position in quarter (1-6) or NA</p></li>
 <li><p><code>ref_fortnight_yyyyff</code>: Integer YYYYFF format (1-24 per year)</p></li>
-<li><p><code>ref_fortnight_weeks</code>: Number of IBGE weeks in this fortnight (2 or 3)</p></li>
+<li><p><code>ref_fortnight_weeks</code>: Number of IBGE weeks in this fortnight (always 2)</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -126,16 +126,16 @@ to each survey observation based on IBGE's interview timing rules.</p><div class
 <h3 id="ibge-fortnight-definition">IBGE Fortnight Definition<a class="anchor" aria-label="anchor" href="#ibge-fortnight-definition"></a></h3>
 
 
-<p>IBGE fortnights are based on IBGE reference weeks, NOT calendar days:</p><ul><li><p>Fortnight 1 of a month = IBGE weeks 1-2 of that month</p></li>
-<li><p>Fortnight 2 of a month = IBGE weeks 3-4 (or 3-5 for 5-week months)</p></li>
-</ul><p>Each quarter has 6 fortnights (2 per month).</p>
+<p>IBGE fortnights are based on IBGE reference weeks, NOT calendar days:</p><ul><li><p>Fortnight 1 of a month = IBGE weeks 1-2 of that month (14 days)</p></li>
+<li><p>Fortnight 2 of a month = IBGE weeks 3-4 of that month (14 days)</p></li>
+</ul><p>Each quarter has 6 fortnights (2 per month). Each fortnight has exactly 2 weeks.</p>
 </div>
 
 <div class="section">
 <h3 id="expected-determination-rate">Expected Determination Rate<a class="anchor" aria-label="anchor" href="#expected-determination-rate"></a></h3>
 
 
-<p>Fortnight determination rate is typically low (~2-5%) because:</p><ul><li><p>Unlike months, fortnights cannot aggregate across quarters</p></li>
+<p>Fortnight determination rate is typically low (~6-8%) because:</p><ul><li><p>Unlike months, fortnights cannot aggregate across quarters</p></li>
 <li><p>Birthday constraints typically narrow the date range by only a few weeks</p></li>
 <li><p>An IBGE fortnight (2 weeks) is difficult to pinpoint without cross-quarter data</p></li>
 </ul><p>The algorithm determines fortnight when the interview date range falls
@@ -169,7 +169,7 @@ builds a complete crosswalk including months, fortnights, and weeks.
 <span class="r-in"><span>  rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_in_quarter</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span>, by <span class="op">=</span> <span class="fu">.</span><span class="op">(</span><span class="va">Ano</span>, <span class="va">Trimestre</span><span class="op">)</span><span class="op">]</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Note: Fortnight determination rate is typically low (~2-5%)</span></span></span>
+<span class="r-in"><span><span class="co"># Note: Fortnight determination rate is typically low (~6-8%)</span></span></span>
 <span class="r-in"><span><span class="co"># because fortnights cannot aggregate across quarters like months can.</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>

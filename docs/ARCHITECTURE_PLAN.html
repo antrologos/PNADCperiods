@@ -44,42 +44,39 @@
 
 <div id="pnadcperiods---architecture-documentation" class="section level1">
 
-<p>This document describes the implemented architecture of the PNADCperiods package (v2.1.0).</p>
+<p>This document describes the implemented architecture of the PNADCperiods package.</p>
 <div class="section level2">
 <h2 id="package-overview">Package Overview<a class="anchor" aria-label="anchor" href="#package-overview"></a></h2>
-<p><strong>Package name:</strong> <code>PNADCperiods</code> <strong>Purpose:</strong> Identify reference periods (months, fortnights, weeks) in Brazil’s PNADC survey data and optionally calibrate weights for sub-quarterly analysis.</p>
+<p><strong>Package name:</strong> <code>PNADCperiods</code> <strong>Purpose:</strong> Identify reference periods (months, fortnights, weeks) in Brazil’s PNADC survey data and calibrate weights for sub-quarterly analysis.</p>
 </div>
 <div class="section level2">
 <h2 id="api-design">API Design<a class="anchor" aria-label="anchor" href="#api-design"></a></h2>
 <div class="section level3">
-<h3 id="two-main-functions">Two Main Functions<a class="anchor" aria-label="anchor" href="#two-main-functions"></a></h3>
+<h3 id="core-functions">Core Functions<a class="anchor" aria-label="anchor" href="#core-functions"></a></h3>
 <table class="table"><colgroup><col width="52%"><col width="47%"></colgroup><thead><tr><th>Function</th>
 <th>Purpose</th>
 </tr></thead><tbody><tr><td><code><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods()</a></code></td>
 <td>Build crosswalk with nested month/fortnight/week identification</td>
 </tr><tr><td><code><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code></td>
-<td>Apply crosswalk to data + optional weight calibration</td>
+<td>Apply crosswalk to data + adaptive weight calibration</td>
 </tr></tbody></table></div>
 <div class="section level3">
-<h3 id="supporting-functions-exported">Supporting Functions (Exported)<a class="anchor" aria-label="anchor" href="#supporting-functions-exported"></a></h3>
+<h3 id="experimental-extension">Experimental Extension<a class="anchor" aria-label="anchor" href="#experimental-extension"></a></h3>
 <table class="table"><colgroup><col width="52%"><col width="47%"></colgroup><thead><tr><th>Function</th>
 <th>Purpose</th>
-</tr></thead><tbody><tr><td><code><a href="reference/identify_reference_month.html">identify_reference_month()</a></code></td>
-<td>Standalone month identification</td>
-</tr><tr><td><code><a href="reference/identify_reference_fortnight.html">identify_reference_fortnight()</a></code></td>
-<td>Standalone fortnight identification</td>
-</tr><tr><td><code><a href="reference/identify_reference_week.html">identify_reference_week()</a></code></td>
-<td>Standalone week identification</td>
-</tr><tr><td><code><a href="reference/fetch_monthly_population.html">fetch_monthly_population()</a></code></td>
-<td>Fetch population from SIDRA API</td>
-</tr><tr><td><code><a href="reference/validate_pnadc.html">validate_pnadc()</a></code></td>
-<td>Input validation</td>
-</tr><tr><td><code><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code></td>
-<td>Experimental probabilistic period assignment</td>
+</tr></thead><tbody><tr><td><code><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code></td>
+<td>Probabilistic + UPA aggregation strategies for higher determination rates</td>
 </tr><tr><td><code><a href="reference/combine_period_crosswalks.html">combine_period_crosswalks()</a></code></td>
 <td>Merge strict and experimental crosswalks</td>
-</tr><tr><td><code><a href="reference/calibrate_monthly_weights.html">calibrate_monthly_weights()</a></code></td>
-<td>Legacy monthly calibration (use <code><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code> instead)</td>
+</tr></tbody></table></div>
+<div class="section level3">
+<h3 id="supporting-functions">Supporting Functions<a class="anchor" aria-label="anchor" href="#supporting-functions"></a></h3>
+<table class="table"><colgroup><col width="52%"><col width="47%"></colgroup><thead><tr><th>Function</th>
+<th>Purpose</th>
+</tr></thead><tbody><tr><td><code><a href="reference/fetch_monthly_population.html">fetch_monthly_population()</a></code></td>
+<td>Fetch population from SIDRA API (table 6022)</td>
+</tr><tr><td><code><a href="reference/validate_pnadc.html">validate_pnadc()</a></code></td>
+<td>Input validation with detailed error reporting</td>
 </tr></tbody></table></div>
 </div>
 <div class="section level2">
@@ -126,21 +123,30 @@
 </tr><tr><td><code>V1014</code></td>
 <td>integer</td>
 <td>Panel group (1-8)</td>
-</tr><tr><td><code>ref_month</code></td>
+</tr><tr><td><code>ref_month_start</code></td>
 <td>Date</td>
-<td>Reference month (1st of month)</td>
+<td>Sunday of first IBGE week of the month</td>
+</tr><tr><td><code>ref_month_end</code></td>
+<td>Date</td>
+<td>Saturday of last IBGE week of the month</td>
 </tr><tr><td><code>ref_month_in_quarter</code></td>
 <td>integer</td>
 <td>Position in quarter (1, 2, 3) or NA</td>
 </tr><tr><td><code>ref_month_yyyymm</code></td>
 <td>integer</td>
-<td>YYYYMM format</td>
+<td>YYYYMM format (e.g., 202301)</td>
+</tr><tr><td><code>ref_month_weeks</code></td>
+<td>integer</td>
+<td>Number of IBGE weeks in month (always 4)</td>
 </tr><tr><td><code>determined_month</code></td>
 <td>logical</td>
 <td>TRUE if month was determined</td>
-</tr><tr><td><code>ref_fortnight</code></td>
+</tr><tr><td><code>ref_fortnight_start</code></td>
 <td>Date</td>
-<td>Reference fortnight (1st or 16th)</td>
+<td>Sunday of first IBGE week of the fortnight</td>
+</tr><tr><td><code>ref_fortnight_end</code></td>
+<td>Date</td>
+<td>Saturday of last IBGE week of the fortnight</td>
 </tr><tr><td><code>ref_fortnight_in_quarter</code></td>
 <td>integer</td>
 <td>Position in quarter (1-6) or NA</td>
@@ -150,15 +156,18 @@
 </tr><tr><td><code>determined_fortnight</code></td>
 <td>logical</td>
 <td>TRUE if fortnight was determined</td>
-</tr><tr><td><code>ref_week</code></td>
+</tr><tr><td><code>ref_week_start</code></td>
 <td>Date</td>
-<td>Reference week (Monday)</td>
+<td>Sunday of the IBGE week</td>
+</tr><tr><td><code>ref_week_end</code></td>
+<td>Date</td>
+<td>Saturday of the IBGE week</td>
 </tr><tr><td><code>ref_week_in_quarter</code></td>
 <td>integer</td>
-<td>Position in quarter (1-14) or NA</td>
+<td>Position in quarter (1-12) or NA</td>
 </tr><tr><td><code>ref_week_yyyyww</code></td>
 <td>integer</td>
-<td>ISO YYYYWW format</td>
+<td>IBGE YYYYWW format</td>
 </tr><tr><td><code>determined_week</code></td>
 <td>logical</td>
 <td>TRUE if week was determined</td>
@@ -183,17 +192,16 @@
 <div class="section level2">
 <h2 id="file-structure">File Structure<a class="anchor" aria-label="anchor" href="#file-structure"></a></h2>
 <pre><code>R/
-├── pnadc-identify-periods.R        # Main: pnadc_identify_periods() - nested 4-phase algorithm
-├── pnadc-apply-periods.R           # Main: pnadc_apply_periods() - includes internal smoothing
-├── identify-reference-month.R      # Core month algorithm with dynamic exceptions
-├── identify-reference-fortnight.R  # Core fortnight algorithm (household-level aggregation)
-├── identify-reference-week.R       # Core week algorithm (household-level aggregation)
-├── experimental-period-identification.R  # pnadc_experimental_periods() - probabilistic strategies
-├── calibrate-weights.R             # Legacy calibration + annual weight calibration
-├── fetch-sidra-population.R        # SIDRA API for population data
-├── utils-dates.R                   # Fast date utilities (lookup tables, ISO week functions)
-├── utils-validation.R              # Input validation utilities
-└── PNADCperiods-package.R          # Package docs + globalVariables</code></pre>
+├── pnadc-identify-periods.R         # pnadc_identify_periods() - nested 4-phase algorithm
+├── pnadc-apply-periods.R            # pnadc_apply_periods() - adaptive calibration + smoothing
+├── experimental-period-identification.R  # pnadc_experimental_periods() + combine_period_crosswalks()
+├── identify-reference-month.R       # Core month algorithm with dynamic exceptions (internal)
+├── identify-reference-fortnight.R   # Core fortnight algorithm (internal)
+├── identify-reference-week.R        # Core week algorithm + technical stop handling (internal)
+├── fetch-sidra-population.R         # fetch_monthly_population() - SIDRA API
+├── utils-dates.R                    # Fast IBGE date utilities (lookup tables, week/fortnight functions)
+├── utils-validation.R               # validate_pnadc() + internal helpers
+└── PNADCperiods-package.R           # Package docs + globalVariables</code></pre>
 </div>
 <div class="section level2">
 <h2 id="algorithm-details">Algorithm Details<a class="anchor" aria-label="anchor" href="#algorithm-details"></a></h2>
@@ -227,11 +235,17 @@
 <li>Apply birthday constraints within constrained range</li>
 <li><strong>Aggregate at household level <code>(Ano, Trimestre, UPA, V1008)</code> WITHIN QUARTER</strong></li>
 <li>Dynamic exception detection</li>
+<li>
+<strong>Technical Stop Handling:</strong>
+<ul><li>Rule 3.1: Quarter boundary stops → assign to week 12 (last week of quarter)</li>
+<li>Rule 3.2: Within-quarter stops → use household consensus when available</li>
+<li>Rule 3.3: Fallback → first valid week after technical stop</li>
+</ul></li>
 <li>Determine: if <code>min_position == max_position</code> → determined</li>
 </ol></div>
 <div class="section level3">
 <h3 id="phase-4-build-crosswalk">Phase 4: Build Crosswalk<a class="anchor" aria-label="anchor" href="#phase-4-build-crosswalk"></a></h3>
-<p>Combines results from all phases into the final crosswalk data.table.</p>
+<p>Combines results from all phases into the final crosswalk data.table with: - IBGE period boundaries (start/end dates as Sunday-Saturday) - Position codes (in_quarter) - YYYYMM/YYYYFF/YYYYWW integer codes - Determination flags</p>
 </div>
 </div>
 <div class="section level2">
@@ -242,55 +256,76 @@
 </tr></thead><tbody><tr><td><code>probabilistic</code></td>
 <td>For 2-period ranges, assigns based on which period contains most of the date interval. Works at UPA-V1014 level for months, household level for fortnights/weeks.</td>
 </tr><tr><td><code>upa_aggregation</code></td>
-<td>Extends strictly identified periods to other observations in same UPA-V1014 when a consensus exists.</td>
+<td>Extends strictly identified periods to other observations in same UPA/UPA-V1014 when a consensus exists.</td>
 </tr><tr><td><code>both</code></td>
 <td>Sequentially applies probabilistic first, then UPA aggregation. Guarantees identification rate &gt;= max of individual strategies.</td>
 </tr></tbody></table><p><strong>All strategies enforce proper nesting:</strong> experimental fortnights require identified months (strict or experimental), experimental weeks require identified fortnights (strict or experimental).</p>
 <div class="section level3">
 <h3 id="strategy-details">Strategy Details<a class="anchor" aria-label="anchor" href="#strategy-details"></a></h3>
 <ul><li>
-<strong>Probabilistic:</strong> Calculates confidence as the proportion of the date interval falling within the assigned period. Only assigns when confidence &gt;= threshold (default 0.9).</li>
+<strong>Probabilistic:</strong> Calculates confidence as the proportion of the date interval falling within the assigned period. Only assigns when confidence &gt;= threshold (default 0.9). Implements same dynamic exception detection as strict algorithm.</li>
 <li>
-<strong>UPA Aggregation:</strong> Requires a proportion &gt;= threshold (default 0.9) of observations in the UPA-V1014 group to have strict identification before extending to others.</li>
+<strong>UPA Aggregation:</strong> Uses UPA-V1014 level for months (panel design), UPA level for fortnights/weeks (all households in same UPA interviewed in same period within quarter). Requires proportion &gt;= threshold (default 0.5).</li>
 <li>
-<strong>Both:</strong> The two strategies operate independently (UPA aggregation considers only strict identifications), so the result is the union of both strategies.</li>
-</ul><p>Output columns: <code>ref_month_exp</code>, <code>ref_fortnight_exp</code>, <code>ref_week_exp</code> (positions) with corresponding <code>*_confidence</code> columns. The <code>probabilistic_assignment</code> flag indicates which observations were assigned experimentally vs strictly.</p>
-</div>
+<strong>Both:</strong> Strategies operate independently - probabilistic captures narrow ranges, UPA aggregation extends based on strict consensus. Result is union of both.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="output-columns">Output Columns<a class="anchor" aria-label="anchor" href="#output-columns"></a></h3>
+<p>When <code>include_derived = TRUE</code> (default), output is directly compatible with <code><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code>:</p>
+<table class="table"><colgroup><col width="38%"><col width="61%"></colgroup><thead><tr><th>Column</th>
+<th>Description</th>
+</tr></thead><tbody><tr><td>
+<code>ref_month_exp</code>, <code>ref_fortnight_exp</code>, <code>ref_week_exp</code>
+</td>
+<td>Experimental positions (1-3, 1-6, 1-12)</td>
+</tr><tr><td>
+<code>ref_month_exp_confidence</code>, etc.</td>
+<td>Confidence scores (0-1)</td>
+</tr><tr><td><code>probabilistic_assignment</code></td>
+<td>TRUE if any period assigned experimentally</td>
+</tr><tr><td>
+<code>determined_month</code>, <code>determined_fortnight</code>, <code>determined_week</code>
+</td>
+<td>Combined strict + experimental flags</td>
+</tr><tr><td>All derived columns from strict crosswalk</td>
+<td>IBGE boundaries, YYYYMM/FF/WW codes</td>
+</tr></tbody></table></div>
 </div>
 <div class="section level2">
 <h2 id="calibration-pipeline">Calibration Pipeline<a class="anchor" aria-label="anchor" href="#calibration-pipeline"></a></h2>
 <p>When <code>pnadc_apply_periods(..., calibrate = TRUE)</code>:</p>
 <ol style="list-style-type: decimal"><li>Join data with crosswalk</li>
 <li>Fetch population targets from SIDRA (or use provided targets)</li>
-<li>Create hierarchical calibration cells</li>
+<li>Create hierarchical calibration cells (auto-selected based on period)</li>
 <li>Iterative reweighting within anchor period (quarter or year)</li>
-<li>Calibrate to external population totals</li>
+<li>Calibrate to external population totals (FULL Brazilian population)</li>
 <li>Apply smoothing (period-specific)</li>
 </ol><div class="section level3">
 <h3 id="period-specific-calibration-settings">Period-Specific Calibration Settings<a class="anchor" aria-label="anchor" href="#period-specific-calibration-settings"></a></h3>
-<table class="table"><colgroup><col width="20%"><col width="33%"><col width="28%"><col width="17%"></colgroup><thead><tr><th>Period</th>
+<table class="table"><thead><tr><th>Period</th>
 <th>Cell Levels</th>
 <th>Smoothing</th>
-<th>Notes</th>
+<th>Min Cell Size</th>
 </tr></thead><tbody><tr><td>Month</td>
 <td>4 (full hierarchy)</td>
 <td>3-period rolling mean</td>
-<td>Full demographic/geographic cells</td>
+<td>10</td>
 </tr><tr><td>Fortnight</td>
 <td>2 (age + region)</td>
 <td>7-period rolling mean</td>
-<td>Simplified due to sparse data</td>
+<td>10</td>
 </tr><tr><td>Week</td>
 <td>1 (age only)</td>
 <td>None</td>
-<td>Minimal cells due to very sparse data</td>
-</tr></tbody></table></div>
+<td>10</td>
+</tr></tbody></table><p>Cell levels are auto-selected based on <code>calibration_unit</code> parameter. Levels with cells smaller than <code>min_cell_size</code> are skipped.</p>
+</div>
 <div class="section level3">
 <h3 id="calibration-cell-hierarchy">Calibration Cell Hierarchy<a class="anchor" aria-label="anchor" href="#calibration-cell-hierarchy"></a></h3>
 <ol style="list-style-type: decimal"><li>
 <strong>celula1:</strong> Age groups (0-13, 14-29, 30-59, 60+)</li>
 <li>
-<strong>celula2:</strong> Post-stratum group + age</li>
+<strong>celula2:</strong> Post-stratum group (posest_sxi) + age</li>
 <li>
 <strong>celula3:</strong> State (UF) + celula2</li>
 <li>
@@ -299,9 +334,18 @@
 <div class="section level3">
 <h3 id="anchor-types">Anchor Types<a class="anchor" aria-label="anchor" href="#anchor-types"></a></h3>
 <ul><li>
-<code>anchor = "quarter"</code>: Preserve quarterly totals, redistribute to sub-periods</li>
+<code>anchor = "quarter"</code>: Preserve quarterly totals, redistribute to sub-periods (use with V1028)</li>
 <li>
 <code>anchor = "year"</code>: Preserve annual totals (for annual PNADC data with V1032 weights)</li>
+</ul></div>
+<div class="section level3">
+<h3 id="output-weight-columns">Output Weight Columns<a class="anchor" aria-label="anchor" href="#output-weight-columns"></a></h3>
+<ul><li>
+<code>weight_monthly</code>: Calibrated monthly weight (when <code>calibration_unit = "month"</code>)</li>
+<li>
+<code>weight_fortnight</code>: Calibrated fortnight weight (when <code>calibration_unit = "fortnight"</code>)</li>
+<li>
+<code>weight_weekly</code>: Calibrated weekly weight (when <code>calibration_unit = "week"</code>)</li>
 </ul></div>
 </div>
 <div class="section level2">
@@ -322,8 +366,8 @@
 </ol></div>
 <div class="section level2">
 <h2 id="dependencies">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies"></a></h2>
-<p><strong>Required:</strong> - <code>data.table</code> (&gt;= 1.14.0) - Core data manipulation - <code>checkmate</code> (&gt;= 2.0.0) - Input validation</p>
-<p><strong>Suggested:</strong> - <code>sidrar</code> - SIDRA API access for population data - <code>testthat</code> - Testing - <code>knitr</code>, <code>rmarkdown</code> - Vignettes - <code>pkgdown</code> - Website</p>
+<p><strong>Required:</strong> - <code>data.table</code> (&gt;= 1.14.0) - Core data manipulation - <code>checkmate</code> (&gt;= 2.0.0) - Input validation - <code>sidrar</code> (&gt;= 0.2.9) - SIDRA API access for population data</p>
+<p><strong>Suggested:</strong> - <code>dplyr</code> - Alternative data manipulation - <code>haven</code> - Read SAS/SPSS/Stata files - <code>testthat</code> (&gt;= 3.0.0) - Testing - <code>knitr</code>, <code>rmarkdown</code> - Vignettes - <code>pkgdown</code> - Website - <code>ggplot2</code>, <code>scales</code> - Visualization</p>
 </div>
 <div class="section level2">
 <h2 id="workflow-examples">Workflow Examples<a class="anchor" aria-label="anchor" href="#workflow-examples"></a></h2>
@@ -361,9 +405,19 @@
 <span><span class="va">crosswalk_exp</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods</a></span><span class="op">(</span></span>
 <span>  <span class="va">crosswalk</span>,</span>
 <span>  <span class="va">pnadc_data</span>,</span>
-<span>  strategy <span class="op">=</span> <span class="st">"probabilistic"</span>,</span>
-<span>  confidence_threshold <span class="op">=</span> <span class="fl">0.9</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<span>  strategy <span class="op">=</span> <span class="st">"both"</span>,  <span class="co"># probabilistic + UPA aggregation</span></span>
+<span>  confidence_threshold <span class="op">=</span> <span class="fl">0.9</span>,</span>
+<span>  upa_proportion_threshold <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>  include_derived <span class="op">=</span> <span class="cn">TRUE</span>  <span class="co"># Output compatible with pnadc_apply_periods()</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Use directly with calibration</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc_data</span>, <span class="va">crosswalk_exp</span>,</span>
+<span>                              weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
+<span>                              anchor <span class="op">=</span> <span class="st">"quarter"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Filter to strict-only if needed</span></span>
+<span><span class="va">strict_only</span> <span class="op">&lt;-</span> <span class="va">crosswalk_exp</span><span class="op">[</span><span class="va">probabilistic_assignment</span> <span class="op">==</span> <span class="cn">FALSE</span> <span class="op">|</span> <span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">probabilistic_assignment</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">

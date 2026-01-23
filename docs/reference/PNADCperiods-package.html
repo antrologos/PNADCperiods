@@ -61,7 +61,7 @@ allowing for analyzing the survey data at sub-quarterly temporal granularity.</p
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The package offers three main capabilities:</p><ol><li><p><strong>Reference period identification</strong>: Determines which temporal
 period (month, fortnight, or week) within each quarter each survey
-observation refers to, using IBGE's "Parada Tecnica" rules and
+observation refers to, using IBGE's "Parada Técnica" rules and
 respondent birthdates. The identification is <strong>nested by construction</strong>:
 fortnights require months, and weeks require fortnights.</p></li>
 <li><p><strong>Period-specific weight calibration</strong>: Adjusts survey weights
@@ -71,8 +71,8 @@ for sub-quarterly estimates using adaptive hierarchical rake weighting
 aggregation to boost fortnight/week determination rates for sensitivity
 analysis</p></li>
 </ol><p><strong>Determination rates (strict):</strong></p><ul><li><p>Monthly: ~97\<!-- % (with stacked multi-quarter data) --></p></li>
-<li><p>Fortnight: ~7-8\<!-- % --></p></li>
-<li><p>Week: ~1-2\<!-- % --></p></li>
+<li><p>Fortnight: ~6-8\<!-- % --></p></li>
+<li><p>Week: ~1.5\<!-- % --></p></li>
 </ul><p><strong>With experimental strategies:</strong></p><ul><li><p>Fortnight: up to ~60\<!-- % (via UPA aggregation leveraging 100\\% homogeneity) --></p></li>
 <li><p>Week: up to ~15\<!-- % --></p></li>
 </ul><p>The package is highly optimized for large datasets: approximately 2.5 minutes to
@@ -91,7 +91,7 @@ PNADC dataset and optionally calibrates weights</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-    <p>IBGE Manual Basico da Entrevista PNADC (methodology on "Parada Tecnica")</p>
+    <p>IBGE Manual Básico da Entrevista PNADC (methodology on "Parada Técnica")</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

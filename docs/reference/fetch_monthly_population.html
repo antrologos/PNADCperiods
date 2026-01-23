@@ -55,7 +55,9 @@ transforms from moving-quarter to exact monthly values.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fetch_monthly_population</span><span class="op">(</span></span>
 <span>  start_yyyymm <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  end_yyyymm <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  use_cache <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  cache_max_age_hours <span class="op">=</span> <span class="fl">24</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -75,6 +77,16 @@ If NULL, returns all available months.</p></dd>
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>Logical. Print progress messages? Default TRUE.</p></dd>
+
+
+<dt id="arg-use-cache">use_cache<a class="anchor" aria-label="anchor" href="#arg-use-cache"></a></dt>
+<dd><p>Logical. If TRUE (default), uses cached data if available
+and not expired. Set to FALSE to force a fresh download from SIDRA API.</p></dd>
+
+
+<dt id="arg-cache-max-age-hours">cache_max_age_hours<a class="anchor" aria-label="anchor" href="#arg-cache-max-age-hours"></a></dt>
+<dd><p>Numeric. Maximum cache age in hours before
+automatic expiration. Default 24 hours.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -127,7 +127,9 @@ progress bar. Default is 0.</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A data.table with the original key columns plus:</p><ul><li><p><code>ref_week_start</code>: Reference week start (Sunday of IBGE week)</p></li>
 <li><p><code>ref_week_end</code>: Reference week end (Saturday of IBGE week)</p></li>
-<li><p><code>ref_week_in_quarter</code>: Position in quarter (1-14) or NA if indeterminate</p></li>
+<li><p><code>ref_week_in_quarter</code>: Position in quarter (1-12, always 4 weeks
+per month × 3 months = 12 weeks per quarter) or NA if indeterminate.
+Technical stops are handled via fallback rules (see Technical Stops section).</p></li>
 <li><p><code>ref_week_yyyyww</code>: Integer YYYYWW format (IBGE-based)</p></li>
 </ul></div>
     <div class="section level2">
@@ -150,8 +152,8 @@ only, because households are NOT interviewed in the same week across quarterly v
 <h3 id="expected-determination-rate">Expected Determination Rate<a class="anchor" aria-label="anchor" href="#expected-determination-rate"></a></h3>
 
 
-<p>The weekly determination rate (~1-2%) is much lower than monthly (~97%) because:</p><ul><li><p>Cannot aggregate across quarters (no consistent week position in panel design)</p></li>
-<li><p>Finer granularity (13-14 weeks vs 3 months per quarter)</p></li>
+<p>The weekly determination rate (~1.5%) is much lower than monthly (~97%) because:</p><ul><li><p>Cannot aggregate across quarters (no consistent week position in panel design)</p></li>
+<li><p>Finer granularity (12 weeks vs 3 months per quarter)</p></li>
 <li><p>Birthday constraints rarely narrow the interview window to a single 7-day period</p></li>
 </ul></div>
 
@@ -162,6 +164,29 @@ only, because households are NOT interviewed in the same week across quarterly v
 <p>Weeks follow IBGE reference calendar:</p><ul><li><p>Weeks start on Sunday and end on Saturday</p></li>
 <li><p>A week belongs to the IBGE month where its Saturday falls</p></li>
 <li><p>The first valid Saturday must have &gt;= 4 days in the month</p></li>
+<li><p>Each IBGE month has exactly 4 reference weeks (28 days)</p></li>
+<li><p>Each IBGE quarter has exactly 12 reference weeks</p></li>
+</ul></div>
+
+<div class="section">
+<h3 id="technical-stops-paradas-t-cnicas-">Technical Stops (Paradas Técnicas)<a class="anchor" aria-label="anchor" href="#technical-stops-paradas-t-cnicas-"></a></h3>
+
+
+<p>Technical stops are periods (full weeks from Sunday to Saturday) that fall
+between valid IBGE reference weeks. They are NOT part of any IBGE month.
+When a person's possible date range falls entirely within a technical stop,
+the following rules are applied:</p>
+<ul><li><p><strong>Rule 3.1 - Quarter boundary</strong>: If the technical stop is between
+quarters, the interview is assigned to the last valid week of the quarter
+the observation belongs to (week 12), since interviews must belong to
+their source quarter.</p></li>
+<li><p><strong>Rule 3.2 - Household consensus</strong>: If the technical stop is within
+a quarter, the algorithm checks if other household members have a valid
+week assignment. If all assigned members agree on a single week, that
+week is used.</p></li>
+<li><p><strong>Rule 3.3 - Fallback</strong>: If no household consensus exists, the
+interview is assigned to the first valid week AFTER the technical stop
+(that still belongs to the same quarter).</p></li>
 </ul></div>
 
     </div>
