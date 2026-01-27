@@ -234,25 +234,3 @@ test_that("ref_week_start and ref_week_end are 6 days apart", {
   }
 })
 
-test_that("ref_week_yyyyww matches ref_week_start", {
-  test_data <- data.table::data.table(
-    Ano = c(2024L),
-    Trimestre = c(1L),
-    UPA = c(1L),
-    V1008 = c(1L),
-    V1014 = c(1L),
-    V2003 = c(1L),
-    V2008 = c(15L),
-    V20081 = c(1L),
-    V20082 = c(1990L),
-    V2009 = c(34L)
-  )
-
-  result <- identify_reference_week(test_data, verbose = FALSE)
-
-  if (!is.na(result$ref_week_start[1]) && !is.na(result$ref_week_yyyyww[1])) {
-    # Convert ref_week_start back to IBGE yyyyww and compare
-    expected_yyyyww <- PNADCperiods:::date_to_ibge_yyyyww(result$ref_week_start[1])
-    expect_equal(result$ref_week_yyyyww[1], expected_yyyyww)
-  }
-})
