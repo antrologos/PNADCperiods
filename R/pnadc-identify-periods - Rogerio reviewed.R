@@ -785,8 +785,17 @@ pnadc_identify_periods <- function(data, verbose = TRUE, store_date_bounds = FAL
               ref_week_in_month,
               ref_week_in_quarter,
 
-              #date_max,
-              #date_min,
+              date_max,
+              date_min,
+
+              month_max_upa = upa_month_max_final,
+              month_min_upa = upa_month_min_final,
+
+              fortnight_max_hh = hh_fortnight_max,
+              fortnight_min_hh = hh_fortnight_min,
+
+              week_min_hh = hh_week_min,
+              week_max_hh = hh_week_max,
 
               week_1_start,
               week_1_end,
@@ -802,7 +811,7 @@ pnadc_identify_periods <- function(data, verbose = TRUE, store_date_bounds = FAL
     ]
   }
 
-  dt = unique(dt)
+  #dt = unique(dt)
 
   dt[, `:=`(
 
