@@ -19,7 +19,7 @@
 #'
 #' @param crosswalk A crosswalk data.table from \code{pnadc_identify_periods()}
 #' @param strategy Character specifying which strategy to apply.
-#'   Options: "none", "probabilistic", "upa_aggregation", "both"
+#'   Options: "probabilistic", "upa_aggregation", "both"
 #' @param confidence_threshold Numeric (0-1). Minimum confidence required to
 #'   assign a probabilistic period. Used by probabilistic and combined strategies.
 #'   Default 0.9.
@@ -28,36 +28,23 @@
 #'   for extending to unidentified observations. Default 0.5.
 #' @param verbose Logical. If TRUE, print progress information.
 #'
-#' @return A modified crosswalk with additional columns.
-#'   (default), output is directly compatible with \code{pnadc_apply_periods()}:
+#' @return A modified crosswalk with additional columns. Output is directly compatible
+#'   with \code{pnadc_apply_periods()}:
 #'   \itemize{
-#'     \item \strong{Experimental columns} (always included):
-#'     \itemize{
-#'       \item \code{ref_month_in_quarter_aggreg}: Experimentally assigned month position in quarter (1-3, or NA)
-#'       \item \code{ref_month_in_quarter_aggreg_confidence}: Confidence of month assignment (0-1, proportion
-#'         of date interval in assigned period; values below threshold are removed)
-#'       \item \code{ref_fortnight_in_month_aggreg}: Experimentally assigned fortnight position in quarter (1-6, or NA)
-#'       \item \code{ref_fortnight_in_month_aggreg_confidence}: Confidence of fortnight assignment (0-1)
-#'       \item \code{ref_week_in_month_aggreg}: Experimentally assigned week position in quarter (1-12, or NA)
-#'       \item \code{ref_week_in_month_aggreg_confidence}: Confidence of week assignment (0-1)
-#'     }
-#'     \item \strong{Derived columns} (when \code{include_derived = TRUE}):
-#'     \itemize{
-#'       \item \code{ref_month_start}, \code{ref_month_end}, \code{ref_month_in_quarter},
-#'         \code{ref_month_yyyymm}, \code{ref_month_weeks}: Combined strict + experimental month
-#'         (strict takes priority). Start/end are Sunday/Saturday of IBGE month boundaries.
-#'       \item \code{determined_month}: TRUE if month is assigned (strictly or experimentally)
-#'       \item \code{ref_fortnight_start}, \code{ref_fortnight_end}, \code{ref_fortnight_in_quarter},
-#'         \code{ref_fortnight_yyyyff}: Combined strict + experimental fortnight.
-#'         Start/end are Sunday/Saturday of IBGE fortnight boundaries.
-#'       \item \code{determined_fortnight}: TRUE if fortnight is assigned
-#'       \item \code{ref_week_start}, \code{ref_week_end}, \code{ref_week_in_quarter},
-#'         \code{ref_week_yyyyww}: Combined strict + experimental week.
-#'         Start/end are Sunday/Saturday of IBGE week boundaries.
-#'       \item \code{determined_week}: TRUE if week is assigned
-#'       \item \code{probabilistic_assignment}: TRUE if any period was assigned experimentally
-#'         (vs strictly deterministic)
-#'     }
+#'     \item \code{ref_month_in_quarter}, \code{ref_month_in_year}, \code{ref_month_yyyymm}:
+#'       Month position (combined strict + experimental, strict takes priority)
+#'     \item \code{ref_fortnight_in_month}, \code{ref_fortnight_in_quarter}, \code{ref_fortnight_yyyyff}:
+#'       Fortnight position (combined strict + experimental)
+#'     \item \code{ref_week_in_month}, \code{ref_week_in_quarter}, \code{ref_week_yyyyww}:
+#'       Week position (combined strict + experimental)
+#'     \item \code{determined_month}, \code{determined_fortnight}, \code{determined_week}:
+#'       TRUE if period is assigned (strictly or experimentally)
+#'     \item \code{determined_probable_month}, \code{determined_probable_fortnight},
+#'       \code{determined_probable_week}: TRUE if period was assigned by probabilistic strategy
+#'     \item \code{probabilistic_assignment}: TRUE if any period was assigned experimentally
+#'       (vs strictly deterministic)
+#'     \item \code{week_1_start}, \code{week_1_end}, ..., \code{week_4_start}, \code{week_4_end}:
+#'       IBGE week boundaries for the assigned month
 #'   }
 #'
 #' @details
@@ -80,15 +67,15 @@
 #'   \item Only assign if confidence >= \code{confidence_threshold}
 #' }
 #'
-#' For months: aggregates at UPA-V1014 level (but within-quarter, unlike strict algorithm)
-#' For fortnights and weeks: works at household level
+#' For months: aggregates at UPA-V1014 level across all quarters (like strict algorithm)
+#' For fortnights and weeks: works at household level within quarter
 #'
 #' ## UPA Aggregation Strategy
 #'
 #' Extends strictly identified periods based on consensus within geographic groups:
 #' \itemize{
-#'   \item \strong{Months}: Uses UPA-V1014 level (panel design ensures same month)
-#'   \item \strong{Fortnights/Weeks}: Uses UPA level (all households in same UPA
+#'   \item \strong{Months}: Uses UPA level within quarter
+#'   \item \strong{Fortnights/Weeks}: Uses UPA level within quarter (all households in same UPA
 #'     are interviewed in same fortnight/week within a quarter)
 #' }
 #' \enumerate{
@@ -227,6 +214,10 @@ pnadc_experimental_periods <- function(
 #' @keywords internal
 #' @noRd
 .apply_probabilistic <- function(crosswalk, confidence_threshold, verbose) {
+
+  # Helper functions for safe min/max that don't produce warnings on all-NA vectors
+  safe_min <- function(x) { x <- x[!is.na(x)]; if (length(x) == 0L) NA_real_ else min(x) }
+  safe_max <- function(x) { x <- x[!is.na(x)]; if (length(x) == 0L) NA_real_ else max(x) }
 
   # ==========================================================================
   # PRE-COMPUTE ALL IBGE BOUNDARIES ONCE
@@ -371,11 +362,9 @@ pnadc_experimental_periods <- function(
   # Calculating days within months 1 and 2
   crosswalk[month_prob_filter == 1 & month_max_upa == 2 & month_min_upa == 1,
             `:=`(
-              days_within_month_1_min1_max2 = pmax(0, week_4_end - date_min     + 1),
-              days_within_month_2_min1_max2 = pmax(0, date_max   - week_5_start + 1)
+              days_within_month_1_min1_max2 = fifelse(is.na(week_4_end) | is.na(date_min), 0L, pmax(0L, as.integer(week_4_end - date_min + 1))),
+              days_within_month_2_min1_max2 = fifelse(is.na(date_max) | is.na(week_5_start), 0L, pmax(0L, as.integer(date_max - week_5_start + 1)))
             )]
-  attributes(crosswalk$days_within_month_1_min1_max2) <- NULL
-  attributes(crosswalk$days_within_month_2_min1_max2) <- NULL
 
   # Calculating share of days within months 1 and 2
   crosswalk[month_prob_filter == 1 & month_max_upa == 2 & month_min_upa == 1,
@@ -407,11 +396,9 @@ pnadc_experimental_periods <- function(
   # Calculating days within months 2 and 3
   crosswalk[month_prob_filter == 1 & month_max_upa == 3 & month_min_upa == 2,
             `:=`(
-              days_within_month_2_min2_max3 = pmax(0, week_8_end - date_min     + 1),
-              days_within_month_3_min2_max3 = pmax(0, date_max   - week_9_start + 1)
+              days_within_month_2_min2_max3 = fifelse(is.na(week_8_end) | is.na(date_min), 0L, pmax(0L, as.integer(week_8_end - date_min + 1))),
+              days_within_month_3_min2_max3 = fifelse(is.na(date_max) | is.na(week_9_start), 0L, pmax(0L, as.integer(date_max - week_9_start + 1)))
             )]
-  attributes(crosswalk$days_within_month_2_min2_max3) <- NULL
-  attributes(crosswalk$days_within_month_3_min2_max3) <- NULL
 
   # Calculating share of days within months 2 and 3
   crosswalk[month_prob_filter == 1 & month_max_upa == 3 & month_min_upa == 2,
@@ -444,8 +431,8 @@ pnadc_experimental_periods <- function(
   # Aggregating by UPA-V1014 across quarters
   crosswalk[month_prob_filter == 1,
             `:=`(
-              prob_ref_month_in_quarter_min = min(prob_ref_month_in_quarter, na.rm = T),
-              prob_ref_month_in_quarter_max = max(prob_ref_month_in_quarter, na.rm = T)
+              prob_ref_month_in_quarter_min = safe_min(prob_ref_month_in_quarter),
+              prob_ref_month_in_quarter_max = safe_max(prob_ref_month_in_quarter)
             ),
             by = c("UPA", "V1014")]
 
@@ -482,15 +469,6 @@ pnadc_experimental_periods <- function(
               prob_ref_month_in_quarter     = NULL,
               prob_ref_month_in_quarter_min = NULL,
               prob_ref_month_in_quarter_max = NULL,
-
-              week_1_start  = NULL,
-              week_1_end    = NULL,
-              week_2_start  = NULL,
-              week_2_end    = NULL,
-              week_3_start  = NULL,
-              week_3_end    = NULL,
-              week_4_start  = NULL,
-              week_4_end    = NULL,
 
               week_5_start  = NULL,
               week_5_end    = NULL,
@@ -578,11 +556,9 @@ pnadc_experimental_periods <- function(
   # Calculating days within fortnights 1 and 2
   crosswalk[fortnight_prob_filter == 1,
             `:=`(
-              days_within_fortnight_1 = pmax(0, week_2_end - date_min     + 1),
-              days_within_fortnight_2 = pmax(0, date_max   - week_3_start + 1)
+              days_within_fortnight_1 = fifelse(is.na(week_2_end) | is.na(date_min), 0L, pmax(0L, as.integer(week_2_end - date_min + 1))),
+              days_within_fortnight_2 = fifelse(is.na(date_max) | is.na(week_3_start), 0L, pmax(0L, as.integer(date_max - week_3_start + 1)))
             )]
-  attributes(crosswalk$days_within_fortnight_1) <- NULL
-  attributes(crosswalk$days_within_fortnight_2) <- NULL
 
   # Calculating share of days within fortnights 1 and 2
   crosswalk[fortnight_prob_filter == 1,
@@ -610,8 +586,8 @@ pnadc_experimental_periods <- function(
   # Aggregating by household within quarter (not by UPA-V1014 across quarters)
   crosswalk[fortnight_prob_filter == 1,
             `:=`(
-              prob_ref_fortnight_in_month_min = min(prob_ref_fortnight_in_month, na.rm = T),
-              prob_ref_fortnight_in_month_max = max(prob_ref_fortnight_in_month, na.rm = T)
+              prob_ref_fortnight_in_month_min = safe_min(prob_ref_fortnight_in_month),
+              prob_ref_fortnight_in_month_max = safe_max(prob_ref_fortnight_in_month)
             ),
             by = c("Ano", "Trimestre", "UPA", "V1008")]
 
@@ -625,7 +601,7 @@ pnadc_experimental_periods <- function(
 
   crosswalk[fortnight_prob_filter == 1 & !is.na(ref_fortnight_in_month),
             `:=`(
-              ref_fortnight_in_quarter = ref_fortnight_in_month + (Trimestre - 1)*2
+              ref_fortnight_in_quarter = ref_fortnight_in_month + (ref_month_in_quarter - 1)*2
             )]
 
 
@@ -692,11 +668,9 @@ pnadc_experimental_periods <- function(
   # Calculating days within weeks 1 and 2
   crosswalk[week_prob_filter == 1 & ref_fortnight_in_month == 1,
             `:=`(
-              days_within_week_1 = pmax(0, week_1_end - date_min     + 1),
-              days_within_week_2 = pmax(0, date_max   - week_2_start + 1)
+              days_within_week_1 = fifelse(is.na(week_1_end) | is.na(date_min), 0L, pmax(0L, as.integer(week_1_end - date_min + 1))),
+              days_within_week_2 = fifelse(is.na(date_max) | is.na(week_2_start), 0L, pmax(0L, as.integer(date_max - week_2_start + 1)))
             )]
-  attributes(crosswalk$days_within_week_1) <- NULL
-  attributes(crosswalk$days_within_week_2) <- NULL
 
   # Calculating share of days within weeks 1 and 2
   crosswalk[week_prob_filter == 1 & ref_fortnight_in_month == 1,
@@ -726,11 +700,9 @@ pnadc_experimental_periods <- function(
   # Calculating days within weeks 3 and 4
   crosswalk[week_prob_filter == 1 & ref_fortnight_in_month == 2,
             `:=`(
-              days_within_week_3 = pmax(0, week_1_end - date_min     + 1),
-              days_within_week_4 = pmax(0, date_max   - week_2_start + 1)
+              days_within_week_3 = fifelse(is.na(week_3_end) | is.na(date_min), 0L, pmax(0L, as.integer(week_3_end - date_min + 1))),
+              days_within_week_4 = fifelse(is.na(date_max) | is.na(week_4_start), 0L, pmax(0L, as.integer(date_max - week_4_start + 1)))
             )]
-  attributes(crosswalk$days_within_week_3) <- NULL
-  attributes(crosswalk$days_within_week_4) <- NULL
 
   # Calculating share of days within weeks 3 and 4
   crosswalk[week_prob_filter == 1 & ref_fortnight_in_month == 2,
@@ -764,8 +736,8 @@ pnadc_experimental_periods <- function(
   # Aggregating by households within quarters (not by UPA-V1014 across quarters)
   crosswalk[week_prob_filter == 1,
             `:=`(
-              prob_ref_week_in_month_min = min(prob_ref_week_in_month, na.rm = T),
-              prob_ref_week_in_month_max = max(prob_ref_week_in_month, na.rm = T)
+              prob_ref_week_in_month_min = safe_min(prob_ref_week_in_month),
+              prob_ref_week_in_month_max = safe_max(prob_ref_week_in_month)
             ),
             by = c("Ano", "Trimestre", "UPA", "V1008")]
 
@@ -777,9 +749,9 @@ pnadc_experimental_periods <- function(
                  probabilistic_assignment = TRUE)]
 
 
-  crosswalk[week_prob_filter == 1 & !is.na(ref_week_in_quarter),
+  crosswalk[week_prob_filter == 1 & !is.na(ref_week_in_month),
             `:=`(
-              ref_week_in_quarter = ref_week_in_month + (Trimestre - 1)*4
+              ref_week_in_quarter = ref_week_in_month + (ref_month_in_quarter - 1)*4
             )]
 
   # Cleaning up
@@ -900,7 +872,7 @@ pnadc_experimental_periods <- function(
 
   # tmp columns
   crosswalk[, `:=`(
-    ref_month_in_quarter_aggreg            = NA_real_,
+    ref_month_in_quarter_aggreg            = NA_integer_,
     ref_month_in_quarter_aggreg_confidence = NA_real_)]
 
 
@@ -941,7 +913,7 @@ pnadc_experimental_periods <- function(
   if (verbose) cat("  Phase 2: Fortnight UPA aggregation (nested)...\n")
 
   crosswalk[, `:=`(
-    ref_fortnight_in_month_aggreg            = NA_real_,
+    ref_fortnight_in_month_aggreg            = NA_integer_,
     ref_fortnight_in_month_aggreg_confidence = NA_real_)]
 
   # Calculate proportion of UPA (not UPA-V1014) within-quarter with identified fortnight
@@ -966,18 +938,18 @@ pnadc_experimental_periods <- function(
     crosswalk[, month_identified := !is.na(ref_month_in_quarter) | !is.na(ref_month_in_quarter_aggreg)]
     crosswalk[month_identified == TRUE, `:=`(
       effective_month =  fifelse(!is.na(ref_month_in_quarter), ref_month_in_quarter, ref_month_in_quarter_aggreg),
-      fortnight_lower = (fifelse(!is.na(ref_month_in_quarter), ref_month_in_quarter, ref_month_in_quarter_aggreg) - 1L) + 1L,
-      fortnight_upper =  fifelse(!is.na(ref_month_in_quarter), ref_month_in_quarter, ref_month_in_quarter_aggreg)
+      fortnight_lower = 1L,
+      fortnight_upper = 2L
     )]
 
     # Join consensus_fortnight and validate it's within the month's fortnight bounds
-    # INVARIANT: Also validate consensus_fortnight is in [1, 6] range
+    # INVARIANT: Also validate consensus_fortnight is in [1, 2] range (fortnight within month)
     crosswalk[upa_fortnight_qualify, on = .(Ano, Trimestre, UPA), `:=`(
       ref_fortnight_in_month_aggreg = fifelse(
         is.na(ref_fortnight_in_quarter) & month_identified &
           i.consensus_fortnight >= fortnight_lower &
           i.consensus_fortnight <= fortnight_upper &
-          i.consensus_fortnight >= 1L & i.consensus_fortnight <= 6L,
+          i.consensus_fortnight >= 1L & i.consensus_fortnight <= 2L,
         i.consensus_fortnight,
         ref_fortnight_in_month_aggreg
       ),
@@ -1006,7 +978,7 @@ pnadc_experimental_periods <- function(
   if (verbose) cat("  Phase 3: Week UPA aggregation (nested)...\n")
 
   crosswalk[, `:=`(
-    ref_week_in_month_aggreg            = NA_real_,
+    ref_week_in_month_aggreg            = NA_integer_,
     ref_week_in_month_aggreg_confidence = NA_real_)]
 
   # Calculate proportion of UPA within-quarter with identified week
@@ -1096,7 +1068,7 @@ pnadc_experimental_periods <- function(
             ref_week_in_month_aggreg_confidence       = NULL)]
 
   crosswalk[, `:=`(
-    ref_month_in_year        = ref_month_in_year + (Trimestre - 1)*3,
+    ref_month_in_year        = ref_month_in_quarter + (Trimestre - 1)*3,
     ref_fortnight_in_quarter = ref_fortnight_in_month + (ref_month_in_quarter - 1)*2,
     ref_week_in_quarter      = ref_week_in_month + (ref_month_in_quarter - 1)*4
 
@@ -1110,7 +1082,12 @@ pnadc_experimental_periods <- function(
   )]
 
 
-  crosswalk[, probabilistic_assignment := determined_aggreg_month | determined_aggreg_fortnight | determined_aggreg_week]
+  # Update probabilistic_assignment flag only if it already exists (from probabilistic strategy in "both" mode)
+  # UPA aggregation standalone intentionally does not create this column
+  if ("probabilistic_assignment" %in% names(crosswalk)) {
+    crosswalk[, probabilistic_assignment := data.table::fcoalesce(probabilistic_assignment, FALSE) |
+                determined_aggreg_month | determined_aggreg_fortnight | determined_aggreg_week]
+  }
 
 
   if (verbose) {

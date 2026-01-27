@@ -751,18 +751,21 @@ pnadc_identify_periods <- function(data, verbose = TRUE, store_date_bounds = FAL
     dt[!is.na(ref_fortnight_in_month),
        `:=`(
          date_min  = fifelse(ref_fortnight_in_month == 1L & is.na(date_min), week_1_start, date_min),
-         date_max  = fifelse(ref_fortnight_in_month == 1L & is.na(date_max), week_2_end,   date_max))][,
+         date_max  = fifelse(ref_fortnight_in_month == 1L & is.na(date_max), week_2_end,   date_max))]
+
+    dt[!is.na(ref_fortnight_in_month),
        `:=`(
          date_min  = fifelse(ref_fortnight_in_month == 2L & is.na(date_min), week_3_start, date_min),
          date_max  = fifelse(ref_fortnight_in_month == 2L & is.na(date_max), week_4_end,   date_max)
          )]
 
-
     dt[!is.na(ref_fortnight_in_month),
        `:=`(
          date_min  = fifelse(ref_fortnight_in_month == 1L & date_min < week_1_start, week_1_start, date_min),
          date_max  = fifelse(ref_fortnight_in_month == 1L & date_max > week_2_end,   week_2_end,   date_max)
-       )][,
+       )]
+
+    dt[!is.na(ref_fortnight_in_month),
        `:=`(
          date_min  = fifelse(ref_fortnight_in_month == 2L & date_min < week_3_start, week_3_start, date_min),
          date_max  = fifelse(ref_fortnight_in_month == 2L & date_max > week_4_end,   week_4_end,   date_max)

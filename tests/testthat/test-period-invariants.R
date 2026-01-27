@@ -300,15 +300,15 @@ test_that("experimental strategies never produce invalid week values", {
 
   # Test probabilistic strategy
   result_prob <- pnadc_experimental_periods(
-    crosswalk, test_data,
+    crosswalk,
     strategy = "probabilistic",
     confidence_threshold = 0.9,
     verbose = FALSE
   )
 
-  # Check ref_week_exp is always 1-12 or NA
-  invalid_weeks <- result_prob[!is.na(ref_week_exp) &
-                                 (ref_week_exp < 1L | ref_week_exp > 12L)]
+  # Check ref_week_in_month is always 1-4 or NA (experimental strategies update main columns)
+  invalid_weeks <- result_prob[!is.na(ref_week_in_month) &
+                                 (ref_week_in_month < 1L | ref_week_in_month > 4L)]
   expect_equal(nrow(invalid_weeks), 0L,
                info = paste("Probabilistic strategy produced", nrow(invalid_weeks), "invalid week values"))
 
@@ -320,8 +320,8 @@ test_that("experimental strategies never produce invalid week values", {
     verbose = FALSE
   )
 
-  invalid_weeks_upa <- result_upa[!is.na(ref_week_exp) &
-                                    (ref_week_exp < 1L | ref_week_exp > 12L)]
+  invalid_weeks_upa <- result_upa[!is.na(ref_week_in_month) &
+                                    (ref_week_in_month < 1L | ref_week_in_month > 4L)]
   expect_equal(nrow(invalid_weeks_upa), 0L,
                info = paste("UPA aggregation produced", nrow(invalid_weeks_upa), "invalid week values"))
 })
@@ -332,15 +332,15 @@ test_that("experimental strategies never produce invalid fortnight values", {
 
   # Test probabilistic strategy
   result_prob <- pnadc_experimental_periods(
-    crosswalk, test_data,
+    crosswalk,
     strategy = "probabilistic",
     confidence_threshold = 0.9,
     verbose = FALSE
   )
 
-  # Check ref_fortnight_exp is always 1-6 or NA
-  invalid_fortnights <- result_prob[!is.na(ref_fortnight_exp) &
-                                      (ref_fortnight_exp < 1L | ref_fortnight_exp > 6L)]
+  # Check ref_fortnight_in_month is always 1-2 or NA (experimental strategies update main columns)
+  invalid_fortnights <- result_prob[!is.na(ref_fortnight_in_month) &
+                                      (ref_fortnight_in_month < 1L | ref_fortnight_in_month > 2L)]
   expect_equal(nrow(invalid_fortnights), 0L,
                info = paste("Probabilistic strategy produced", nrow(invalid_fortnights),
                            "invalid fortnight values"))
@@ -353,8 +353,8 @@ test_that("experimental strategies never produce invalid fortnight values", {
     verbose = FALSE
   )
 
-  invalid_fortnights_upa <- result_upa[!is.na(ref_fortnight_exp) &
-                                         (ref_fortnight_exp < 1L | ref_fortnight_exp > 6L)]
+  invalid_fortnights_upa <- result_upa[!is.na(ref_fortnight_in_month) &
+                                         (ref_fortnight_in_month < 1L | ref_fortnight_in_month > 2L)]
   expect_equal(nrow(invalid_fortnights_upa), 0L,
                info = paste("UPA aggregation produced", nrow(invalid_fortnights_upa),
                            "invalid fortnight values"))
@@ -366,15 +366,15 @@ test_that("experimental strategies never produce invalid month values", {
 
   # Test probabilistic strategy
   result_prob <- pnadc_experimental_periods(
-    crosswalk, test_data,
+    crosswalk,
     strategy = "probabilistic",
     confidence_threshold = 0.9,
     verbose = FALSE
   )
 
-  # Check ref_month_exp is always 1-3 or NA
-  invalid_months <- result_prob[!is.na(ref_month_exp) &
-                                  (ref_month_exp < 1L | ref_month_exp > 3L)]
+  # Check ref_month_in_quarter is always 1-3 or NA (experimental strategies update main columns)
+  invalid_months <- result_prob[!is.na(ref_month_in_quarter) &
+                                  (ref_month_in_quarter < 1L | ref_month_in_quarter > 3L)]
   expect_equal(nrow(invalid_months), 0L,
                info = paste("Probabilistic strategy produced", nrow(invalid_months),
                            "invalid month values"))
@@ -387,8 +387,8 @@ test_that("experimental strategies never produce invalid month values", {
     verbose = FALSE
   )
 
-  invalid_months_upa <- result_upa[!is.na(ref_month_exp) &
-                                     (ref_month_exp < 1L | ref_month_exp > 3L)]
+  invalid_months_upa <- result_upa[!is.na(ref_month_in_quarter) &
+                                     (ref_month_in_quarter < 1L | ref_month_in_quarter > 3L)]
   expect_equal(nrow(invalid_months_upa), 0L,
                info = paste("UPA aggregation produced", nrow(invalid_months_upa),
                            "invalid month values"))
@@ -400,26 +400,26 @@ test_that("combined strategy maintains all invariants", {
 
   # Test combined "both" strategy
   result <- pnadc_experimental_periods(
-    crosswalk, test_data,
+    crosswalk,
     strategy = "both",
     confidence_threshold = 0.9,
     upa_proportion_threshold = 0.5,
     verbose = FALSE
   )
 
-  # Check all ranges
+  # Check all ranges (experimental strategies update main columns)
   expect_equal(
-    nrow(result[!is.na(ref_month_exp) & (ref_month_exp < 1L | ref_month_exp > 3L)]),
+    nrow(result[!is.na(ref_month_in_quarter) & (ref_month_in_quarter < 1L | ref_month_in_quarter > 3L)]),
     0L,
     info = "Invalid month values in combined strategy"
   )
   expect_equal(
-    nrow(result[!is.na(ref_fortnight_exp) & (ref_fortnight_exp < 1L | ref_fortnight_exp > 6L)]),
+    nrow(result[!is.na(ref_fortnight_in_month) & (ref_fortnight_in_month < 1L | ref_fortnight_in_month > 2L)]),
     0L,
     info = "Invalid fortnight values in combined strategy"
   )
   expect_equal(
-    nrow(result[!is.na(ref_week_exp) & (ref_week_exp < 1L | ref_week_exp > 12L)]),
+    nrow(result[!is.na(ref_week_in_month) & (ref_week_in_month < 1L | ref_week_in_month > 4L)]),
     0L,
     info = "Invalid week values in combined strategy"
   )

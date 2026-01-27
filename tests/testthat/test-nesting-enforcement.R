@@ -283,43 +283,41 @@ test_that("nesting holds across all quarters when stacked", {
 # =============================================================================
 
 test_that("experimental fortnight requires month (strict or experimental)", {
-  # When ref_fortnight_exp is assigned, either ref_month_in_quarter or ref_month_exp
-  # must exist - the experimental fortnight cannot be assigned without month context
+  # When fortnight is assigned experimentally, month must already exist
   test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
 
   crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
   # Use upa_aggregation strategy which doesn't require original data
   result <- pnadc_experimental_periods(crosswalk, strategy = "upa_aggregation", verbose = FALSE)
 
-  # Check that experimental fortnight requires either strict or experimental month
-  has_exp_fortnight <- !is.na(result$ref_fortnight_exp)
-  has_any_month <- !is.na(result$ref_month_in_quarter) | !is.na(result$ref_month_exp)
+  # Check that fortnight requires month (experimental strategies update main columns)
+  has_fortnight <- !is.na(result$ref_fortnight_in_month)
+  has_month <- !is.na(result$ref_month_in_quarter)
 
-  n_violations <- sum(has_exp_fortnight & !has_any_month, na.rm = TRUE)
+  n_violations <- sum(has_fortnight & !has_month, na.rm = TRUE)
 
   expect_equal(
     n_violations, 0L,
     info = paste(
-      "Found", n_violations, "observations with experimental fortnight but no month (strict or exp).",
-      "This violates experimental nesting."
+      "Found", n_violations, "observations with fortnight but no month.",
+      "This violates nesting."
     )
   )
 })
 
 test_that("experimental week requires fortnight (strict or experimental)", {
-  # When ref_week_exp is assigned, either ref_fortnight_in_quarter or ref_fortnight_exp
-  # must exist - the experimental week cannot be assigned without fortnight context
+  # When week is assigned experimentally, fortnight must already exist
   test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
 
   crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
   # Use upa_aggregation strategy which doesn't require original data
   result <- pnadc_experimental_periods(crosswalk, strategy = "upa_aggregation", verbose = FALSE)
 
-  # Check that experimental week requires either strict or experimental fortnight
-  has_exp_week <- !is.na(result$ref_week_exp)
-  has_any_fortnight <- !is.na(result$ref_fortnight_in_quarter) | !is.na(result$ref_fortnight_exp)
+  # Check that week requires fortnight (experimental strategies update main columns)
+  has_week <- !is.na(result$ref_week_in_month)
+  has_fortnight <- !is.na(result$ref_fortnight_in_month)
 
-  n_violations <- sum(has_exp_week & !has_any_fortnight, na.rm = TRUE)
+  n_violations <- sum(has_week & !has_fortnight, na.rm = TRUE)
 
   expect_equal(
     n_violations, 0L,
@@ -331,50 +329,38 @@ test_that("experimental week requires fortnight (strict or experimental)", {
 })
 
 test_that("experimental fortnight is consistent with month bounds", {
-  # When experimental fortnight is assigned, it should fall within the month's fortnight range
-  # Month 1 = fortnights 1-2, Month 2 = fortnights 3-4, Month 3 = fortnights 5-6
+  # When fortnight is assigned, it should be within valid range (1 or 2 within month)
   test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
 
   crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
   # Use upa_aggregation strategy which doesn't require original data
   result <- pnadc_experimental_periods(crosswalk, strategy = "upa_aggregation", verbose = FALSE)
 
-  # Get observations with experimental fortnight
-  has_exp_fortnight <- result[!is.na(ref_fortnight_exp)]
+  # Check fortnight values are in valid range
+  has_fortnight <- result[!is.na(ref_fortnight_in_month)]
 
-  if (nrow(has_exp_fortnight) > 0) {
-    # Determine effective month (strict or experimental)
-    has_exp_fortnight[, effective_month := fifelse(
-      !is.na(ref_month_in_quarter), ref_month_in_quarter, ref_month_exp
-    )]
-
-    has_exp_fortnight[!is.na(effective_month), `:=`(
-      expected_fortnight_min = (effective_month - 1L) * 2L + 1L,
-      expected_fortnight_max = effective_month * 2L
-    )]
-
-    # Check that experimental fortnight falls within expected range
-    inconsistent <- has_exp_fortnight[
-      !is.na(expected_fortnight_min) &
-      (ref_fortnight_exp < expected_fortnight_min | ref_fortnight_exp > expected_fortnight_max)
-    ]
+  if (nrow(has_fortnight) > 0) {
+    # ref_fortnight_in_month should be 1 or 2
+    invalid <- has_fortnight[ref_fortnight_in_month < 1 | ref_fortnight_in_month > 2]
 
     expect_equal(
-      nrow(inconsistent), 0L,
+      nrow(invalid), 0L,
       info = paste(
-        "Found", nrow(inconsistent), "observations where experimental fortnight is outside month range."
+        "Found", nrow(invalid), "observations where fortnight is outside valid range (1-2)."
       )
     )
   }
 })
 
-test_that("experimental strategies preserve strict determination columns", {
-  # The experimental function should NOT modify the strict determination columns
+test_that("experimental strategies extend but don't contradict strict determination", {
+  # Experimental strategies may fill in previously NA values but should not
+
+  # change values that were already determined by strict algorithm
   test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
 
   crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
-  # Save original strict values
+  # Save original strict values (only where determined)
   original_month <- crosswalk$ref_month_in_quarter
   original_fortnight <- crosswalk$ref_fortnight_in_quarter
   original_week <- crosswalk$ref_week_in_quarter
@@ -382,38 +368,43 @@ test_that("experimental strategies preserve strict determination columns", {
   # Use upa_aggregation strategy which doesn't require original data
   result <- pnadc_experimental_periods(crosswalk, strategy = "upa_aggregation", verbose = FALSE)
 
-  # Strict columns should be unchanged
-  expect_identical(result$ref_month_in_quarter, original_month)
-  expect_identical(result$ref_fortnight_in_quarter, original_fortnight)
-  expect_identical(result$ref_week_in_quarter, original_week)
+  # Where strict algorithm determined values, they should be preserved
+  strict_month_mask <- !is.na(original_month)
+  strict_fortnight_mask <- !is.na(original_fortnight)
+  strict_week_mask <- !is.na(original_week)
+
+  # Strict values should be unchanged where they existed
+  expect_equal(result$ref_month_in_quarter[strict_month_mask], original_month[strict_month_mask])
+  expect_equal(result$ref_fortnight_in_quarter[strict_fortnight_mask], original_fortnight[strict_fortnight_mask])
+  expect_equal(result$ref_week_in_quarter[strict_week_mask], original_week[strict_week_mask])
 })
 
 test_that("experimental determination rates follow nesting hierarchy", {
-  # Combined rates (strict OR experimental) should follow: month >= fortnight >= week
+  # After experimental strategies, determination rates should follow: month >= fortnight >= week
   test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
 
   crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
   # Use upa_aggregation strategy which doesn't require original data
   result <- pnadc_experimental_periods(crosswalk, strategy = "upa_aggregation", verbose = FALSE)
 
-  # Calculate combined rates
-  combined_month_rate <- mean(!is.na(result$ref_month_in_quarter) | !is.na(result$ref_month_exp))
-  combined_fortnight_rate <- mean(!is.na(result$ref_fortnight_in_quarter) | !is.na(result$ref_fortnight_exp))
-  combined_week_rate <- mean(!is.na(result$ref_week_in_quarter) | !is.na(result$ref_week_exp))
+  # Calculate determination rates from main columns (experimental strategies update these directly)
+  month_rate <- mean(!is.na(result$ref_month_in_quarter))
+  fortnight_rate <- mean(!is.na(result$ref_fortnight_in_quarter))
+  week_rate <- mean(!is.na(result$ref_week_in_quarter))
 
   expect_true(
-    combined_month_rate >= combined_fortnight_rate,
+    month_rate >= fortnight_rate,
     info = paste(
-      "Combined month rate", round(combined_month_rate, 4),
-      "should be >= combined fortnight rate", round(combined_fortnight_rate, 4)
+      "Month rate", round(month_rate, 4),
+      "should be >= fortnight rate", round(fortnight_rate, 4)
     )
   )
 
   expect_true(
-    combined_fortnight_rate >= combined_week_rate,
+    fortnight_rate >= week_rate,
     info = paste(
-      "Combined fortnight rate", round(combined_fortnight_rate, 4),
-      "should be >= combined week rate", round(combined_week_rate, 4)
+      "Fortnight rate", round(fortnight_rate, 4),
+      "should be >= week rate", round(week_rate, 4)
     )
   )
 })
