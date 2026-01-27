@@ -35,13 +35,13 @@
 #'   \itemize{
 #'     \item \strong{Experimental columns} (always included):
 #'     \itemize{
-#'       \item \code{ref_month_exp}: Experimentally assigned month position in quarter (1-3, or NA)
-#'       \item \code{ref_month_exp_confidence}: Confidence of month assignment (0-1, proportion
+#'       \item \code{ref_month_in_quarter_aggreg}: Experimentally assigned month position in quarter (1-3, or NA)
+#'       \item \code{ref_month_in_quarter_aggreg_confidence}: Confidence of month assignment (0-1, proportion
 #'         of date interval in assigned period; values below threshold are removed)
-#'       \item \code{ref_fortnight_exp}: Experimentally assigned fortnight position in quarter (1-6, or NA)
-#'       \item \code{ref_fortnight_exp_confidence}: Confidence of fortnight assignment (0-1)
-#'       \item \code{ref_week_exp}: Experimentally assigned week position in quarter (1-12, or NA)
-#'       \item \code{ref_week_exp_confidence}: Confidence of week assignment (0-1)
+#'       \item \code{ref_fortnight_in_month_aggreg}: Experimentally assigned fortnight position in quarter (1-6, or NA)
+#'       \item \code{ref_fortnight_in_month_aggreg_confidence}: Confidence of fortnight assignment (0-1)
+#'       \item \code{ref_week_in_month_aggreg}: Experimentally assigned week position in quarter (1-12, or NA)
+#'       \item \code{ref_week_in_month_aggreg_confidence}: Confidence of week assignment (0-1)
 #'     }
 #'     \item \strong{Derived columns} (when \code{include_derived = TRUE}):
 #'     \itemize{
@@ -901,31 +901,37 @@ pnadc_experimental_periods <- function(
 
   if (verbose) cat("  Phase 1: Month UPA aggregation...\n")
 
-  # Calculate proportion of UPA-V1014 within-quarter with strictly identified month
+  # tmp columns
+  crosswalk[, `:=`(
+    ref_month_in_quarter_aggreg            = NA_real_,
+    ref_month_in_quarter_aggreg_confidence = NA_real_)]
+
+
+  # Calculate proportion of UPA within-quarter with identified month
   upa_month_stats <- crosswalk[, .(
     n_total = .N,
-    n_strict = sum(!is.na(ref_month_in_quarter)),
+    n_month = sum(!is.na(ref_month_in_quarter)),
     consensus_month = fifelse(
       uniqueN(ref_month_in_quarter[!is.na(ref_month_in_quarter)]) == 1L,
       ref_month_in_quarter[!is.na(ref_month_in_quarter)][1L],
       NA_integer_
     )
-  ), by = .(Ano, Trimestre, UPA, V1014)]
+  ), by = .(Ano, Trimestre, UPA)]
 
-  upa_month_stats[, prop_strict := n_strict / n_total]
+  upa_month_stats[, prop_month := n_month / n_total]
 
   # Only extend if proportion >= threshold AND there's a consensus
-  upa_month_qualify <- upa_month_stats[prop_strict >= threshold & !is.na(consensus_month)]
+  upa_month_qualify <- upa_month_stats[prop_month >= threshold & !is.na(consensus_month)]
 
   if (nrow(upa_month_qualify) > 0) {
     # Join and assign to observations without strict month
-    crosswalk[upa_month_qualify, on = .(Ano, Trimestre, UPA, V1014), `:=`(
-      ref_month_exp = fifelse(is.na(ref_month_in_quarter), i.consensus_month, ref_month_exp),
-      ref_month_exp_confidence = fifelse(is.na(ref_month_in_quarter), 1.0, ref_month_exp_confidence)
+    crosswalk[upa_month_qualify, on = .(Ano, Trimestre, UPA), `:=`(
+      ref_month_in_quarter_aggreg            = fifelse(is.na(ref_month_in_quarter), i.consensus_month, ref_month_in_quarter_aggreg),
+      ref_month_in_quarter_aggreg_confidence = fifelse(is.na(ref_month_in_quarter), 1.0, ref_month_in_quarter_aggreg_confidence)
     )]
   }
 
-  n_month_upa <- sum(!is.na(crosswalk$ref_month_exp) & is.na(crosswalk$ref_month_in_quarter))
+  n_month_upa <- sum(!is.na(crosswalk$ref_month_in_quarter_aggreg) & is.na(crosswalk$ref_month_in_quarter))
   if (verbose) {
     cat(sprintf("    Extended to %s observations via UPA aggregation\n",
                 format(n_month_upa, big.mark = ",")))
@@ -937,58 +943,60 @@ pnadc_experimental_periods <- function(
 
   if (verbose) cat("  Phase 2: Fortnight UPA aggregation (nested)...\n")
 
-  # Calculate proportion of UPA within-quarter with strictly identified fortnight
-  # NOTE: Aggregate at UPA level (not UPA-V1014) because all households in the same
-  # UPA are interviewed in the same fortnight within a quarter, regardless of panel rotation.
+  crosswalk[, `:=`(
+    ref_fortnight_in_month_aggreg            = NA_real_,
+    ref_fortnight_in_month_aggreg_confidence = NA_real_)]
+
+  # Calculate proportion of UPA (not UPA-V1014) within-quarter with identified fortnight
   upa_fortnight_stats <- crosswalk[, .(
     n_total = .N,
-    n_strict = sum(!is.na(ref_fortnight_in_quarter)),
+    n_fortnight = sum(!is.na(ref_fortnight_in_month)),
     consensus_fortnight = fifelse(
-      uniqueN(ref_fortnight_in_quarter[!is.na(ref_fortnight_in_quarter)]) == 1L,
-      ref_fortnight_in_quarter[!is.na(ref_fortnight_in_quarter)][1L],
+      uniqueN(ref_fortnight_in_month[!is.na(ref_fortnight_in_month)]) == 1L,
+      ref_fortnight_in_month[!is.na(ref_fortnight_in_month)][1L],
       NA_integer_
     )
   ), by = .(Ano, Trimestre, UPA)]
 
-  upa_fortnight_stats[, prop_strict := n_strict / n_total]
+  upa_fortnight_stats[, prop_fortnight := n_fortnight / n_total]
 
   # Only extend if proportion >= threshold AND there's a consensus
-  upa_fortnight_qualify <- upa_fortnight_stats[prop_strict >= threshold & !is.na(consensus_fortnight)]
+  upa_fortnight_qualify <- upa_fortnight_stats[prop_fortnight >= threshold & !is.na(consensus_fortnight)]
 
   if (nrow(upa_fortnight_qualify) > 0) {
     # NESTING: Only assign to observations with identified month
     # AND verify consensus_fortnight falls within that month's bounds
-    crosswalk[, month_identified := !is.na(ref_month_in_quarter) | !is.na(ref_month_exp)]
+    crosswalk[, month_identified := !is.na(ref_month_in_quarter) | !is.na(ref_month_in_quarter_aggreg)]
     crosswalk[month_identified == TRUE, `:=`(
-      effective_month = fifelse(!is.na(ref_month_in_quarter), ref_month_in_quarter, ref_month_exp),
-      fortnight_lower = (fifelse(!is.na(ref_month_in_quarter), ref_month_in_quarter, ref_month_exp) - 1L) * 2L + 1L,
-      fortnight_upper = fifelse(!is.na(ref_month_in_quarter), ref_month_in_quarter, ref_month_exp) * 2L
+      effective_month =  fifelse(!is.na(ref_month_in_quarter), ref_month_in_quarter, ref_month_in_quarter_aggreg),
+      fortnight_lower = (fifelse(!is.na(ref_month_in_quarter), ref_month_in_quarter, ref_month_in_quarter_aggreg) - 1L) + 1L,
+      fortnight_upper =  fifelse(!is.na(ref_month_in_quarter), ref_month_in_quarter, ref_month_in_quarter_aggreg)
     )]
 
     # Join consensus_fortnight and validate it's within the month's fortnight bounds
     # INVARIANT: Also validate consensus_fortnight is in [1, 6] range
     crosswalk[upa_fortnight_qualify, on = .(Ano, Trimestre, UPA), `:=`(
-      ref_fortnight_exp = fifelse(
+      ref_fortnight_in_month_aggreg = fifelse(
         is.na(ref_fortnight_in_quarter) & month_identified &
           i.consensus_fortnight >= fortnight_lower &
           i.consensus_fortnight <= fortnight_upper &
           i.consensus_fortnight >= 1L & i.consensus_fortnight <= 6L,
         i.consensus_fortnight,
-        ref_fortnight_exp
+        ref_fortnight_in_month_aggreg
       ),
-      ref_fortnight_exp_confidence = fifelse(
+      ref_fortnight_in_month_aggreg_confidence = fifelse(
         is.na(ref_fortnight_in_quarter) & month_identified &
           i.consensus_fortnight >= fortnight_lower &
           i.consensus_fortnight <= fortnight_upper,
         1.0,
-        ref_fortnight_exp_confidence
+        ref_fortnight_in_month_aggreg_confidence
       )
     )]
 
     crosswalk[, c("month_identified", "effective_month", "fortnight_lower", "fortnight_upper") := NULL]
   }
 
-  n_fortnight_upa <- sum(!is.na(crosswalk$ref_fortnight_exp) & is.na(crosswalk$ref_fortnight_in_quarter))
+  n_fortnight_upa <- sum(!is.na(crosswalk$ref_fortnight_in_month_aggreg) & is.na(crosswalk$ref_fortnight_in_quarter))
   if (verbose) {
     cat(sprintf("    Extended to %s observations via UPA aggregation\n",
                 format(n_fortnight_upa, big.mark = ",")))
@@ -1000,23 +1008,25 @@ pnadc_experimental_periods <- function(
 
   if (verbose) cat("  Phase 3: Week UPA aggregation (nested)...\n")
 
-  # Calculate proportion of UPA within-quarter with strictly identified week
-  # NOTE: Aggregate at UPA level (not UPA-V1014) because all households in the same
-  # UPA are interviewed in the same week within a quarter, regardless of panel rotation.
+  crosswalk[, `:=`(
+    ref_week_in_month_aggreg            = NA_real_,
+    ref_week_in_month_aggreg_confidence = NA_real_)]
+
+  # Calculate proportion of UPA within-quarter with identified week
   upa_week_stats <- crosswalk[, .(
     n_total = .N,
-    n_strict = sum(!is.na(ref_week_in_quarter)),
+    n_week = sum(!is.na(ref_week_in_month)),
     consensus_week = fifelse(
-      uniqueN(ref_week_in_quarter[!is.na(ref_week_in_quarter)]) == 1L,
-      ref_week_in_quarter[!is.na(ref_week_in_quarter)][1L],
+      uniqueN(ref_week_in_month[!is.na(ref_week_in_month)]) == 1L,
+      ref_week_in_month[!is.na(ref_week_in_month)][1L],
       NA_integer_
     )
   ), by = .(Ano, Trimestre, UPA)]
 
-  upa_week_stats[, prop_strict := n_strict / n_total]
+  upa_week_stats[, prop_week := n_week / n_total]
 
   # Only extend if proportion >= threshold AND there's a consensus
-  upa_week_qualify <- upa_week_stats[prop_strict >= threshold & !is.na(consensus_week)]
+  upa_week_qualify <- upa_week_stats[prop_week >= threshold & !is.na(consensus_week)]
 
   if (nrow(upa_week_qualify) > 0) {
     # NESTING: Only assign to observations with identified fortnight
@@ -1025,32 +1035,86 @@ pnadc_experimental_periods <- function(
     # constrained to their fortnight bounds during strict identification), and we require
     # fortnight_identified, the assignment should be valid. We rely on the strict
     # algorithm's nesting enforcement for the source consensus values.
-    crosswalk[, fortnight_identified := !is.na(ref_fortnight_in_quarter) | !is.na(ref_fortnight_exp)]
+    crosswalk[, fortnight_identified := !is.na(ref_fortnight_in_quarter) | !is.na(ref_fortnight_in_month_aggreg)]
 
-    # INVARIANT: Validate consensus_week is in [1, 12] range
+    # INVARIANT: Validate consensus_week is in [1, 4] range
     crosswalk[upa_week_qualify, on = .(Ano, Trimestre, UPA), `:=`(
-      ref_week_exp = fifelse(
+      ref_week_in_month_aggreg = fifelse(
         is.na(ref_week_in_quarter) & fortnight_identified &
-          i.consensus_week >= 1L & i.consensus_week <= 12L,
+          i.consensus_week >= 1L & i.consensus_week <= 4L,
         i.consensus_week,
-        ref_week_exp
+        ref_week_in_month_aggreg
       ),
-      ref_week_exp_confidence = fifelse(
+      ref_week_in_month_aggreg_confidence = fifelse(
         is.na(ref_week_in_quarter) & fortnight_identified &
-          i.consensus_week >= 1L & i.consensus_week <= 12L,
+          i.consensus_week >= 1L & i.consensus_week <= 4L,
         1.0,
-        ref_week_exp_confidence
+        ref_week_in_month_aggreg_confidence
       )
     )]
 
     crosswalk[, fortnight_identified := NULL]
   }
 
-  n_week_upa <- sum(!is.na(crosswalk$ref_week_exp) & is.na(crosswalk$ref_week_in_quarter))
+  n_week_upa <- sum(!is.na(crosswalk$ref_week_in_month_aggreg) & is.na(crosswalk$ref_week_in_quarter))
   if (verbose) {
     cat(sprintf("    Extended to %s observations via UPA aggregation\n",
                 format(n_week_upa, big.mark = ",")))
   }
+
+
+
+
+  crosswalk[ ,
+             `:=`(
+
+               ref_month_in_quarter = fifelse(is.na(ref_month_in_quarter) & !is.na(ref_month_in_quarter_aggreg),
+                                              ref_month_in_quarter_aggreg,
+                                              ref_month_in_quarter),
+
+               ref_fortnight_in_month = fifelse(is.na(ref_fortnight_in_month) & !is.na(ref_fortnight_in_month_aggreg),
+                                                ref_fortnight_in_month_aggreg,
+                                                ref_fortnight_in_month),
+
+               ref_week_in_month = fifelse(is.na(ref_week_in_month) & !is.na(ref_week_in_month_aggreg),
+                                           ref_week_in_month_aggreg,
+                                           ref_week_in_month),
+
+               determined_aggreg_month = fifelse(!is.na(ref_month_in_quarter_aggreg), TRUE, FALSE),
+               determined_month        = fifelse(!is.na(ref_month_in_quarter_aggreg), TRUE, determined_month),
+
+               determined_aggreg_fortnight = fifelse(!is.na(ref_fortnight_in_month_aggreg), TRUE, FALSE),
+               determined_fortnight        = fifelse(!is.na(ref_fortnight_in_month_aggreg), TRUE, determined_fortnight),
+
+               determined_aggreg_week = fifelse(!is.na(ref_week_in_month_aggreg), TRUE, FALSE),
+               determined_week        = fifelse(!is.na(ref_week_in_month_aggreg), TRUE, determined_week)
+    )]
+
+  crosswalk[, `:=`(
+            ref_month_in_quarter_aggreg               = NULL,
+            ref_month_in_quarter_aggreg_confidence    = NULL,
+            ref_fortnight_in_month_aggreg             = NULL,
+            ref_fortnight_in_month_aggreg_confidence  = NULL,
+            ref_week_in_month_aggreg                  = NULL,
+            ref_week_in_month_aggreg_confidence       = NULL)]
+
+  crosswalk[, `:=`(
+    ref_month_in_year        = ref_month_in_year + (Trimestre - 1)*3,
+    ref_fortnight_in_quarter = ref_fortnight_in_month + (ref_month_in_quarter - 1)*2,
+    ref_week_in_quarter      = ref_week_in_month + (ref_month_in_quarter - 1)*4
+
+    )]
+
+  crosswalk[, `:=`(
+    ref_month_yyyymm     = Ano * 100 + ref_month_in_year,
+    ref_fortnight_yyyyff = Ano * 100 + (ref_fortnight_in_quarter + (Trimestre - 1)*6),
+    ref_week_yyyyww      = Ano * 100 + (ref_week_in_month + (ref_month_in_year - 1)*4)
+
+  )]
+
+
+  crosswalk[, probabilistic_assignment := determined_aggreg_month | determined_aggreg_fortnight | determined_aggreg_week]
+
 
   if (verbose) {
     cat("  UPA aggregation strategy complete.\n")
@@ -1089,26 +1153,19 @@ pnadc_experimental_periods <- function(
   # ==========================================================================
   # STEP 1: Apply probabilistic strategy first
   # ==========================================================================
-  # This captures all observations that can be assigned via probabilistic logic
-  # (narrow date ranges with high confidence).
 
-  crosswalk <- apply_probabilistic_strategy_nested(
-    crosswalk, data, confidence_threshold, verbose
-  )
+  crosswalk <- .apply_probabilistic(crosswalk = crosswalk,
+                                    confidence_threshold = confidence_threshold,
+                                    verbose = verbose)
 
   # ==========================================================================
   # STEP 2: Apply UPA aggregation on top
   # ==========================================================================
-  # This extends assignments based on strict consensus within UPA-V1014 groups.
-  # The strategies operate independently: UPA aggregation considers only strict
-  # identifications (ref_month_in_quarter), not probabilistic assignments.
-  # The union of both strategies is captured because both write to the
-  # experimental columns (ref_month_exp, etc.) and neither overwrites
-  # existing assignments.
 
-  crosswalk <- apply_upa_aggregation(
-    crosswalk, upa_threshold, verbose
-  )
+  crosswalk <- .apply_upa_aggregation(crosswalk = crosswalk,
+                                      threshold = upa_threshold,
+                                      verbose   = verbose)
+
 
   if (verbose) {
     cat("  Combined strategy complete.\n")

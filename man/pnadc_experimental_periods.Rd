@@ -38,13 +38,13 @@ A modified crosswalk with additional columns.
 \itemize{
 \item \strong{Experimental columns} (always included):
 \itemize{
-\item \code{ref_month_exp}: Experimentally assigned month position in quarter (1-3, or NA)
-\item \code{ref_month_exp_confidence}: Confidence of month assignment (0-1, proportion
+\item \code{ref_month_in_quarter_aggreg}: Experimentally assigned month position in quarter (1-3, or NA)
+\item \code{ref_month_in_quarter_aggreg_confidence}: Confidence of month assignment (0-1, proportion
 of date interval in assigned period; values below threshold are removed)
-\item \code{ref_fortnight_exp}: Experimentally assigned fortnight position in quarter (1-6, or NA)
-\item \code{ref_fortnight_exp_confidence}: Confidence of fortnight assignment (0-1)
-\item \code{ref_week_exp}: Experimentally assigned week position in quarter (1-12, or NA)
-\item \code{ref_week_exp_confidence}: Confidence of week assignment (0-1)
+\item \code{ref_fortnight_in_month_aggreg}: Experimentally assigned fortnight position in quarter (1-6, or NA)
+\item \code{ref_fortnight_in_month_aggreg_confidence}: Confidence of fortnight assignment (0-1)
+\item \code{ref_week_in_month_aggreg}: Experimentally assigned week position in quarter (1-12, or NA)
+\item \code{ref_week_in_month_aggreg_confidence}: Confidence of week assignment (0-1)
 }
 \item \strong{Derived columns} (when \code{include_derived = TRUE}):
 \itemize{
