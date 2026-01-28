@@ -55,18 +55,18 @@ pkgdown::build_site("PNADCperiods")  # Rebuild docs locally
 
 ### GitHub Pages Deployment
 
-**CRITICAL:** The pkgdown site publishes from the `refactor/pnadc-periods` branch, NOT master/main.
+The pkgdown site automatically publishes from the `master` branch via GitHub Actions.
 
 To update the online documentation:
 ```bash
 cd "D:\Dropbox\Artigos\mensalizacao_pnad\PNADCperiods"
-pkgdown::build_site()  # Build locally first
+pkgdown::build_site()  # Build locally first (optional - verifies it works)
 git add .
 git commit -m "Update documentation"
-git push origin refactor/pnadc-periods  # Push to this branch - site rebuilds automatically
+git push origin master  # Push to master - site rebuilds automatically via GitHub Actions
 ```
 
-**Do NOT merge to master** - the GitHub Actions workflow triggers on push to `refactor/pnadc-periods`.
+The GitHub Actions workflow triggers on push to `master` and automatically deploys to GitHub Pages.
 
 Site URL: https://antrologos.github.io/PNADCperiods/
 
