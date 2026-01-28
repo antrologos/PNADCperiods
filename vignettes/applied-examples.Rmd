@@ -644,19 +644,41 @@ crosswalk_exp <- pnadc_experimental_periods(
 # The experimental crosswalk now has ~12-13% fortnight determination
 # vs 8.9% strict. At conf=0.85, upa=0.80, we balance coverage with
 # assignment confidence.
-# For fortnightly analysis, we use the experimental crosswalk
-pnadc_fortnight <- merge(pnadc, crosswalk_exp[, .(Ano, Trimestre, UPA, V1008, V1014,
-                                                    ref_fortnight_in_quarter, ref_fortnight_yyyyff)],
-                         by = c("Ano", "Trimestre", "UPA", "V1008", "V1014"), all.x = TRUE)
-pnadc_fortnight <- pnadc_fortnight[!is.na(ref_fortnight_in_quarter) & Ano == 2020 & Trimestre %in% 1:2]
 
-# Compute participation rate by fortnight using V1028 (original quarterly weight)
-# Since fortnights cannot aggregate across quarters, V1028 is appropriate
+# For fortnightly analysis, we need CALIBRATED weights, not V1028.
+# The fortnight-determined subset (~12-13%) is NOT a random sample,
+# so using uncalibrated V1028 would cause systematic bias.
+# We use pnadc_apply_periods() with calibration_unit = "fortnight"
+# to generate properly calibrated weight_fortnight values.
+
+# First merge the experimental crosswalk for fortnight columns
+pnadc_fortnight <- merge(pnadc, crosswalk_exp[, .(Ano, Trimestre, UPA, V1008, V1014,
+                                                    ref_fortnight_in_quarter, ref_fortnight_yyyyff,
+                                                    determined_fortnight)],
+                         by = c("Ano", "Trimestre", "UPA", "V1008", "V1014"), all.x = TRUE)
+
+# Calibrate fortnight weights using experimental crosswalk
+pnadc_fortnight <- pnadc_apply_periods(
+  pnadc_fortnight,
+  crosswalk_exp,
+  weight_var = "V1028",
+  anchor = "quarter",
+  calibrate = TRUE,
+  calibration_unit = "fortnight",
+  verbose = FALSE
+)
+
+# Filter to COVID period with calibrated weights
+pnadc_fortnight <- pnadc_fortnight[!is.na(ref_fortnight_in_quarter) & !is.na(weight_fortnight) &
+                                   Ano == 2020 & Trimestre %in% 1:2]
+
+# Compute participation rate by fortnight using CALIBRATED weight_fortnight
+# This ensures proper population representation for the non-random fortnight subset
 fortnight_covid <- pnadc_fortnight[, .(
-  participation_rate = sum(pea * V1028, na.rm = TRUE) /
-                       sum(V1028, na.rm = TRUE),
-  unemployment_rate = sum(unemployed * V1028, na.rm = TRUE) /
-                      sum(pea * V1028, na.rm = TRUE),
+  participation_rate = sum(pea * weight_fortnight, na.rm = TRUE) /
+                       sum(weight_fortnight, na.rm = TRUE),
+  unemployment_rate = sum(unemployed * weight_fortnight, na.rm = TRUE) /
+                      sum(pea * weight_fortnight, na.rm = TRUE),
   n_obs = .N
 ), by = .(Ano, Trimestre, ref_fortnight_in_quarter, ref_fortnight_yyyyff)]
 
@@ -719,12 +741,34 @@ With strict determination, the ~1.5% weekly rate makes this analysis challenging
 # Use observations with determined weeks (among employed with valid hours)
 carnival_years <- c(2019L, 2022L, 2023L, 2024L, 2025L)
 
+# For weekly analysis, we need CALIBRATED weights, not V1028.
+# The weekly-determined subset (~5-6%) is NOT a random sample,
+# so using uncalibrated V1028 would cause systematic bias.
+# We use pnadc_apply_periods() with calibration_unit = "week"
+# to generate properly calibrated weight_weekly values.
+
 # Merge experimental crosswalk for week data
 pnadc_weekly <- merge(pnadc, crosswalk_exp[, .(Ano, Trimestre, UPA, V1008, V1014,
-                                                 ref_week_in_quarter, ref_week_yyyyww)],
+                                                 ref_week_in_quarter, ref_week_yyyyww,
+                                                 determined_week)],
                       by = c("Ano", "Trimestre", "UPA", "V1008", "V1014"), all.x = TRUE)
+
+# Calibrate weekly weights using experimental crosswalk
+pnadc_weekly <- pnadc_apply_periods(
+  pnadc_weekly,
+  crosswalk_exp,
+  weight_var = "V1028",
+  anchor = "quarter",
+  calibrate = TRUE,
+  calibration_unit = "week",
+  smooth = FALSE,  # No smoothing for weekly (too sparse)
+  verbose = FALSE
+)
+
+# Filter to employed with valid hours and calibrated weights
 pnadc_weekly <- pnadc_weekly[
-  !is.na(ref_week_in_quarter) & Trimestre == 1L & Ano %in% carnival_years &
+  !is.na(ref_week_in_quarter) & !is.na(weight_weekly) &
+  Trimestre == 1L & Ano %in% carnival_years &
   employed == 1L & !is.na(VD4035)
 ]
 
@@ -744,9 +788,10 @@ pnadc_weekly[, is_carnival_week := (iso_week == carnival_iso_week)]
 pnadc_weekly[, is_carnival_state := UF %in% c(29L, 33L, 26L)]
 
 # Aggregate: Average hours worked by Carnival vs non-Carnival weeks × region
+# Use CALIBRATED weight_weekly for proper population representation
 weekly_carnival <- pnadc_weekly[, .(
-  avg_hours_worked = sum(VD4035 * V1028, na.rm = TRUE) /
-                     sum(V1028, na.rm = TRUE),
+  avg_hours_worked = sum(VD4035 * weight_weekly, na.rm = TRUE) /
+                     sum(weight_weekly, na.rm = TRUE),
   n_obs = .N
 ), by = .(is_carnival_week, is_carnival_state)]
 

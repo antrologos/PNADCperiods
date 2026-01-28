@@ -233,5 +233,12 @@ utils::globalVariables(c(
   "week_month_in_qtr", "week_in_month", "ibge_month_start_date",
   "i.trim_exc_m1", "i.trim_exc_m2", "i.trim_exc_m3",
   # Variables from pnadc_identify_periods week refinement
-  "temp_month_num"
+  "temp_month_num",
+  # IPF calibration variables (calibrate-ipf-weights.R)
+  "weight_ipf_monthly", "weight_ipf_fortnightly", "weight_ipf_weekly",
+  "age_group", "gender", "hh_size", "hh_group", "hh_n",
+  "rural_urban", "V1022", "V2007",
+  "w", "w_old", ".w0", "w0_safe", "current_total", "current_prop", "target_prop",
+  "weighted_n", "period_total", "factor", "scale_factor", "current_pop",
+  "i.factor", "i.scale_factor", "i.target_prop", "i.hh_n"
 ))
