@@ -115,16 +115,17 @@ To implement complex survey analysis, your PNADC data needs specific design vari
 pnadc <- fread("path/to/your/pnadc_full_stacked.csv")
 
 # Step 1: Build crosswalk (identify reference periods)
-crosswalk <- pnadc_identify_periods(pnadc)
+crosswalk <- pnadc_identify_periods(pnadc, verbose = TRUE)
 
 # Step 2: Apply crosswalk and calibrate weights
 pnadc <- pnadc_apply_periods(pnadc, crosswalk,
                               weight_var = "V1028",
                               anchor = "quarter",
-                              calibrate = TRUE)
+                              calibrate = TRUE,
+                              calibration_unit = "month")
 
-# Filter to determined observations (those with monthly weights)
-pnadc_monthly <- pnadc[!is.na(weight_monthly)]
+# Filter to determined observations (those with identified reference months)
+pnadc_monthly <- pnadc[determined_month == TRUE]
 ```
 
 ---
@@ -420,7 +421,7 @@ ggplot(results_by_sex, aes(x = period, y = participation, color = sex, fill = se
 
   labs(
     title = "Labor Force Participation by Sex: Monthly Series with 95% Confidence Intervals",
-    subtitle = "Brazil, 2012-2024. Shaded regions show 95% confidence bands from complex survey design.",
+    subtitle = "Brazil, 2012-2025. Shaded regions show 95% confidence bands from complex survey design.",
     x = NULL,
     y = "Labor Force Participation Rate",
     color = "Sex",
