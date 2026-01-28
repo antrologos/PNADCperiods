@@ -141,12 +141,16 @@ join_keys <- c("ano", "trimestre", "upa", "v1008", "v1014", "v2003")
 
 ### Match Rate and Missing Observations
 
-When merging the crosswalk with annual data, expect approximately **97% of observations** to have a determined reference month. The remaining ~3% occur because:
+When merging the crosswalk with annual data, expect approximately **97% of observations** to have a determined reference month. The crosswalk built from 2015-2024 quarterly data (40 quarters) achieves **96.3% month determination** on the quarterly data itself. When applied to annual data with `anchor = "year"`, this translates to a **96.9% match rate** due to the yearly weight calibration structure.
+
+The remaining ~3% occur because:
 
 - Some observations fall in edge cases where the mensalization algorithm cannot determine a unique month
 - Minor inconsistencies between quarterly and annual data collection
 
 For poverty analysis, we recommend **dropping observations without determined reference months**. This is the cleanest approach and introduces minimal bias since the undetermined cases are essentially random across the income distribution.
+
+> **Want even higher determination rates?** Experimental probabilistic strategies can boost rates further (e.g., 96.3% → 97-98% for months). See the [experimental strategies section](how-it-works.html#experimental-strategies) in the How It Works vignette. For most analyses, the strict determination rates above are already excellent.
 
 ---
 
@@ -227,7 +231,7 @@ crosswalk <- pnadc_identify_periods(
 
 # Check determination rate
 mean(!is.na(crosswalk$ref_month_in_quarter))
-#> [1] 0.97  # ~97% of observations have determined reference months
+#> [1] 0.963  # 96.3% of observations have determined reference months (40 quarters)
 ```
 
 ### Step 2: Load Annual PNADC Data
@@ -295,38 +299,33 @@ d <- pnadc_apply_periods(
   weight_var = "V1032",
   anchor = "year",
   calibrate = TRUE,
+  calibration_unit = "month",
+  smooth = TRUE,
   verbose = TRUE
 )
-#> Applying crosswalk...
-#> Match rate: 97.0%
-#> Calibrating weights...
-#>   Fetching monthly population from SIDRA...
-#>   Calibrated 28,456,123 observations
+#> Applying reference period crosswalk...
+#>   Matched 3,978,364 of 4,105,414 observations (96.9%)
+#>   Calibrating month weights (anchor: year)...
+#>     Fetching population targets from SIDRA...
+#>     Auto-selected 4 cell level(s) for ref_month_yyyymm calibration
+#>     Skipping celula3: min cell size 4 < threshold 10
+#>     Applied 2 hierarchical cell level(s)
+#>     Calibrated 3,978,364 observations
+#> Done.
 
 # Check match rate
 mean(!is.na(d$ref_month_in_quarter))
-#> [1] 0.97
+#> [1] 0.969
 ```
 
-> **Why use `pnadc_apply_periods(..., anchor = "year")` instead of manual merge?**
+> **Why use `pnadc_apply_periods(..., anchor = "year")`?**
 >
-> The quarterly crosswalk produces `weight_monthly` by calibrating the quarterly
-> weight **V1028**, which assumes all 5 rotation groups are present in each quarter
-> (~20% of observations from each panel visit).
+> Annual PNADC data contains only one visit per household (e.g., visit 1 or visit 5),
+> not all 8 rotation groups like quarterly data. The function properly calibrates the
+> annual weight **V1032** to monthly SIDRA population totals using `anchor = "year"`
+> to preserve yearly totals while redistributing to months.
 >
-> Annual data contains only **one visit** per household (e.g., visit 1 or visit 5),
-> so using V1028-based weights would severely misrepresent the population---each
-> observation would be weighted as if it represents only 1/5 of its demographic cell.
->
-> `pnadc_apply_periods()` with `anchor = "year"` properly calibrates the **annual weight V1032** to monthly
-> SIDRA population totals using hierarchical rake weighting. This ensures that:
->
-> - Weights sum to correct monthly population totals
-> - Demographic cells are balanced within each year
-> - Results are comparable to official IBGE statistics
->
-> For technical details on how annual weight calibration differs from quarterly,
-> see the [How It Works](how-it-works.html#mensalizing-annual-pnadc-data) vignette.
+> For technical details, see [How It Works](how-it-works.html#mensalizing-annual-pnadc-data).
 
 ### Step 4: Construct Per Capita Income
 
@@ -434,7 +433,7 @@ Calculate monthly poverty rates using the FGT family:
 # Filter to determined observations
 d_monthly <- d[!is.na(ref_month_yyyymm)]
 
-# Use calibrated monthly weight (from mensalize_annual_pnadc())
+# Use calibrated monthly weight (from pnadc_apply_periods())
 d_monthly[, peso := weight_monthly]
 
 # Compute monthly poverty statistics

@@ -227,7 +227,12 @@ and can be linked using six key variables:</p>
 </h3>
 <p>When merging the crosswalk with annual data, expect approximately
 <strong>97% of observations</strong> to have a determined reference
-month. The remaining ~3% occur because:</p>
+month. The crosswalk built from 2015-2024 quarterly data (40 quarters)
+achieves <strong>96.3% month determination</strong> on the quarterly
+data itself. When applied to annual data with
+<code>anchor = "year"</code>, this translates to a <strong>96.9% match
+rate</strong> due to the yearly weight calibration structure.</p>
+<p>The remaining ~3% occur because:</p>
 <ul>
 <li>Some observations fall in edge cases where the mensalization
 algorithm cannot determine a unique month</li>
@@ -238,6 +243,13 @@ collection</li>
 without determined reference months</strong>. This is the cleanest
 approach and introduces minimal bias since the undetermined cases are
 essentially random across the income distribution.</p>
+<blockquote>
+<p><strong>Want even higher determination rates?</strong> Experimental
+probabilistic strategies can boost rates further (e.g., 96.3% → 97-98%
+for months). See the <a href="how-it-works.html#experimental-strategies">experimental strategies
+section</a> in the How It Works vignette. For most analyses, the strict
+determination rates above are already excellent.</p>
+</blockquote>
 <hr>
 </div>
 </div>
@@ -396,7 +408,7 @@ algorithm:</p>
 <span></span>
 <span><span class="co"># Check determination rate</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">crosswalk</span><span class="op">$</span><span class="va">ref_month_in_quarter</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 0.97  # ~97% of observations have determined reference months</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 0.963  # 96.3% of observations have determined reference months (40 quarters)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="step-2-load-annual-pnadc-data">Step 2: Load Annual PNADC Data<a class="anchor" aria-label="anchor" href="#step-2-load-annual-pnadc-data"></a>
@@ -464,41 +476,33 @@ calibrate weights:</p>
 <span>  weight_var <span class="op">=</span> <span class="st">"V1032"</span>,</span>
 <span>  anchor <span class="op">=</span> <span class="st">"year"</span>,</span>
 <span>  calibrate <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  calibration_unit <span class="op">=</span> <span class="st">"month"</span>,</span>
+<span>  smooth <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; Applying crosswalk...</span></span>
-<span><span class="co">#&gt; Match rate: 97.0%</span></span>
-<span><span class="co">#&gt; Calibrating weights...</span></span>
-<span><span class="co">#&gt;   Fetching monthly population from SIDRA...</span></span>
-<span><span class="co">#&gt;   Calibrated 28,456,123 observations</span></span>
+<span><span class="co">#&gt; Applying reference period crosswalk...</span></span>
+<span><span class="co">#&gt;   Matched 3,978,364 of 4,105,414 observations (96.9%)</span></span>
+<span><span class="co">#&gt;   Calibrating month weights (anchor: year)...</span></span>
+<span><span class="co">#&gt;     Fetching population targets from SIDRA...</span></span>
+<span><span class="co">#&gt;     Auto-selected 4 cell level(s) for ref_month_yyyymm calibration</span></span>
+<span><span class="co">#&gt;     Skipping celula3: min cell size 4 &lt; threshold 10</span></span>
+<span><span class="co">#&gt;     Applied 2 hierarchical cell level(s)</span></span>
+<span><span class="co">#&gt;     Calibrated 3,978,364 observations</span></span>
+<span><span class="co">#&gt; Done.</span></span>
 <span></span>
 <span><span class="co"># Check match rate</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">ref_month_in_quarter</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 0.97</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 0.969</span></span></code></pre></div>
 <blockquote>
 <p><strong>Why use
-<code>pnadc_apply_periods(..., anchor = "year")</code> instead of manual
-merge?</strong></p>
-<p>The quarterly crosswalk produces <code>weight_monthly</code> by
-calibrating the quarterly weight <strong>V1028</strong>, which assumes
-all 5 rotation groups are present in each quarter (~20% of observations
-from each panel visit).</p>
-<p>Annual data contains only <strong>one visit</strong> per household
-(e.g., visit 1 or visit 5), so using V1028-based weights would severely
-misrepresent the population—each observation would be weighted as if it
-represents only 1/5 of its demographic cell.</p>
-<p><code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code> with <code>anchor = "year"</code>
-properly calibrates the <strong>annual weight V1032</strong> to monthly
-SIDRA population totals using hierarchical rake weighting. This ensures
-that:</p>
-<ul>
-<li>Weights sum to correct monthly population totals</li>
-<li>Demographic cells are balanced within each year</li>
-<li>Results are comparable to official IBGE statistics</li>
-</ul>
-<p>For technical details on how annual weight calibration differs from
-quarterly, see the <a href="how-it-works.html#mensalizing-annual-pnadc-data">How It Works</a>
-vignette.</p>
+<code>pnadc_apply_periods(..., anchor = "year")</code>?</strong></p>
+<p>Annual PNADC data contains only one visit per household (e.g., visit
+1 or visit 5), not all 8 rotation groups like quarterly data. The
+function properly calibrates the annual weight <strong>V1032</strong> to
+monthly SIDRA population totals using <code>anchor = "year"</code> to
+preserve yearly totals while redistributing to months.</p>
+<p>For technical details, see <a href="how-it-works.html#mensalizing-annual-pnadc-data">How It
+Works</a>.</p>
 </blockquote>
 </div>
 <div class="section level3">
@@ -607,7 +611,7 @@ poverty indices:</p>
 <code class="sourceCode R"><span><span class="co"># Filter to determined observations</span></span>
 <span><span class="va">d_monthly</span> <span class="op">&lt;-</span> <span class="va">d</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_month_yyyymm</span><span class="op">)</span><span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Use calibrated monthly weight (from mensalize_annual_pnadc())</span></span>
+<span><span class="co"># Use calibrated monthly weight (from pnadc_apply_periods())</span></span>
 <span><span class="va">d_monthly</span><span class="op">[</span>, <span class="va">peso</span> <span class="op">:=</span> <span class="va">weight_monthly</span><span class="op">]</span></span>
 <span></span>
 <span><span class="co"># Compute monthly poverty statistics</span></span>
