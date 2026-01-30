@@ -10,3 +10,6 @@ vignettes/*.html
 vignettes/*.R
 *.Rcheck/
 *.tar.gz
+
+# Test coverage output
+cobertura.xml
