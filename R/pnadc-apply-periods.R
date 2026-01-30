@@ -26,6 +26,9 @@
 #'   population totals. If FALSE, only merge the crosswalk without calibration.
 #' @param calibration_unit Character. Temporal unit for weight calibration.
 #'   One of \code{"month"} (default), \code{"fortnight"}, or \code{"week"}.
+#' @param calibration_min_cell_size Integer. Minimum sample size required in a cell
+#'   for it to be used in hierarchical raking. Cells smaller than this threshold
+#'   are collapsed to coarser levels. Default: 1 (use all cells).
 #' @param target_totals Optional data.table with population targets. If NULL
 #'   (default), fetches monthly population from SIDRA and derives targets for
 #'   fortnight/week. Each time period (month, fortnight, or week) is calibrated
