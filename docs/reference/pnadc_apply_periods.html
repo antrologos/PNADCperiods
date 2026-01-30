@@ -108,6 +108,12 @@ population totals. If FALSE, only merge the crosswalk without calibration.</p></
 One of <code>"month"</code> (default), <code>"fortnight"</code>, or <code>"week"</code>.</p></dd>
 
 
+<dt id="arg-calibration-min-cell-size">calibration_min_cell_size<a class="anchor" aria-label="anchor" href="#arg-calibration-min-cell-size"></a></dt>
+<dd><p>Integer. Minimum sample size required in a cell
+for it to be used in hierarchical raking. Cells smaller than this threshold
+are collapsed to coarser levels. Default: 1 (use all cells).</p></dd>
+
+
 <dt id="arg-target-totals">target_totals<a class="anchor" aria-label="anchor" href="#arg-target-totals"></a></dt>
 <dd><p>Optional data.table with population targets. If NULL
 (default), fetches monthly population from SIDRA and derives targets for
