@@ -131,18 +131,40 @@ create_realistic_pnadc <- function(n_quarters = 4,
 #' @param quarter Quarter (1-4)
 #' @return data.table with minimal required columns
 create_minimal_pnadc <- function(n = 10L, year = 2023L, quarter = 1L) {
-  data.table::data.table(
+  # Generate birth dates
+  birth_years <- year - sample(18:65, n, replace = TRUE)
+  birth_months <- sample(1:12, n, replace = TRUE)
+  birth_days <- sapply(birth_months, function(m) {
+    max_day <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)[m]
+    sample(1:max_day, 1)
+  })
+
+  dt <- data.table::data.table(
     Ano = rep(year, n),
     Trimestre = rep(quarter, n),
     UPA = seq_len(n),
     V1008 = rep(1L, n),
     V1014 = sample(1:8, n, replace = TRUE),
     V2003 = rep(1L, n),
-    V2008 = sample(1:28, n, replace = TRUE),
-    V20081 = sample(1:12, n, replace = TRUE),
-    V20082 = sample(1970:2005, n, replace = TRUE),
-    V2009 = sample(18:65, n, replace = TRUE)
+    V2008 = as.integer(birth_days),
+    V20081 = as.integer(birth_months),
+    V20082 = as.integer(birth_years)
   )
+
+  # Calculate age correctly based on survey date
+  # Assume interview at middle of quarter (2nd month)
+  dt[, survey_month := (Trimestre - 1L) * 3L + 2L]
+  dt[, V2009 := {
+    age <- Ano - V20082
+    # Adjust if birthday hasn't occurred yet this year
+    had_birthday <- (survey_month > V20081) |
+                    (survey_month == V20081 & 15L >= V2008)  # Assume interview on 15th
+    age <- age - as.integer(!had_birthday)
+    pmax(0L, age)  # Ensure non-negative
+  }]
+  dt[, survey_month := NULL]
+
+  dt
 }
 
 
@@ -158,10 +180,12 @@ create_pnadc_for_calibration <- function(n = 100L, year = 2023L, quarter = 1L) {
   dt <- create_minimal_pnadc(n, year, quarter)
 
   # Add calibration columns
+  # Valid Brazilian UF codes: 11-17 (North), 21-29 (Northeast), 31-35 (Southeast), 41-43 (South), 50-53 (Central-West)
+  valid_ufs <- c(11:17, 21:29, 31:35, 41:43, 50:53)
   dt[, `:=`(
-    UF = sample(11:53, n, replace = TRUE),  # Brazilian state codes
-    V1028 = runif(n, 500, 2000),            # Quarterly weights
-    V1032 = runif(n, 500, 2000),            # Annual weights
+    UF = sample(valid_ufs, n, replace = TRUE),  # Brazilian state codes
+    V1028 = runif(n, 500, 2000),                # Quarterly weights
+    V1032 = runif(n, 500, 2000),                # Annual weights
     posest = sample(1:500, n, replace = TRUE),
     posest_sxi = sample(100:999, n, replace = TRUE)
   )]

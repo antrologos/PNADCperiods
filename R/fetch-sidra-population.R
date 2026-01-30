@@ -206,24 +206,16 @@ fetch_monthly_population <- function(start_yyyymm = NULL,
  # Rename to standard output column name
  data.table::setnames(dt, "anomesexato", "ref_month_yyyymm")
 
- # Filter to requested date range if specified
- if (!is.null(start_yyyymm)) {
-   dt <- dt[ref_month_yyyymm >= start_yyyymm]
- }
- if (!is.null(end_yyyymm)) {
-   dt <- dt[ref_month_yyyymm <= end_yyyymm]
- }
-
  # Keep only final columns
  dt <- dt[, .(ref_month_yyyymm, m_populacao)]
 
- # OPTIMIZATION: Store in cache for future calls
+ # OPTIMIZATION: Store FULL unfiltered data in cache for future calls
  if (use_cache) {
    assign("population_data", data.table::copy(dt), envir = .sidra_cache)
    assign("cache_time", Sys.time(), envir = .sidra_cache)
  }
 
- # Apply date filters AFTER caching (cache stores full data)
+ # Apply date filters AFTER caching (cache stores full data, then we filter)
  if (!is.null(start_yyyymm)) {
    dt <- dt[ref_month_yyyymm >= start_yyyymm]
  }

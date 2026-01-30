@@ -136,3 +136,168 @@ test_that("extrapolate_boundary_months removes temporary columns", {
   expect_false("row_num2" %in% names(result))
   expect_false("d_pop" %in% names(result))
 })
+
+
+# =============================================================================
+# CACHING BEHAVIOR TESTS
+# =============================================================================
+
+test_that("clear_sidra_cache clears the cache", {
+  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
+              "sidrar package not available")
+  skip_if_offline()
+
+  # 1. Setup: Fetch data to populate cache
+  fetch_monthly_population(
+    start_yyyymm = 201501,
+    end_yyyymm = 201503,
+    use_cache = TRUE,
+    verbose = FALSE
+  )
+
+  # 2. Execute: Clear cache
+  clear_sidra_cache()
+
+  # 3. Verify: Cache environment should be empty
+  cache_env <- PNADCperiods:::.sidra_cache
+  expect_false(exists("population_data", envir = cache_env))
+  expect_false(exists("cache_timestamp", envir = cache_env))
+
+  # 4. Context: Clearing cache forces fresh API calls
+})
+
+
+test_that("use_cache=FALSE bypasses cache", {
+  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
+              "sidrar package not available")
+  skip_if_offline()
+
+  # 1. Setup: Clear cache first
+  clear_sidra_cache()
+
+  # 2. Execute: Fetch with use_cache=FALSE
+  result1 <- fetch_monthly_population(
+    start_yyyymm = 201501,
+    end_yyyymm = 201503,
+    use_cache = FALSE,
+    verbose = FALSE
+  )
+
+  # 3. Verify: Cache should still be empty
+  cache_env <- PNADCperiods:::.sidra_cache
+  expect_false(exists("population_data", envir = cache_env))
+
+  # 4. Context: use_cache=FALSE prevents both reading and writing cache
+})
+
+
+test_that("cached data is returned on second call", {
+  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
+              "sidrar package not available")
+  skip_if_offline()
+
+  # 1. Setup: Clear cache
+  clear_sidra_cache()
+
+  # 2. Execute: First call (populates cache)
+  result1 <- fetch_monthly_population(
+    start_yyyymm = 201501,
+    end_yyyymm = 201503,
+    use_cache = TRUE,
+    verbose = FALSE
+  )
+
+  # 3. Execute: Second call (should use cache)
+  result2 <- fetch_monthly_population(
+    start_yyyymm = 201501,
+    end_yyyymm = 201503,
+    use_cache = TRUE,
+    verbose = FALSE
+  )
+
+  # 4. Verify: Results should be identical
+  expect_equal(nrow(result1), nrow(result2))
+  expect_equal(result1$ref_month_yyyymm, result2$ref_month_yyyymm)
+  expect_equal(result1$m_populacao, result2$m_populacao)
+
+  # 5. Context: Cache improves performance on repeated calls
+})
+
+
+test_that("cache respects different date ranges", {
+  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
+              "sidrar package not available")
+  skip_if_offline()
+
+  # 1. Setup: Clear cache
+  clear_sidra_cache()
+
+  # 2. Execute: Cache stores full data, filters are applied after
+  result1 <- fetch_monthly_population(
+    start_yyyymm = 201501,
+    end_yyyymm = 201503,
+    use_cache = TRUE,
+    verbose = FALSE
+  )
+
+  # 3. Execute: Different date range should work correctly
+  result2 <- fetch_monthly_population(
+    start_yyyymm = 201504,
+    end_yyyymm = 201506,
+    use_cache = TRUE,
+    verbose = FALSE
+  )
+
+  # 4. Verify: Should have different months
+  expect_false(any(result2$ref_month_yyyymm %in% result1$ref_month_yyyymm))
+  expect_true(all(result2$ref_month_yyyymm >= 201504))
+  expect_true(all(result2$ref_month_yyyymm <= 201506))
+
+  # 5. Context: This test verifies the Phase 1 bug fix - cache stores full data
+})
+
+
+test_that("cache_max_age_hours parameter accepted", {
+  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
+              "sidrar package not available")
+  skip_if_offline()
+
+  # 1. Setup: Clear cache
+  clear_sidra_cache()
+
+  # 2. Execute: Fetch with cache_max_age_hours parameter
+  expect_no_error({
+    result <- fetch_monthly_population(
+      start_yyyymm = 201501,
+      end_yyyymm = 201503,
+      use_cache = TRUE,
+      cache_max_age_hours = 24,
+      verbose = FALSE
+    )
+  })
+
+  # 3. Context: cache_max_age_hours parameter controls cache expiration
+})
+
+
+# =============================================================================
+# ERROR HANDLING TESTS
+# =============================================================================
+
+test_that("transform_moving_quarter_to_monthly handles edge cases", {
+  # 1. Setup: Create data.table with moving quarter data
+  dt <- data.table::data.table(
+    anomesfinaltrimmovel = c(201203L, 201204L, 201205L),
+    populacao = c(200000, 200100, 200200)
+  )
+
+  # 2. Execute: Should not error
+  expect_no_error({
+    result <- transform_moving_quarter_to_monthly(dt, verbose = FALSE)
+  })
+
+  # 3. Verify: Should produce output
+  expect_true(nrow(result) > 0)
+
+  # 4. Context: Function handles moving quarter transformation
+})
