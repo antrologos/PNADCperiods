@@ -71,6 +71,7 @@ reference:
   desc: Experimental strategies for improved period identification
   contents:
   - pnadc_experimental_periods
+  - pnadc_ipf_calibrate
 
 home:
   links:

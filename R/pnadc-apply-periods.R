@@ -34,9 +34,10 @@
 #'   If providing custom targets, the population column (\code{m_populacao} for
 #'   months, \code{f_populacao} for fortnights, \code{w_populacao} for weeks)
 #'   must be in **thousands**. The function multiplies by 1000 internally.
-#' @param smooth Logical. If TRUE (default), smooth calibrated weights to
+#' @param smooth Logical. If TRUE, smooth calibrated weights to
 #'   remove quarterly artifacts. Smoothing is adapted per time period:
 #'   monthly (3-period window), fortnight (7-period window), weekly (no smoothing).
+#'   Default: FALSE.
 #' @param keep_all Logical. If TRUE (default), keep all observations including
 #'   those with undetermined reference periods. If FALSE, drop undetermined rows.
 #' @param verbose Logical. If TRUE (default), print progress messages.
@@ -144,8 +145,9 @@ pnadc_apply_periods <- function(data,
                                 anchor,
                                 calibrate = TRUE,
                                 calibration_unit = c("month", "fortnight", "week"),
+                                calibration_min_cell_size = 1,
                                 target_totals = NULL,
-                                smooth = TRUE,
+                                smooth = FALSE,
                                 keep_all = TRUE,
                                 verbose = TRUE) {
 
@@ -340,6 +342,7 @@ pnadc_apply_periods <- function(data,
       target_totals = target_totals,
       smooth = smooth,
       keep_all = keep_all,
+      min_cell_size = calibration_min_cell_size,
       verbose = verbose
     )
 
@@ -397,8 +400,11 @@ pnadc_apply_periods <- function(data,
 #'   - fortnight: 2 levels (age + region)
 #'   - week: 1 level (age only)
 #' @param min_cell_size Minimum observations per cell. Levels with smaller
-#'   cells are skipped. Default 10.
+#'   cells are skipped. Default 1.
 #' @param smooth Apply smoothing?
+#' @param parent_constraint Apply parent-period constraint? If TRUE (default),
+#'   scales child period weights so they sum to parent period totals. This
+#'   improves parent-period consistency of estimates.
 #' @param keep_all Keep undetermined observations?
 #' @param verbose Print progress?
 #' @return data.table with weight_calibrated column
@@ -422,8 +428,9 @@ calibrate_weights_internal <- function(dt,
                                        anchor,
                                        target_totals,
                                        n_cells = NULL,
-                                       min_cell_size = 10L,
-                                       smooth = TRUE,
+                                       min_cell_size = 1L,
+                                       smooth = FALSE,
+                                       parent_constraint = TRUE,
                                        keep_all = TRUE,
                                        verbose = FALSE) {
 
@@ -533,6 +540,11 @@ calibrate_weights_internal <- function(dt,
   # Step 4: Smooth weights (if requested and appropriate for the time period)
   if (smooth) {
     dt <- PNADCperiods:::smooth_calibrated_weights(dt, ref_var)
+  }
+
+  # Step 5: Apply parent-period constraint (ensures child periods aggregate to parent)
+  if (parent_constraint) {
+    dt <- PNADCperiods:::apply_parent_period_constraint(dt, weight_var, ref_var, verbose)
   }
 
   # Rename final weight
@@ -857,6 +869,166 @@ smooth_calibrated_weights <- function(dt, ref_var) {
   if (length(existing_temp) > 0) {
     dt[, (existing_temp) := NULL]
   }
+
+  dt
+}
+
+
+#' Apply Parent-Period Constraint
+#'
+#' Ensures that calibrated child-period weights aggregate consistently to
+#' parent-period totals. This improves parent-period consistency of estimates.
+#'
+#' For each parent period:
+#' - Months: scale so sum(monthly weights) = sum(V1028) per quarter
+#' - Fortnights: scale so sum(fortnight weights) = sum(V1028) per quarter
+#'   (then additionally ensure consistency within months)
+#' - Weeks: scale so sum(weekly weights) = sum(V1028) per quarter
+#'   (then additionally ensure consistency within fortnights)
+#'
+#' @param dt data.table with calibrated weights in weight_current column
+#' @param weight_var Original weight variable name (e.g., "V1028")
+#' @param ref_var Reference period variable (e.g., "ref_month_yyyymm")
+#' @param verbose Print progress messages?
+#' @return data.table with parent-constrained weights
+#' @keywords internal
+#' @noRd
+apply_parent_period_constraint <- function(dt, weight_var, ref_var, verbose = FALSE) {
+
+  # Determine period type
+  is_month <- grepl("month", ref_var, ignore.case = TRUE)
+  is_fortnight <- grepl("fortnight", ref_var, ignore.case = TRUE)
+  is_week <- grepl("week", ref_var, ignore.case = TRUE)
+
+  # ==========================================================================
+  # CONSTRAINT 1: All child periods sum to quarterly V1028 total
+  # ==========================================================================
+  # This is the ultimate anchor - ensures consistency with quarterly benchmark
+
+  if (verbose) cat("    Applying parent-period constraint (quarterly anchor)...\n")
+
+  # Create quarter identifier
+  dt[, .ppc_quarter := Ano * 10L + Trimestre]
+
+  # Original quarterly totals (from V1028)
+  quarterly_totals <- dt[.is_determined == TRUE,
+                         .(q_total_orig = sum(get(weight_var), na.rm = TRUE)),
+                         by = .ppc_quarter]
+
+  # Current child-period totals per quarter
+  dt[.is_determined == TRUE,
+     .ppc_q_current := sum(weight_current, na.rm = TRUE),
+     by = .ppc_quarter]
+
+  # Join and compute adjustment factor
+  dt[quarterly_totals, on = ".ppc_quarter", .ppc_q_target := i.q_total_orig]
+
+  dt[.is_determined == TRUE & .ppc_q_current > 0,
+     .ppc_q_factor := .ppc_q_target / .ppc_q_current]
+
+  dt[is.na(.ppc_q_factor), .ppc_q_factor := 1]
+
+  # Apply quarterly constraint
+  dt[.is_determined == TRUE,
+     weight_current := weight_current * .ppc_q_factor]
+
+  if (verbose) {
+    factors <- unique(dt[.is_determined == TRUE, .(.ppc_quarter, .ppc_q_factor)])
+    cat(sprintf("      Quarterly adjustment factors: [%.4f, %.4f]\n",
+                min(factors$.ppc_q_factor, na.rm = TRUE),
+                max(factors$.ppc_q_factor, na.rm = TRUE)))
+  }
+
+  # ==========================================================================
+  # CONSTRAINT 2: For fortnights/weeks, also ensure within-month consistency
+  # ==========================================================================
+  # This ensures fortnights within a month sum to the monthly total
+
+  if (is_fortnight) {
+    # Extract month from fortnight: YYYYFF -> YYYYMM
+    dt[, .ppc_month := {
+      year <- get(ref_var) %/% 100L
+      ff <- get(ref_var) %% 100L
+      month <- (ff + 1L) %/% 2L
+      year * 100L + month
+    }]
+
+    # Monthly totals from the quarterly-constrained weights
+    # First pass: compute what monthly totals SHOULD be (proportional to V1028)
+    monthly_totals <- dt[.is_determined == TRUE,
+                         .(m_total_orig = sum(get(weight_var), na.rm = TRUE)),
+                         by = .ppc_month]
+
+    # Current fortnight totals per month
+    dt[.is_determined == TRUE,
+       .ppc_m_current := sum(weight_current, na.rm = TRUE),
+       by = .ppc_month]
+
+    # Join and compute adjustment
+    dt[monthly_totals, on = ".ppc_month", .ppc_m_target := i.m_total_orig]
+
+    dt[.is_determined == TRUE & .ppc_m_current > 0,
+       .ppc_m_factor := .ppc_m_target / .ppc_m_current]
+
+    dt[is.na(.ppc_m_factor), .ppc_m_factor := 1]
+
+    # Apply monthly constraint
+    dt[.is_determined == TRUE,
+       weight_current := weight_current * .ppc_m_factor]
+
+    if (verbose) {
+      factors <- unique(dt[.is_determined == TRUE, .(.ppc_month, .ppc_m_factor)])
+      cat(sprintf("      Monthly adjustment factors: [%.4f, %.4f]\n",
+                  min(factors$.ppc_m_factor, na.rm = TRUE),
+                  max(factors$.ppc_m_factor, na.rm = TRUE)))
+    }
+
+    dt[, c(".ppc_month", ".ppc_m_current", ".ppc_m_target", ".ppc_m_factor") := NULL]
+  }
+
+  if (is_week) {
+    # Extract fortnight from week: YYYYWW -> YYYYFF
+    dt[, .ppc_fortnight := {
+      year <- get(ref_var) %/% 100L
+      ww <- get(ref_var) %% 100L
+      ff <- (ww + 1L) %/% 2L
+      year * 100L + ff
+    }]
+
+    # Fortnight totals (proportional to V1028)
+    fortnight_totals <- dt[.is_determined == TRUE,
+                           .(f_total_orig = sum(get(weight_var), na.rm = TRUE)),
+                           by = .ppc_fortnight]
+
+    # Current week totals per fortnight
+    dt[.is_determined == TRUE,
+       .ppc_f_current := sum(weight_current, na.rm = TRUE),
+       by = .ppc_fortnight]
+
+    # Join and compute adjustment
+    dt[fortnight_totals, on = ".ppc_fortnight", .ppc_f_target := i.f_total_orig]
+
+    dt[.is_determined == TRUE & .ppc_f_current > 0,
+       .ppc_f_factor := .ppc_f_target / .ppc_f_current]
+
+    dt[is.na(.ppc_f_factor), .ppc_f_factor := 1]
+
+    # Apply fortnight constraint
+    dt[.is_determined == TRUE,
+       weight_current := weight_current * .ppc_f_factor]
+
+    if (verbose) {
+      factors <- unique(dt[.is_determined == TRUE, .(.ppc_fortnight, .ppc_f_factor)])
+      cat(sprintf("      Fortnight adjustment factors: [%.4f, %.4f]\n",
+                  min(factors$.ppc_f_factor, na.rm = TRUE),
+                  max(factors$.ppc_f_factor, na.rm = TRUE)))
+    }
+
+    dt[, c(".ppc_fortnight", ".ppc_f_current", ".ppc_f_target", ".ppc_f_factor") := NULL]
+  }
+
+  # Clean up
+  dt[, c(".ppc_quarter", ".ppc_q_current", ".ppc_q_target", ".ppc_q_factor") := NULL]
 
   dt
 }

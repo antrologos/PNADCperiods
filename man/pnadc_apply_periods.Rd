@@ -11,8 +11,9 @@ pnadc_apply_periods(
   anchor,
   calibrate = TRUE,
   calibration_unit = c("month", "fortnight", "week"),
+  calibration_min_cell_size = 1,
   target_totals = NULL,
-  smooth = TRUE,
+  smooth = FALSE,
   keep_all = TRUE,
   verbose = TRUE
 )
@@ -50,9 +51,10 @@ If providing custom targets, the population column (\code{m_populacao} for
 months, \code{f_populacao} for fortnights, \code{w_populacao} for weeks)
 must be in \strong{thousands}. The function multiplies by 1000 internally.}
 
-\item{smooth}{Logical. If TRUE (default), smooth calibrated weights to
+\item{smooth}{Logical. If TRUE, smooth calibrated weights to
 remove quarterly artifacts. Smoothing is adapted per time period:
-monthly (3-period window), fortnight (7-period window), weekly (no smoothing).}
+monthly (3-period window), fortnight (7-period window), weekly (no smoothing).
+Default: FALSE.}
 
 \item{keep_all}{Logical. If TRUE (default), keep all observations including
 those with undetermined reference periods. If FALSE, drop undetermined rows.}

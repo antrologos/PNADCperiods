@@ -65,8 +65,9 @@ chosen temporal granularity (month, fortnight, or week).</p>
 <span>  <span class="va">anchor</span>,</span>
 <span>  calibrate <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  calibration_unit <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"month"</span>, <span class="st">"fortnight"</span>, <span class="st">"week"</span><span class="op">)</span>,</span>
+<span>  calibration_min_cell_size <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  target_totals <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  smooth <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  smooth <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  keep_all <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -118,9 +119,10 @@ must be in <strong>thousands</strong>. The function multiplies by 1000 internall
 
 
 <dt id="arg-smooth">smooth<a class="anchor" aria-label="anchor" href="#arg-smooth"></a></dt>
-<dd><p>Logical. If TRUE (default), smooth calibrated weights to
+<dd><p>Logical. If TRUE, smooth calibrated weights to
 remove quarterly artifacts. Smoothing is adapted per time period:
-monthly (3-period window), fortnight (7-period window), weekly (no smoothing).</p></dd>
+monthly (3-period window), fortnight (7-period window), weekly (no smoothing).
+Default: FALSE.</p></dd>
 
 
 <dt id="arg-keep-all">keep_all<a class="anchor" aria-label="anchor" href="#arg-keep-all"></a></dt>

@@ -114,11 +114,10 @@ recovering in May or June? Quarterly data can’t tell you.</p></li>
 </ol>
 <p>The <code>PNADCperiods</code> package solves this problem by
 identifying which specific month each interview refers to, using
-birthday information and IBGE’s interview scheduling rules. With stacked
-multi-quarter data, the algorithm achieves a <strong>94.3% determination
-rate (8 quarters) or 97.0% (full 2012-2025 history)</strong> for monthly
-identification—meaning we can assign specific reference months to nearly
-all observations.</p>
+birthday information and IBGE’s interview scheduling rules. With the
+full PNADC history (2012-2025), the algorithm achieves a <strong>95.4%
+determination rate</strong> for monthly identification—meaning we can
+assign specific reference months to nearly all observations.</p>
 <p>This vignette demonstrates three compelling cases where monthly data
 reveals dynamics that quarterly data hides, culminating in a powerful
 validation using minimum wage transitions.</p>
@@ -783,12 +782,6 @@ samples</strong>.</p>
 <p><strong>Strict determination rates</strong> (from
 <code><a href="../reference/pnadc_identify_periods.html">pnadc_identify_periods()</a></code>):</p>
 <table class="table">
-<colgroup>
-<col width="21%">
-<col width="31%">
-<col width="31%">
-<col width="16%">
-</colgroup>
 <thead><tr class="header">
 <th>Granularity</th>
 <th>Determination Rate</th>
@@ -798,21 +791,20 @@ samples</strong>.</p>
 <tbody>
 <tr class="odd">
 <td>Monthly</td>
-<td>
-<strong>94.3%</strong> (8Q) / <strong>97.0%</strong> (full)</td>
-<td>~65,000</td>
+<td><strong>95.4%</strong></td>
+<td>~130,000</td>
 <td>Most analyses</td>
 </tr>
 <tr class="even">
 <td>Fortnightly</td>
-<td><strong>8.9%</strong></td>
+<td><strong>7.1%</strong></td>
 <td>~3,000</td>
 <td>Transition timing</td>
 </tr>
 <tr class="odd">
 <td>Weekly</td>
-<td><strong>3.3%</strong></td>
-<td>~500</td>
+<td><strong>2.5%</strong></td>
+<td>~1,000</td>
 <td>Shock detection</td>
 </tr>
 </tbody>
@@ -845,22 +837,22 @@ conf=0.85, upa=0.80):</p>
 <table class="table">
 <thead><tr class="header">
 <th>Granularity</th>
-<th>Strict Rate (8Q)</th>
+<th>Strict Rate</th>
 <th>Experimental Rate</th>
 <th>Improvement</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
 <td>Fortnight</td>
-<td>8.9%</td>
-<td><strong>~12-13%</strong></td>
-<td>~1.4× more data</td>
+<td>7.1%</td>
+<td><strong>~11%</strong></td>
+<td>~1.5× more data</td>
 </tr>
 <tr class="even">
 <td>Weekly</td>
-<td>3.3%</td>
-<td><strong>~5-6%</strong></td>
-<td>~1.6-1.8× more data</td>
+<td>2.5%</td>
+<td><strong>~6%</strong></td>
+<td>~2.4× more data</td>
 </tr>
 </tbody>
 </table>
@@ -897,19 +889,41 @@ unemployed, but stopping their job search):</p>
 <span><span class="co"># The experimental crosswalk now has ~12-13% fortnight determination</span></span>
 <span><span class="co"># vs 8.9% strict. At conf=0.85, upa=0.80, we balance coverage with</span></span>
 <span><span class="co"># assignment confidence.</span></span>
-<span><span class="co"># For fortnightly analysis, we use the experimental crosswalk</span></span>
-<span><span class="va">pnadc_fortnight</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/merge.html" class="external-link">merge</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">crosswalk_exp</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span><span class="va">Ano</span>, <span class="va">Trimestre</span>, <span class="va">UPA</span>, <span class="va">V1008</span>, <span class="va">V1014</span>,</span>
-<span>                                                    <span class="va">ref_fortnight_in_quarter</span>, <span class="va">ref_fortnight_yyyyff</span><span class="op">)</span><span class="op">]</span>,</span>
-<span>                         by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Ano"</span>, <span class="st">"Trimestre"</span>, <span class="st">"UPA"</span>, <span class="st">"V1008"</span>, <span class="st">"V1014"</span><span class="op">)</span>, all.x <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="va">pnadc_fortnight</span> <span class="op">&lt;-</span> <span class="va">pnadc_fortnight</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_in_quarter</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">Ano</span> <span class="op">==</span> <span class="fl">2020</span> <span class="op">&amp;</span> <span class="va">Trimestre</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Compute participation rate by fortnight using V1028 (original quarterly weight)</span></span>
-<span><span class="co"># Since fortnights cannot aggregate across quarters, V1028 is appropriate</span></span>
+<span><span class="co"># For fortnightly analysis, we need CALIBRATED weights, not V1028.</span></span>
+<span><span class="co"># The fortnight-determined subset (~12-13%) is NOT a random sample,</span></span>
+<span><span class="co"># so using uncalibrated V1028 would cause systematic bias.</span></span>
+<span><span class="co"># We use pnadc_apply_periods() with calibration_unit = "fortnight"</span></span>
+<span><span class="co"># to generate properly calibrated weight_fortnight values.</span></span>
+<span></span>
+<span><span class="co"># First merge the experimental crosswalk for fortnight columns</span></span>
+<span><span class="va">pnadc_fortnight</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/merge.html" class="external-link">merge</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">crosswalk_exp</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span><span class="va">Ano</span>, <span class="va">Trimestre</span>, <span class="va">UPA</span>, <span class="va">V1008</span>, <span class="va">V1014</span>,</span>
+<span>                                                    <span class="va">ref_fortnight_in_quarter</span>, <span class="va">ref_fortnight_yyyyff</span>,</span>
+<span>                                                    <span class="va">determined_fortnight</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>                         by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Ano"</span>, <span class="st">"Trimestre"</span>, <span class="st">"UPA"</span>, <span class="st">"V1008"</span>, <span class="st">"V1014"</span><span class="op">)</span>, all.x <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Calibrate fortnight weights using experimental crosswalk</span></span>
+<span><span class="va">pnadc_fortnight</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span></span>
+<span>  <span class="va">pnadc_fortnight</span>,</span>
+<span>  <span class="va">crosswalk_exp</span>,</span>
+<span>  weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
+<span>  anchor <span class="op">=</span> <span class="st">"quarter"</span>,</span>
+<span>  calibrate <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  calibration_unit <span class="op">=</span> <span class="st">"fortnight"</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Filter to COVID period with calibrated weights</span></span>
+<span><span class="va">pnadc_fortnight</span> <span class="op">&lt;-</span> <span class="va">pnadc_fortnight</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_fortnight_in_quarter</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">weight_fortnight</span><span class="op">)</span> <span class="op">&amp;</span></span>
+<span>                                   <span class="va">Ano</span> <span class="op">==</span> <span class="fl">2020</span> <span class="op">&amp;</span> <span class="va">Trimestre</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span></span>
+<span></span>
+<span><span class="co"># Compute participation rate by fortnight using CALIBRATED weight_fortnight</span></span>
+<span><span class="co"># This ensures proper population representation for the non-random fortnight subset</span></span>
 <span><span class="va">fortnight_covid</span> <span class="op">&lt;-</span> <span class="va">pnadc_fortnight</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
-<span>  participation_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">pea</span> <span class="op">*</span> <span class="va">V1028</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">/</span></span>
-<span>                       <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">V1028</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
-<span>  unemployment_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">unemployed</span> <span class="op">*</span> <span class="va">V1028</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">/</span></span>
-<span>                      <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">pea</span> <span class="op">*</span> <span class="va">V1028</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  participation_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">pea</span> <span class="op">*</span> <span class="va">weight_fortnight</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">/</span></span>
+<span>                       <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">weight_fortnight</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  unemployment_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">unemployed</span> <span class="op">*</span> <span class="va">weight_fortnight</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">/</span></span>
+<span>                      <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">pea</span> <span class="op">*</span> <span class="va">weight_fortnight</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
 <span>  n_obs <span class="op">=</span> <span class="va">.N</span></span>
 <span><span class="op">)</span>, by <span class="op">=</span> <span class="fu">.</span><span class="op">(</span><span class="va">Ano</span>, <span class="va">Trimestre</span>, <span class="va">ref_fortnight_in_quarter</span>, <span class="va">ref_fortnight_yyyyff</span><span class="op">)</span><span class="op">]</span></span>
 <span></span>
@@ -968,11 +982,11 @@ more precisely.</p>
 states (Bahia, Rio de Janeiro, Pernambuco) and occurring during a
 specific week each year. Do workers reduce their hours during Carnival
 week?</p>
-<p>With strict determination, the ~1.5% weekly rate makes this analysis
+<p>With strict determination, the ~2.5% weekly rate makes this analysis
 challenging. However, using <code><a href="../reference/pnadc_experimental_periods.html">pnadc_experimental_periods()</a></code>
-with the same thresholds boosts this to ~14-15%. We <strong>pool
-multiple years</strong> (2019, 2022-2025, excluding COVID years) and
-compare Carnival states to other states. We use <strong>average hours
+with the same thresholds boosts this to ~6%. We <strong>pool multiple
+years</strong> (2019, 2022-2025, excluding COVID years) and compare
+Carnival states to other states. We use <strong>average hours
 worked</strong> (VD4035) as our indicator, which should show a clear
 drop during Carnival:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
@@ -983,12 +997,34 @@ drop during Carnival:</p>
 <span><span class="co"># Use observations with determined weeks (among employed with valid hours)</span></span>
 <span><span class="va">carnival_years</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2019L</span>, <span class="fl">2022L</span>, <span class="fl">2023L</span>, <span class="fl">2024L</span>, <span class="fl">2025L</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># For weekly analysis, we need CALIBRATED weights, not V1028.</span></span>
+<span><span class="co"># The weekly-determined subset (~5-6%) is NOT a random sample,</span></span>
+<span><span class="co"># so using uncalibrated V1028 would cause systematic bias.</span></span>
+<span><span class="co"># We use pnadc_apply_periods() with calibration_unit = "week"</span></span>
+<span><span class="co"># to generate properly calibrated weight_weekly values.</span></span>
+<span></span>
 <span><span class="co"># Merge experimental crosswalk for week data</span></span>
 <span><span class="va">pnadc_weekly</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/merge.html" class="external-link">merge</a></span><span class="op">(</span><span class="va">pnadc</span>, <span class="va">crosswalk_exp</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span><span class="va">Ano</span>, <span class="va">Trimestre</span>, <span class="va">UPA</span>, <span class="va">V1008</span>, <span class="va">V1014</span>,</span>
-<span>                                                 <span class="va">ref_week_in_quarter</span>, <span class="va">ref_week_yyyyww</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>                                                 <span class="va">ref_week_in_quarter</span>, <span class="va">ref_week_yyyyww</span>,</span>
+<span>                                                 <span class="va">determined_week</span><span class="op">)</span><span class="op">]</span>,</span>
 <span>                      by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Ano"</span>, <span class="st">"Trimestre"</span>, <span class="st">"UPA"</span>, <span class="st">"V1008"</span>, <span class="st">"V1014"</span><span class="op">)</span>, all.x <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Calibrate weekly weights using experimental crosswalk</span></span>
+<span><span class="va">pnadc_weekly</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span></span>
+<span>  <span class="va">pnadc_weekly</span>,</span>
+<span>  <span class="va">crosswalk_exp</span>,</span>
+<span>  weight_var <span class="op">=</span> <span class="st">"V1028"</span>,</span>
+<span>  anchor <span class="op">=</span> <span class="st">"quarter"</span>,</span>
+<span>  calibrate <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  calibration_unit <span class="op">=</span> <span class="st">"week"</span>,</span>
+<span>  smooth <span class="op">=</span> <span class="cn">FALSE</span>,  <span class="co"># No smoothing for weekly (too sparse)</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Filter to employed with valid hours and calibrated weights</span></span>
 <span><span class="va">pnadc_weekly</span> <span class="op">&lt;-</span> <span class="va">pnadc_weekly</span><span class="op">[</span></span>
-<span>  <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_week_in_quarter</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">Trimestre</span> <span class="op">==</span> <span class="fl">1L</span> <span class="op">&amp;</span> <span class="va">Ano</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">carnival_years</span> <span class="op">&amp;</span></span>
+<span>  <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_week_in_quarter</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">weight_weekly</span><span class="op">)</span> <span class="op">&amp;</span></span>
+<span>  <span class="va">Trimestre</span> <span class="op">==</span> <span class="fl">1L</span> <span class="op">&amp;</span> <span class="va">Ano</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">carnival_years</span> <span class="op">&amp;</span></span>
 <span>  <span class="va">employed</span> <span class="op">==</span> <span class="fl">1L</span> <span class="op">&amp;</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">VD4035</span><span class="op">)</span></span>
 <span><span class="op">]</span></span>
 <span></span>
@@ -1008,9 +1044,10 @@ drop during Carnival:</p>
 <span><span class="va">pnadc_weekly</span><span class="op">[</span>, <span class="va">is_carnival_state</span> <span class="op">:=</span> <span class="va">UF</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">29L</span>, <span class="fl">33L</span>, <span class="fl">26L</span><span class="op">)</span><span class="op">]</span></span>
 <span></span>
 <span><span class="co"># Aggregate: Average hours worked by Carnival vs non-Carnival weeks × region</span></span>
+<span><span class="co"># Use CALIBRATED weight_weekly for proper population representation</span></span>
 <span><span class="va">weekly_carnival</span> <span class="op">&lt;-</span> <span class="va">pnadc_weekly</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
-<span>  avg_hours_worked <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">VD4035</span> <span class="op">*</span> <span class="va">V1028</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">/</span></span>
-<span>                     <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">V1028</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  avg_hours_worked <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">VD4035</span> <span class="op">*</span> <span class="va">weight_weekly</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">/</span></span>
+<span>                     <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">weight_weekly</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
 <span>  n_obs <span class="op">=</span> <span class="va">.N</span></span>
 <span><span class="op">)</span>, by <span class="op">=</span> <span class="fu">.</span><span class="op">(</span><span class="va">is_carnival_week</span>, <span class="va">is_carnival_state</span><span class="op">)</span><span class="op">]</span></span>
 <span></span>

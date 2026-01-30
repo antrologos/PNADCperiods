@@ -13,6 +13,9 @@ pnadc_ipf_calibrate(
   bounds = c(0.1, 10),
   max_iter = 300L,
   tol = 1e-06,
+  bias_correction = c("none", "propensity"),
+  method = c("margin", "cell"),
+  min_cell_size = 30L,
   verbose = TRUE
 )
 }
@@ -47,6 +50,19 @@ to 10\\% or increased to 1000\\% of the original. Default: \code{c(0.1, 10)}.}
 \item{tol}{Numeric. Convergence tolerance - iteration stops when the maximum
 relative change in weights is below this value. Default: 1e-6.}
 
+\item{bias_correction}{Character. Method for correcting selection bias in the
+determined sample. Options: \code{"none"} (default, use standard weights),
+\code{"propensity"} (use inverse probability weighting based on propensity
+scores for being in the determined sample).}
+
+\item{method}{Character. IPF method to use. Options: \code{"margin"} (default,
+iterate over independent margins), \code{"cell"} (iterate over hierarchical
+cells like nested raking, preserving anchor-period structure).}
+
+\item{min_cell_size}{Integer. Minimum cell size threshold for adaptive margin
+collapsing. If any margin has cells smaller than this, the margin categories
+will be collapsed (e.g., 9 age groups -> 4). Default: 30. Set to 0 to disable.}
+
 \item{verbose}{Logical. Print progress messages. Default: TRUE.}
 }
 \value{
@@ -70,9 +86,11 @@ determined sample.
 The algorithm flow:
 \enumerate{
 \item Create margin variables on ALL observations
+\item (Optional) Compute propensity scores and IPW for bias correction
 \item Calculate target proportions from FULL quarterly sample (unbiased)
+\item (Optional) Adaptively collapse sparse margins
 \item Filter to determined observations only
-\item Run IPF iterations to match quarterly proportions
+\item Run IPF iterations (margin-based or cell-based)
 \item Apply weight bounds
 \item Scale to SIDRA population totals (each period to its containing month)
 }
@@ -83,6 +101,29 @@ rural_urban (V1022, if available).
 
 For sparse data (fortnight/week), use fewer margins to ensure convergence.
 }
+\section{Bias Correction}{
+
+The \code{bias_correction = "propensity"} option models the probability of an
+observation being in the determined sample using logistic regression with
+age group, gender, posest (post-stratum), household size group, and rural/urban
+as predictors. Inverse probability weights (IPW) are then used as initial
+weights for IPF, directly addressing selection bias.
+}
+
+\section{Cell-Based IPF}{
+
+The \code{method = "cell"} option runs IPF within hierarchical cells (similar
+to nested raking) rather than matching independent margins. This preserves
+anchor-period totals within cells and often produces better temporal consistency.
+}
+
+\section{Adaptive Margins}{
+
+When \code{min_cell_size > 0}, margins with sparse cells are automatically
+collapsed to prevent extreme weight adjustments. For example, 9 age groups
+may be collapsed to 4 broader categories for fortnight/week calibration.
+}
+
 \examples{
 \dontrun{
 library(PNADCperiods)
