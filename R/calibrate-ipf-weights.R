@@ -133,7 +133,8 @@
 #'                                    calibration_unit = "fortnight")
 #' }
 #'
-#' @export
+#' @keywords internal
+#' @noRd
 pnadc_ipf_calibrate <- function(data,
                                  weight_var = "V1028",
                                  calibration_unit = "month",
