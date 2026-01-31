@@ -127,10 +127,20 @@ mensalize_sidra_series <- function(rolling_quarters,
 
   # Load bundled starting points if not provided
   if (is.null(starting_points)) {
-    # Try to load from package data
-    if (exists("pnadc_series_starting_points", envir = asNamespace("PNADCperiods"))) {
-      starting_points <- get("pnadc_series_starting_points",
-                             envir = asNamespace("PNADCperiods"))
+    # With LazyData: true, data is accessible via getExportedValue or directly
+    starting_points <- tryCatch({
+      # Try to get from package namespace (works with LazyData: true)
+      getExportedValue("PNADCperiods", "pnadc_series_starting_points")
+    }, error = function(e) {
+      # Fallback: try to load via data()
+      tryCatch({
+        env <- new.env()
+        data("pnadc_series_starting_points", package = "PNADCperiods", envir = env)
+        env$pnadc_series_starting_points
+      }, error = function(e2) NULL)
+    })
+
+    if (!is.null(starting_points)) {
       if (verbose) message("Using bundled starting points")
     } else {
       # Starting points not available - use zeros with warning

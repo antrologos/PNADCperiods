@@ -24,6 +24,7 @@ Description: Identifies reference periods (months, fortnights, and weeks) in
     calibrated to IBGE SIDRA population totals.
 License: MIT + file LICENSE
 Encoding: UTF-8
+LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Depends:
