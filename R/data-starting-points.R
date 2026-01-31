@@ -1,0 +1,63 @@
+#' Starting Points for SIDRA Series Mensalization
+#'
+#' Pre-computed starting point values (y0) for mensalizing IBGE's rolling
+#' quarterly series into exact monthly estimates.
+#'
+#' @name pnadc_series_starting_points
+#' @docType data
+#' @usage data(pnadc_series_starting_points)
+#'
+#' @format A data.table with 159 rows and 3 columns:
+#' \describe{
+#'   \item{series_name}{Character. Name of the SIDRA series}
+#'   \item{mesnotrim}{Integer. Month position in quarter (1, 2, or 3)}
+#'   \item{y0}{Numeric. Starting point value for this series and position}
+#' }
+#'
+#' @details
+#' These starting points were computed using the methodology from Hecksher (2024):
+#' \enumerate{
+#'   \item Mensalized estimates were computed from PNADC microdata with calibrated
+#'     weights for the period 2013-2019
+#'   \item Cumulative variations were calculated from SIDRA rolling quarter data
+#'   \item Back-projection: e0 = mensalized - cumulative for each month
+#'   \item Starting points: y0 = mean(e0) by month position in quarter
+#' }
+#'
+#' The calibration period (2013-2019) was chosen because:
+#' \itemize{
+#'   \item It includes stable pre-pandemic data
+#'   \item IBGE methodology was consistent during this period
+#'   \item Sufficient observations for reliable estimates
+#' }
+#'
+#' @section When to Use Custom Starting Points:
+#' The bundled starting points are suitable for most users. Consider computing
+#' custom starting points with \code{\link{compute_series_starting_points}} if:
+#' \itemize{
+#'   \item IBGE makes major methodological changes to the PNADC
+#'   \item You need series not included in the bundled data
+#'   \item You want to use a different calibration period
+#' }
+#'
+#' @source Computed using \code{data-raw/generate_starting_points.R}
+#'
+#' @seealso
+#' \code{\link{mensalize_sidra_series}} which uses this data by default
+#' \code{\link{compute_series_starting_points}} for custom calibration
+#'
+#' @examples
+#' \dontrun{
+#' # View bundled starting points
+#' data(pnadc_series_starting_points)
+#' head(pnadc_series_starting_points)
+#'
+#' # See which series are available
+#' unique(pnadc_series_starting_points$series_name)
+#' }
+#'
+#' @references
+#' Hecksher, Marcos (2024). "Mensalizacao da PNADC: Metodologia e Resultados."
+#' Apresentacao MEGE-UCAM, abril 2024.
+#'
+"pnadc_series_starting_points"

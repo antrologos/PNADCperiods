@@ -234,11 +234,86 @@ utils::globalVariables(c(
   "i.trim_exc_m1", "i.trim_exc_m2", "i.trim_exc_m3",
   # Variables from pnadc_identify_periods week refinement
   "temp_month_num",
-  # IPF calibration variables (calibrate-ipf-weights.R)
-  "weight_ipf_monthly", "weight_ipf_fortnightly", "weight_ipf_weekly",
-  "age_group", "gender", "hh_size", "hh_group", "hh_n",
-  "rural_urban", "V1022", "V2007",
-  "w", "w_old", ".w0", "w0_safe", "current_total", "current_prop", "target_prop",
-  "weighted_n", "period_total", "factor", "scale_factor", "current_pop",
-  "i.factor", "i.scale_factor", "i.target_prop", "i.hh_n"
+  # ============================================================================
+  # SIDRA Series Mensalization Variables
+  # ============================================================================
+  # Metadata columns
+  "series_name", "api_path", "table_id", "variable_id",
+  "classification_id", "classification_value", "category",
+  "description_pt", "unit", "is_derived", "requires_deflation",
+  # Mensalization algorithm variables (from Stata methodology)
+  "mesnotrim", "anomesfinaltrimmovel", "anomesexato",
+  "d3", "cum", "cum1", "cum2", "cum3",
+  "d3m1", "d3m2", "d3m3",
+  "e0", "y0", "y",
+  # SIDRA API result columns
+  "Valor", "Trimestre Movel", "Trimestre.Movel",
+  # Deflation variables
+  "ipca_index", "deflator",
+  # Starting points data
+  "mesnotrim_1", "mesnotrim_2", "mesnotrim_3",
+  # ============================================================================
+  # Mensalization Derived Series Variables
+  # ============================================================================
+  "m_contribuinteprev", "m_desalentado", "m_domestico", "m_domesticocomcart",
+  "m_domesticosemcart", "m_empregado", "m_empregpriv", "m_empregprivcomcart",
+  "m_empregprivsemcart", "m_empregpubl", "m_empregpublcomcart",
+  "m_empregpublsemcart", "m_estatutmilitar", "m_forcaampliada",
+  "m_forcapotencial", "m_niveldesocup_calc", "m_nivelocup_calc",
+  "m_perccontribprev_calc", "m_percdesalento_calc", "m_pop14mais",
+  "m_popdesocup", "m_popnaforca", "m_popocup", "m_subocuphoras",
+  "m_taxacombdesopot_calc", "m_taxacombdesosub_calc", "m_taxacompsubutlz_calc",
+  "m_taxadesocup_calc", "m_taxapartic_calc", "m_taxasubocuphoras_calc",
+  # ============================================================================
+  # Probability/Aggregation Strategy Variables (pnadc-experimental-periods.R)
+  # ============================================================================
+  "..cols_to_keep",
+  ".ppc_f_current", ".ppc_f_factor", ".ppc_f_target", ".ppc_fortnight",
+  ".ppc_m_current", ".ppc_m_factor", ".ppc_m_target", ".ppc_month",
+  ".ppc_q_current", ".ppc_q_factor", ".ppc_q_target", ".ppc_quarter",
+  "days_within_fortnight_1", "days_within_fortnight_2",
+  "days_within_month_1_min1_max2", "days_within_month_2_min1_max2",
+  "days_within_month_2_min2_max3", "days_within_month_3_min2_max3",
+  "days_within_week_1", "days_within_week_2", "days_within_week_3",
+  "days_within_week_4",
+  "determined_aggreg_fortnight", "determined_aggreg_month",
+  "determined_aggreg_week", "determined_probable_fortnight",
+  "determined_probable_month", "determined_probable_week",
+  "fortnight_1_end", "fortnight_1_start", "fortnight_2_end", "fortnight_2_start",
+  "fortnight_max_hh", "fortnight_min_hh", "fortnight_pos", "fortnight_prob_filter",
+  "i.alt_date_max", "i.alt_date_min", "i.date_max", "i.date_min",
+  "i.f_total_orig", "i.fortnight_1_end", "i.fortnight_1_start",
+  "i.fortnight_2_end", "i.fortnight_2_start", "i.is_leap", "i.m_total_orig",
+  "i.q_total_orig",
+  "i.week_1_start", "i.week_1_end", "i.week_2_start", "i.week_2_end",
+  "i.week_3_start", "i.week_3_end", "i.week_4_start", "i.week_4_end",
+  "i.week_5_start", "i.week_5_end", "i.week_6_start", "i.week_6_end",
+  "i.week_7_start", "i.week_7_end", "i.week_8_start", "i.week_8_end",
+  "i.week_9_start", "i.week_9_end", "i.week_10_start", "i.week_10_end",
+  "i.week_11_start", "i.week_11_end", "i.week_12_start", "i.week_12_end",
+  "ibge_month_start", "is_leap",
+  "month_max_upa", "month_min_upa", "month_prob_filter",
+  "n_fortnight", "n_month", "n_week",
+  "prob_month_min1_max2", "prob_month_min2_max3",
+  "prob_ref_fortnight_in_month", "prob_ref_fortnight_in_month_max",
+  "prob_ref_fortnight_in_month_min",
+  "prob_ref_month_in_quarter", "prob_ref_month_in_quarter_max",
+  "prob_ref_month_in_quarter_min",
+  "prob_ref_week_in_month", "prob_ref_week_in_month_max",
+  "prob_ref_week_in_month_min",
+  "prob_week_1_2", "prob_week_3_4",
+  "prop_fortnight", "prop_fortnight_1", "prop_fortnight_2",
+  "prop_month", "prop_month_1_min1_max2", "prop_month_2_min1_max2",
+  "prop_month_2_min2_max3", "prop_month_3_min2_max3",
+  "prop_week", "prop_week_1", "prop_week_2", "prop_week_3", "prop_week_4",
+  "ref_fortnight_in_month", "ref_fortnight_in_month_aggreg",
+  "ref_fortnight_in_month_aggreg_confidence",
+  "ref_month_in_quarter_aggreg", "ref_month_in_quarter_aggreg_confidence",
+  "ref_month_in_year",
+  "ref_week_in_month", "ref_week_in_month_aggreg",
+  "ref_week_in_month_aggreg_confidence",
+  "week_1_start", "week_1_end", "week_2_start", "week_2_end",
+  "week_3_start", "week_3_end", "week_4_start", "week_4_end",
+  "week_5_start", "week_8_end", "week_9_start", "week_12_end",
+  "week_max_hh", "week_min_hh", "week_pos", "week_prob_filter"
 ))
