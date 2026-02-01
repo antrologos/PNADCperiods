@@ -13,3 +13,7 @@ vignettes/*.R
 
 # Test coverage output
 cobertura.xml
+coverage_report.html
+
+# htmlwidgets library files (generated)
+lib/
