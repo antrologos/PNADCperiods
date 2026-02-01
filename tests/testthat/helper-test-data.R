@@ -114,9 +114,19 @@ create_realistic_pnadc <- function(n_quarters = 4,
   # Clean up
   dt[, survey_month := NULL]
 
+  # Add weight and calibration columns (commonly needed for apply_periods tests)
+  valid_ufs <- c(11:17, 21:29, 31:35, 41:43, 50:53)
+  dt[, `:=`(
+    V1028 = runif(.N, 500, 2000),
+    UF = sample(valid_ufs, .N, replace = TRUE),
+    posest = sample(1:500, .N, replace = TRUE),
+    posest_sxi = sample(100:999, .N, replace = TRUE)
+  )]
+
   # Reorder columns to match PNADC structure
   data.table::setcolorder(dt, c("Ano", "Trimestre", "UPA", "V1008", "V1014", "V2003",
-                                 "V2008", "V20081", "V20082", "V2009"))
+                                 "V2008", "V20081", "V20082", "V2009",
+                                 "V1028", "UF", "posest", "posest_sxi"))
 
   dt
 }

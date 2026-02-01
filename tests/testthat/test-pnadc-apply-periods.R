@@ -4,153 +4,17 @@
 # HELPER FUNCTIONS
 # =============================================================================
 
-#' Create minimal PNADC data for apply tests
-#' @param n_quarters Number of quarters to generate
-#' @param n_upas Number of UPAs per quarter
-#' @param persons_per_household Number of persons per household
-create_test_pnadc_for_apply <- function(n_quarters = 4, n_upas = 10, persons_per_household = 3) {
-  set.seed(42)
-
-  quarters <- expand.grid(
-    Ano = 2023L,
-    Trimestre = 1:n_quarters
-  )
-
-  # Create UPA-V1014 combinations (rotating panel simulation)
-  upa_panel <- data.table::CJ(
-    UPA = 1:n_upas,
-    V1014 = 1:8  # 8 panel groups
-  )
-
-  # Cross with quarters
-  dt <- data.table::CJ(
-    idx = 1:nrow(quarters),
-    upa_idx = 1:nrow(upa_panel)
-  )
-  dt[, `:=`(
-    Ano = quarters$Ano[idx],
-    Trimestre = quarters$Trimestre[idx],
-    UPA = upa_panel$UPA[upa_idx],
-    V1014 = upa_panel$V1014[upa_idx]
-  )]
-  dt[, c("idx", "upa_idx") := NULL]
-
-  # Add households per UPA
-  dt <- dt[rep(1:.N, each = 2)]  # 2 households per UPA
-  dt[, V1008 := rep(1:2, .N/2)]
-
-  # Add persons per household
-  dt <- dt[rep(1:.N, each = persons_per_household)]
-  dt[, V2003 := rep(1:persons_per_household, .N/persons_per_household)]
-
-  # Add birthday and age info
-  n <- nrow(dt)
-  dt[, `:=`(
-    V2008 = sample(1:28, n, replace = TRUE),  # Birth day
-    V20081 = sample(1:12, n, replace = TRUE), # Birth month
-    V20082 = sample(1970:2000, n, replace = TRUE), # Birth year
-    V2009 = sample(20:60, n, replace = TRUE)  # Age
-  )]
-
-  # Add weight variable
-  dt[, V1028 := runif(n, 500, 2000)]
-
-  # Add stratification variables for calibration
-  dt[, `:=`(
-    UF = sample(11:53, n, replace = TRUE),
-    posest = sample(1:1000, n, replace = TRUE),
-    posest_sxi = sample(10000:90000, n, replace = TRUE)
-  )]
-
-  dt
-}
-
-#' Create a mock crosswalk for testing
-#' @param n_upas Number of UPAs
-#' @param n_panels Number of panel groups (V1014)
-#' @param n_quarters Number of quarters (to match test data)
-#' @param n_households Number of households per UPA (V1008)
-create_mock_crosswalk <- function(n_upas = 10, n_panels = 8, n_quarters = 1, n_households = 2) {
-  # Create crosswalk at household-quarter level (Ano, Trimestre, UPA, V1008, V1014)
-  # This matches the structure expected by pnadc_apply_periods
-  dt <- data.table::CJ(
-    Ano = 2023L,
-    Trimestre = 1:n_quarters,
-    UPA = 1:n_upas,
-    V1008 = 1:n_households,
-    V1014 = 1:n_panels
-  )
-
-  n <- nrow(dt)
-
-  # Month info (high determination rate) - matches current implementation
-  dt[, `:=`(
-    ref_month_in_quarter = ((.I - 1L) %% 3L) + 1L,
-    ref_month_in_year = ((Trimestre - 1L) * 3L) + (((.I - 1L) %% 3L) + 1L),
-    ref_month_yyyymm = Ano * 100L + ((Trimestre - 1L) * 3L) + (((.I - 1L) %% 3L) + 1L),
-    determined_month = TRUE
-  )]
-
-  # Make some undetermined
-  set.seed(123)  # For reproducibility
-  undetermined_idx <- sample(1:n, size = ceiling(n * 0.1))
-  dt[undetermined_idx, `:=`(
-    ref_month_in_quarter = NA_integer_,
-    ref_month_in_year = NA_integer_,
-    ref_month_yyyymm = NA_integer_,
-    determined_month = FALSE
-  )]
-
-  # Fortnight info (medium determination rate) - matches current implementation
-  dt[, `:=`(
-    ref_fortnight_in_month = ((.I - 1L) %% 2L) + 1L,
-    ref_fortnight_in_quarter = ((.I - 1L) %% 6L) + 1L,
-    ref_fortnight_yyyyff = Ano * 100L + ((Trimestre - 1L) * 6L) + (((.I - 1L) %% 6L) + 1L),
-    determined_fortnight = sample(c(TRUE, FALSE), n, replace = TRUE, prob = c(0.85, 0.15))
-  )]
-  dt[determined_fortnight == FALSE, `:=`(
-    ref_fortnight_in_month = NA_integer_,
-    ref_fortnight_in_quarter = NA_integer_,
-    ref_fortnight_yyyyff = NA_integer_
-  )]
-
-  # Week info (low determination rate) - matches current implementation
-  # IBGE quarters always have exactly 12 reference weeks (4 weeks × 3 months)
-  dt[, `:=`(
-    ref_week_in_month = ((.I - 1L) %% 4L) + 1L,
-    ref_week_in_quarter = ((.I - 1L) %% 12L) + 1L,
-    ref_week_yyyyww = Ano * 100L + ((Trimestre - 1L) * 12L) + (((.I - 1L) %% 12L) + 1L),
-    determined_week = sample(c(TRUE, FALSE), n, replace = TRUE, prob = c(0.6, 0.4))
-  )]
-  dt[determined_week == FALSE, `:=`(
-    ref_week_in_month = NA_integer_,
-    ref_week_in_quarter = NA_integer_,
-    ref_week_yyyyww = NA_integer_
-  )]
-
-  dt
-}
-
-#' Create monthly population totals for testing
-create_monthly_totals <- function(year = 2023, quarters = 1:4) {
-  months <- c()
-  for (q in quarters) {
-    months <- c(months, ((q - 1) * 3 + 1):((q - 1) * 3 + 3))
-  }
-
-  data.table::data.table(
-    ref_month_yyyymm = year * 100L + months,
-    m_populacao = 214000L + (months - 1L) * 100L  # In thousands
-  )
-}
+# Note: Using shared test data generators from helper-test-data.R
+# - create_realistic_pnadc() for test data generation
+# - Real crosswalks from pnadc_identify_periods() instead of mocks
 
 # =============================================================================
 # INPUT VALIDATION TESTS
 # =============================================================================
 
 test_that("pnadc_apply_periods requires weight_var argument", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 3)
-  crosswalk <- create_mock_crosswalk(n_upas = 3)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 3)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   expect_error(
     pnadc_apply_periods(test_data, crosswalk, anchor = "quarter"),
@@ -159,8 +23,8 @@ test_that("pnadc_apply_periods requires weight_var argument", {
 })
 
 test_that("pnadc_apply_periods requires anchor argument", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 3)
-  crosswalk <- create_mock_crosswalk(n_upas = 3)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 3)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   expect_error(
     pnadc_apply_periods(test_data, crosswalk, weight_var = "V1028"),
@@ -169,8 +33,8 @@ test_that("pnadc_apply_periods requires anchor argument", {
 })
 
 test_that("pnadc_apply_periods validates anchor values", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 3)
-  crosswalk <- create_mock_crosswalk(n_upas = 3)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 3)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   expect_error(
     pnadc_apply_periods(test_data, crosswalk,
@@ -181,8 +45,8 @@ test_that("pnadc_apply_periods validates anchor values", {
 })
 
 test_that("pnadc_apply_periods validates calibration_unit values", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 3)
-  crosswalk <- create_mock_crosswalk(n_upas = 3)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 3)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   # match.arg error message format
   expect_error(
@@ -195,8 +59,8 @@ test_that("pnadc_apply_periods validates calibration_unit values", {
 })
 
 test_that("pnadc_apply_periods validates weight_var exists", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 3)
-  crosswalk <- create_mock_crosswalk(n_upas = 3)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 3)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   expect_error(
     pnadc_apply_periods(test_data, crosswalk,
@@ -208,7 +72,7 @@ test_that("pnadc_apply_periods validates weight_var exists", {
 })
 
 test_that("pnadc_apply_periods validates crosswalk has required columns", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 3)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 3)
   # Crosswalk missing V1014 (required minimal key)
   bad_crosswalk <- data.frame(UPA = 1:3, something_else = 1:3)
 
@@ -226,8 +90,8 @@ test_that("pnadc_apply_periods validates crosswalk has required columns", {
 # =============================================================================
 
 test_that("pnadc_apply_periods without calibration returns correct structure", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 5)
-  crosswalk <- create_mock_crosswalk(n_upas = 5)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 5)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   result <- pnadc_apply_periods(
     test_data, crosswalk,
@@ -258,9 +122,10 @@ test_that("pnadc_apply_periods without calibration returns correct structure", {
 })
 
 test_that("pnadc_apply_periods preserves original data columns", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 5)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 5)
   test_data[, custom_column := "test_value"]
-  crosswalk <- create_mock_crosswalk(n_upas = 5)
+
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   result <- pnadc_apply_periods(
     test_data, crosswalk,
@@ -281,9 +146,8 @@ test_that("pnadc_apply_periods preserves original data columns", {
 # =============================================================================
 
 test_that("pnadc_apply_periods with calibration adds weight column", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 5)
-  crosswalk <- create_mock_crosswalk(n_upas = 5)
-  monthly_totals <- create_monthly_totals(quarters = 1)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 5)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   result <- pnadc_apply_periods(
     test_data, crosswalk,
@@ -291,7 +155,7 @@ test_that("pnadc_apply_periods with calibration adds weight column", {
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
-    target_totals = monthly_totals,
+    target_totals = NULL,  # Auto-derive from SIDRA
     verbose = FALSE
   )
 
@@ -304,9 +168,8 @@ test_that("pnadc_apply_periods respects calibration_unit parameter", {
               "sidrar package not available for fetching population targets")
   skip_if_offline()
 
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 5)
-  crosswalk <- create_mock_crosswalk(n_upas = 5)
-  monthly_totals <- create_monthly_totals(quarters = 1)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 5)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   # Month calibration (with explicit targets)
   result_month <- pnadc_apply_periods(
@@ -315,7 +178,7 @@ test_that("pnadc_apply_periods respects calibration_unit parameter", {
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
-    target_totals = monthly_totals,
+    target_totals = NULL,  # Auto-derive from SIDRA
     verbose = FALSE
   )
   expect_true("weight_monthly" %in% names(result_month))
@@ -350,16 +213,15 @@ test_that("pnadc_apply_periods respects calibration_unit parameter", {
 # =============================================================================
 
 test_that("pnadc_apply_periods keep_all = TRUE includes undetermined rows", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 5)
-  crosswalk <- create_mock_crosswalk(n_upas = 5)
-  monthly_totals <- create_monthly_totals(quarters = 1)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 5)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   result <- pnadc_apply_periods(
     test_data, crosswalk,
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
-    target_totals = monthly_totals,
+    target_totals = NULL,  # Auto-derive from SIDRA
     keep_all = TRUE,
     verbose = FALSE
   )
@@ -375,16 +237,15 @@ test_that("pnadc_apply_periods keep_all = TRUE includes undetermined rows", {
 })
 
 test_that("pnadc_apply_periods keep_all = FALSE excludes undetermined rows", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 5)
-  crosswalk <- create_mock_crosswalk(n_upas = 5)
-  monthly_totals <- create_monthly_totals(quarters = 1)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 5)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   result <- pnadc_apply_periods(
     test_data, crosswalk,
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
-    target_totals = monthly_totals,
+    target_totals = NULL,  # Auto-derive from SIDRA
     keep_all = FALSE,
     verbose = FALSE
   )
@@ -399,9 +260,8 @@ test_that("pnadc_apply_periods keep_all = FALSE excludes undetermined rows", {
 # =============================================================================
 
 test_that("pnadc_apply_periods accepts anchor = 'quarter'", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 5)
-  crosswalk <- create_mock_crosswalk(n_upas = 5)
-  monthly_totals <- create_monthly_totals(quarters = 1)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 5)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   expect_no_error(
     result <- pnadc_apply_periods(
@@ -409,16 +269,15 @@ test_that("pnadc_apply_periods accepts anchor = 'quarter'", {
       weight_var = "V1028",
       anchor = "quarter",
       calibrate = TRUE,
-      target_totals = monthly_totals,
+      target_totals = NULL,  # Auto-derive from SIDRA
       verbose = FALSE
     )
   )
 })
 
 test_that("pnadc_apply_periods accepts anchor = 'year'", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 4, n_upas = 5)
-  crosswalk <- create_mock_crosswalk(n_upas = 5, n_quarters = 4)
-  monthly_totals <- create_monthly_totals(quarters = 1:4)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 5)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   expect_no_error(
     result <- pnadc_apply_periods(
@@ -426,7 +285,7 @@ test_that("pnadc_apply_periods accepts anchor = 'year'", {
       weight_var = "V1028",
       anchor = "year",
       calibrate = TRUE,
-      target_totals = monthly_totals,
+      target_totals = NULL,  # Auto-derive from SIDRA
       verbose = FALSE
     )
   )
@@ -437,8 +296,8 @@ test_that("pnadc_apply_periods accepts anchor = 'year'", {
 # =============================================================================
 
 test_that("pnadc_apply_periods respects verbose parameter", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 3)
-  crosswalk <- create_mock_crosswalk(n_upas = 3)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 3)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
   # verbose = FALSE should produce no output
   expect_silent(
@@ -469,29 +328,27 @@ test_that("pnadc_apply_periods respects verbose parameter", {
 # =============================================================================
 
 test_that("pnadc_apply_periods handles empty data gracefully", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 5)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 5)
   test_data <- test_data[0]  # Empty data
-  crosswalk <- create_mock_crosswalk(n_upas = 5)
 
-  # Should not error, but return empty result
-  result <- pnadc_apply_periods(
-    test_data, crosswalk,
-    weight_var = "V1028",
-    anchor = "quarter",
-    calibrate = FALSE,
-    verbose = FALSE
+  # Empty data should error at identify_periods stage (validation rejects empty data)
+  expect_error(
+    pnadc_identify_periods(test_data, verbose = FALSE),
+    "at least 1 rows"
   )
-
-  expect_equal(nrow(result), 0)
 })
 
-test_that("pnadc_apply_periods handles unmatched UPA-V1014 combinations", {
-  test_data <- create_test_pnadc_for_apply(n_quarters = 1, n_upas = 5)
-  # Crosswalk only has UPAs 1-3
-  crosswalk <- create_mock_crosswalk(n_upas = 3, n_panels = 8)
+test_that("pnadc_apply_periods handles mismatched data keys", {
+  # Create data and crosswalk with different UPA sets
+  data1 <- create_realistic_pnadc(n_quarters = 1, n_upas = 3)
+  data2 <- create_realistic_pnadc(n_quarters = 1, n_upas = 5, seed = 999)
 
+  # Create crosswalk from data1 (only UPAs 1-3)
+  crosswalk <- pnadc_identify_periods(data1, verbose = FALSE)
+
+  # Apply to data2 (has UPAs 1-5) - some rows won't match
   result <- pnadc_apply_periods(
-    test_data, crosswalk,
+    data2, crosswalk,
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = FALSE,
@@ -499,11 +356,11 @@ test_that("pnadc_apply_periods handles unmatched UPA-V1014 combinations", {
     verbose = FALSE
   )
 
-  # Some rows should have NA for ref_month_in_quarter (those with UPA 4-5)
-  unmatched <- result[UPA > 3]
-  if (nrow(unmatched) > 0) {
-    expect_true(all(is.na(unmatched$ref_month_in_quarter)))
-  }
+  # Result should have same number of rows as data2 (keep_all=TRUE)
+  expect_equal(nrow(result), nrow(data2))
+
+  # But some rows may have NA for period columns if they don't match crosswalk
+  expect_true(any(is.na(result$ref_month_in_quarter)))
 })
 
 # =============================================================================
@@ -512,7 +369,7 @@ test_that("pnadc_apply_periods handles unmatched UPA-V1014 combinations", {
 
 test_that("pnadc_apply_periods works with real identify function output", {
   # Create data and run the identify function
-  test_data <- create_test_pnadc_for_apply(n_quarters = 2, n_upas = 5)
+  test_data <- create_realistic_pnadc(n_quarters = 2, n_upas = 5)
 
   # Use actual pnadc_identify_periods if available
   if (exists("pnadc_identify_periods")) {

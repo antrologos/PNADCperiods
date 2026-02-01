@@ -56,65 +56,38 @@ test_that("validate_pnadc accepts valid minimal data", {
  expect_silent(validate_pnadc(valid_data))
 })
 
-test_that("validate_pnadc detects invalid year", {
-  bad_year_data <- data.frame(
-    Ano = 2000,  # Too early (< 2012)
-    Trimestre = 1,
-    UPA = 1,
-    V1008 = 1,
-    V1014 = 1,
-    V2008 = 15,
-    V20081 = 6,
-    V20082 = 1990,
-    V2009 = 33
-  )
-  expect_error(validate_pnadc(bad_year_data), "invalid_years")
-})
+# Parameterized test for invalid field values
+test_cases <- list(
+  list(field = "Ano", value = 2000, error_pattern = "invalid_years",
+       desc = "year (< 2012)"),
+  list(field = "Trimestre", value = 5, error_pattern = "invalid_quarters",
+       desc = "quarter (> 4)"),
+  list(field = "V2008", value = 35, error_pattern = "invalid_birth_days",
+       desc = "birth day (> 31)"),
+  list(field = "V20081", value = 15, error_pattern = "invalid_birth_months",
+       desc = "birth month (> 12)")
+)
 
-test_that("validate_pnadc detects invalid quarter", {
-  bad_quarter_data <- data.frame(
-    Ano = 2023,
-    Trimestre = 5,  # Invalid quarter
-    UPA = 1,
-    V1008 = 1,
-    V1014 = 1,
-    V2008 = 15,
-    V20081 = 6,
-    V20082 = 1990,
-    V2009 = 33
-  )
-  expect_error(validate_pnadc(bad_quarter_data), "invalid_quarters")
-})
+for (tc in test_cases) {
+  test_that(paste("validate_pnadc detects invalid", tc$desc), {
+    # Create valid base data
+    bad_data <- data.frame(
+      Ano = 2023,
+      Trimestre = 1,
+      UPA = 1,
+      V1008 = 1,
+      V1014 = 1,
+      V2008 = 15,
+      V20081 = 6,
+      V20082 = 1990,
+      V2009 = 33
+    )
+    # Override with invalid value
+    bad_data[[tc$field]] <- tc$value
 
-test_that("validate_pnadc detects invalid birth day", {
-  bad_day_data <- data.frame(
-    Ano = 2023,
-    Trimestre = 1,
-    UPA = 1,
-    V1008 = 1,     # Required column
-    V1014 = 1,
-    V2008 = 35,  # Invalid day
-    V20081 = 6,
-    V20082 = 1990,
-    V2009 = 33
-  )
-  expect_error(validate_pnadc(bad_day_data), "invalid_birth_days")
-})
-
-test_that("validate_pnadc detects invalid birth month", {
-  bad_month_data <- data.frame(
-    Ano = 2023,
-    Trimestre = 1,
-    UPA = 1,
-    V1008 = 1,     # Required column
-    V1014 = 1,
-    V2008 = 15,
-    V20081 = 15,  # Invalid month
-    V20082 = 1990,
-    V2009 = 33
-  )
-  expect_error(validate_pnadc(bad_month_data), "invalid_birth_months")
-})
+    expect_error(validate_pnadc(bad_data), tc$error_pattern)
+  })
+}
 
 test_that("validate_pnadc returns report when stop_on_error = FALSE", {
   bad_data <- data.frame(Ano = 2023, Trimestre = 1)

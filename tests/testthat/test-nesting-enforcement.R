@@ -10,56 +10,8 @@
 # HELPER FUNCTIONS
 # =============================================================================
 
-#' Create test PNADC data with varying birthday patterns
-#' @param n_quarters Number of quarters to generate
-#' @param n_upas Number of UPAs per quarter
-#' @param persons_per_household Number of persons per household
-create_test_pnadc_for_nesting <- function(n_quarters = 4, n_upas = 10, persons_per_household = 3) {
-  set.seed(42)
-
-  # Generate valid year-quarter combinations (quarters must be 1-4)
-  years <- 2023L + ((1:n_quarters - 1L) %/% 4L)
-  qtrs <- ((1:n_quarters - 1L) %% 4L) + 1L
-  quarters <- data.frame(Ano = years, Trimestre = qtrs)
-
-  # Create UPA-V1014 combinations (rotating panel simulation)
-  upa_panel <- data.table::CJ(
-    UPA = 1:n_upas,
-    V1014 = 1:8  # 8 panel groups
-  )
-
-  # Cross with quarters
-  dt <- data.table::CJ(
-    idx = 1:nrow(quarters),
-    upa_idx = 1:nrow(upa_panel)
-  )
-  dt[, `:=`(
-    Ano = quarters$Ano[idx],
-    Trimestre = quarters$Trimestre[idx],
-    UPA = upa_panel$UPA[upa_idx],
-    V1014 = upa_panel$V1014[upa_idx]
-  )]
-  dt[, c("idx", "upa_idx") := NULL]
-
-  # Add households per UPA
-  dt <- dt[rep(1:.N, each = 2)]  # 2 households per UPA
-  dt[, V1008 := rep(1:2, .N/2)]
-
-  # Add persons per household
-  dt <- dt[rep(1:.N, each = persons_per_household)]
-  dt[, V2003 := rep(1:persons_per_household, .N/persons_per_household)]
-
-  # Add birthday and age info
-  n <- nrow(dt)
-  dt[, `:=`(
-    V2008 = sample(1:28, n, replace = TRUE),  # Birth day
-    V20081 = sample(1:12, n, replace = TRUE), # Birth month
-    V20082 = sample(1970:2000, n, replace = TRUE), # Birth year
-    V2009 = sample(20:60, n, replace = TRUE)  # Age
-  )]
-
-  dt
-}
+# Note: Using shared test data generators from helper-test-data.R
+# - create_realistic_pnadc() for test data generation
 
 # =============================================================================
 # NESTING ENFORCEMENT TESTS
@@ -69,7 +21,7 @@ test_that("fortnight determination requires month determination", {
   # This is the KEY test: no observation should have determined_fortnight = TRUE
 
   # while determined_month = FALSE
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   result <- pnadc_identify_periods(test_data, verbose = FALSE)
 
@@ -87,7 +39,7 @@ test_that("fortnight determination requires month determination", {
 
 test_that("week determination requires fortnight determination", {
   # No observation should have determined_week = TRUE while determined_fortnight = FALSE
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   result <- pnadc_identify_periods(test_data, verbose = FALSE)
 
@@ -105,7 +57,7 @@ test_that("week determination requires fortnight determination", {
 
 test_that("week determination implies month determination (transitive)", {
   # By transitivity: determined_week => determined_fortnight => determined_month
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   result <- pnadc_identify_periods(test_data, verbose = FALSE)
 
@@ -128,7 +80,7 @@ test_that("week determination implies month determination (transitive)", {
 test_that("fortnight value is consistent with month value when both determined", {
   # When fortnight is determined, it should fall within the determined month
   # Month 1 = fortnights 1-2, Month 2 = fortnights 3-4, Month 3 = fortnights 5-6
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   result <- pnadc_identify_periods(test_data, verbose = FALSE)
 
@@ -158,7 +110,7 @@ test_that("fortnight value is consistent with month value when both determined",
 
 test_that("week value is consistent with fortnight value when both determined", {
   # When week is determined, it should fall within the determined fortnight
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   result <- pnadc_identify_periods(test_data, verbose = FALSE)
 
@@ -178,7 +130,7 @@ test_that("week value is consistent with fortnight value when both determined", 
 
 test_that("determination rates follow nesting hierarchy", {
   # By construction: month_rate >= fortnight_rate >= week_rate
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   result <- pnadc_identify_periods(test_data, verbose = FALSE)
 
@@ -205,7 +157,7 @@ test_that("determination rates follow nesting hierarchy", {
 
 test_that("all determined fortnights have valid month reference", {
   # Every observation with determined fortnight should have valid month columns
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   result <- pnadc_identify_periods(test_data, verbose = FALSE)
 
@@ -221,7 +173,7 @@ test_that("all determined fortnights have valid month reference", {
 
 test_that("all determined weeks have valid fortnight reference", {
   # Every observation with determined week should have valid fortnight columns
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   result <- pnadc_identify_periods(test_data, verbose = FALSE)
 
@@ -241,7 +193,7 @@ test_that("all determined weeks have valid fortnight reference", {
 
 test_that("single quarter data respects nesting", {
   # Even with single quarter (lower determination rate), nesting should hold
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 1, n_upas = 5)
+  test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 5)
 
   result <- pnadc_identify_periods(test_data, verbose = FALSE)
 
@@ -256,7 +208,7 @@ test_that("single quarter data respects nesting", {
 
 test_that("nesting holds across all quarters when stacked", {
   # Test with more quarters to stress the algorithm
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 8, n_upas = 5)
+  test_data <- create_realistic_pnadc(n_quarters = 8, n_upas = 5)
 
   result <- pnadc_identify_periods(test_data, verbose = FALSE)
 
@@ -284,7 +236,7 @@ test_that("nesting holds across all quarters when stacked", {
 
 test_that("experimental fortnight requires month (strict or experimental)", {
   # When fortnight is assigned experimentally, month must already exist
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
   # Use upa_aggregation strategy which doesn't require original data
@@ -307,7 +259,7 @@ test_that("experimental fortnight requires month (strict or experimental)", {
 
 test_that("experimental week requires fortnight (strict or experimental)", {
   # When week is assigned experimentally, fortnight must already exist
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
   # Use upa_aggregation strategy which doesn't require original data
@@ -330,7 +282,7 @@ test_that("experimental week requires fortnight (strict or experimental)", {
 
 test_that("experimental fortnight is consistent with month bounds", {
   # When fortnight is assigned, it should be within valid range (1 or 2 within month)
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
   # Use upa_aggregation strategy which doesn't require original data
@@ -356,7 +308,7 @@ test_that("experimental strategies extend but don't contradict strict determinat
   # Experimental strategies may fill in previously NA values but should not
 
   # change values that were already determined by strict algorithm
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
@@ -381,7 +333,7 @@ test_that("experimental strategies extend but don't contradict strict determinat
 
 test_that("experimental determination rates follow nesting hierarchy", {
   # After experimental strategies, determination rates should follow: month >= fortnight >= week
-  test_data <- create_test_pnadc_for_nesting(n_quarters = 4, n_upas = 10)
+  test_data <- create_realistic_pnadc(n_quarters = 4, n_upas = 10)
 
   crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
   # Use upa_aggregation strategy which doesn't require original data

@@ -246,9 +246,10 @@ test_that("pipeline works with multi-year data (year anchor)", {
 # =============================================================================
 
 test_that("pipeline handles missing weight columns gracefully", {
-  # 1. Setup: Create data WITHOUT calibration columns
+  # 1. Setup: Create data then remove V1028 to simulate missing weight column
   set.seed(905)
   data <- create_realistic_pnadc(n_quarters = 2, n_upas = 10)
+  data[, V1028 := NULL]  # Remove weight column to test error handling
 
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
@@ -256,7 +257,7 @@ test_that("pipeline handles missing weight columns gracefully", {
   expect_error(
     pnadc_apply_periods(
       data, crosswalk,
-      weight_var = "V1028",  # Column doesn't exist
+      weight_var = "V1028",  # Column doesn't exist anymore
       anchor = "quarter",
       calibrate = TRUE,
       calibration_unit = "month",
