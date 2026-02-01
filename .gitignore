@@ -17,3 +17,6 @@ coverage_report.html
 
 # htmlwidgets library files (generated)
 lib/
+
+# Test output directory
+test_output/
