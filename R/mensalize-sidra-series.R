@@ -171,6 +171,21 @@ mensalize_sidra_series <- function(rolling_quarters,
 
   # Make a copy to avoid modifying input
   dt <- data.table::copy(rolling_quarters)
+
+  # PNADC started in January 2012; first rolling quarter is March 2012 (201203)
+
+  # Filter to PNADC-era data only. Price indices (IPCA) go back to 1979 but
+  # mensalization is only valid for PNADC series. Without this filter, pre-2012
+  # rows would just output the y0 starting points cyclically (no actual data).
+  PNADC_START <- 201203L
+  if (min(dt$anomesfinaltrimmovel) < PNADC_START) {
+    n_pre_pnadc <- sum(dt$anomesfinaltrimmovel < PNADC_START)
+    if (verbose) {
+      message("Filtering out ", n_pre_pnadc, " pre-PNADC rows (before ", PNADC_START, ")")
+    }
+    dt <- dt[anomesfinaltrimmovel >= PNADC_START]
+  }
+
   data.table::setorder(dt, anomesfinaltrimmovel)
 
   # Initialize result with time columns
