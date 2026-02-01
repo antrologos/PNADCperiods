@@ -38,25 +38,33 @@ clear_sidra_series_cache <- function() {
   invisible(had_cache)
 }
 
-#' Check if SIDRA Series Cache is Valid
+#' Check if SIDRA Series Cache Exists
 #'
 #' @param cache_name Name of the cached object to check
-#' @param max_age_hours Maximum cache age in hours
-#' @return Logical. TRUE if valid, FALSE otherwise.
+#' @return Logical. TRUE if cache exists, FALSE otherwise.
 #' @keywords internal
 #' @noRd
-.is_series_cache_valid <- function(cache_name = "rolling_quarters",
-                                    max_age_hours = 24) {
+.is_series_cache_valid <- function(cache_name = "rolling_quarters") {
   data_name <- paste0(cache_name, "_data")
   time_name <- paste0(cache_name, "_time")
 
-  if (!exists(data_name, envir = .sidra_series_cache)) return(FALSE)
-  if (!exists(time_name, envir = .sidra_series_cache)) return(FALSE)
+  exists(data_name, envir = .sidra_series_cache) &&
+    exists(time_name, envir = .sidra_series_cache)
+}
 
-  cache_time <- get(time_name, envir = .sidra_series_cache)
-  age_hours <- as.numeric(difftime(Sys.time(), cache_time, units = "hours"))
-
-  age_hours < max_age_hours
+#' Get Cache Timestamp
+#'
+#' @param cache_name Name of the cached object
+#' @return POSIXct timestamp or NULL if not cached.
+#' @keywords internal
+#' @noRd
+.get_cache_time <- function(cache_name = "rolling_quarters") {
+  time_name <- paste0(cache_name, "_time")
+  if (exists(time_name, envir = .sidra_series_cache)) {
+    get(time_name, envir = .sidra_series_cache)
+  } else {
+    NULL
+  }
 }
 
 
@@ -72,8 +80,9 @@ clear_sidra_series_cache <- function() {
 #' @param category Character vector of categories to filter by. Valid options:
 #'   "rate", "population", "employment", "sector", "income_nominal",
 #'   "income_real", "underutilization", "price_index". Use NULL for no filter.
-#' @param use_cache Logical. Use cached data if available? Default TRUE.
-#' @param cache_hours Numeric. Cache expiration in hours. Default 24.
+#' @param use_cache Logical. Use cached data if available? Default FALSE.
+#'   When TRUE, shows the date when data was cached (may be outdated).
+#'   Use \code{\link{clear_sidra_series_cache}} to force fresh download.
 #' @param verbose Logical. Print progress messages? Default TRUE.
 #' @param retry_failed Logical. Retry failed series downloads? Default TRUE.
 #' @param max_retries Integer. Maximum retry attempts per series. Default 3.
@@ -124,8 +133,7 @@ clear_sidra_series_cache <- function() {
 #' @export
 fetch_sidra_rolling_quarters <- function(series = "all",
                                           category = NULL,
-                                          use_cache = TRUE,
-                                          cache_hours = 24,
+                                          use_cache = FALSE,
                                           verbose = TRUE,
                                           retry_failed = TRUE,
                                           max_retries = 3) {
@@ -140,14 +148,21 @@ fetch_sidra_rolling_quarters <- function(series = "all",
   series_names <- meta$series_name
 
   # Check cache for complete dataset
-  if (use_cache && .is_series_cache_valid("rolling_quarters", cache_hours)) {
+  if (use_cache && .is_series_cache_valid("rolling_quarters")) {
     cached_data <- get("rolling_quarters_data", envir = .sidra_series_cache)
 
     # Check if cached data contains all requested series
     cached_series <- setdiff(names(cached_data),
                               c("anomesfinaltrimmovel", "mesnotrim"))
     if (all(series_names %in% cached_series)) {
-      if (verbose) message("Using cached rolling quarter data...")
+      # Get cache timestamp
+      cache_time <- .get_cache_time("rolling_quarters")
+      cache_date <- format(cache_time, "%Y-%m-%d %H:%M")
+
+      if (verbose) {
+        message("Using cached data from ", cache_date)
+        message("  (Data may be outdated. Use use_cache=FALSE or clear_sidra_series_cache() to refresh)")
+      }
 
       # Return only requested columns
       cols_to_keep <- c("anomesfinaltrimmovel", "mesnotrim", series_names)
@@ -252,13 +267,11 @@ fetch_sidra_rolling_quarters <- function(series = "all",
             paste(failed_series, collapse = ", "))
   }
 
-  # Cache the full result
-  if (use_cache) {
-    assign("rolling_quarters_data", data.table::copy(result),
-           envir = .sidra_series_cache)
-    assign("rolling_quarters_time", Sys.time(),
-           envir = .sidra_series_cache)
-  }
+  # Always cache the result after fetching (use_cache only controls reading)
+  assign("rolling_quarters_data", data.table::copy(result),
+         envir = .sidra_series_cache)
+  assign("rolling_quarters_time", Sys.time(),
+         envir = .sidra_series_cache)
 
   if (verbose) {
     n_success <- length(series_names) - length(failed_series)
