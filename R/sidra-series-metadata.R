@@ -503,43 +503,6 @@ meta <- data.table::data.table(
   return(meta)
 }
 
-#' List Available SIDRA Series Names
-#'
-#' Returns a character vector of all available series names that can be
-#' fetched and mensalized.
-#'
-#' @param category Optional character vector of categories to filter by.
-#'
-#' @return Character vector of series names.
-#'
-#' @examples
-#' \dontrun{
-#' # All series
-#' list_sidra_series()
-#'
-#' # Only population series
-#' list_sidra_series(category = "population")
-#' }
-#'
-#' @export
-list_sidra_series <- function(category = NULL) {
-  meta <- get_sidra_series_metadata(category = category)
-  return(meta$series_name)
-}
-
-#' Get Series Categories
-#'
-#' Returns a list of valid series categories for filtering.
-#'
-#' @return Character vector of valid category names.
-#'
-#' @export
-get_sidra_categories <- function() {
-  c("rate", "population", "employment", "sector",
-    "income_nominal", "income_real", "underutilization", "price_index")
-}
-
-
 # =============================================================================
 # Internal Helper Functions
 # =============================================================================

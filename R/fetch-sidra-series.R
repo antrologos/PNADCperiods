@@ -15,27 +15,41 @@ NULL
 # Separate from population cache to allow independent management
 .sidra_series_cache <- new.env(parent = emptyenv())
 
-#' Clear SIDRA Series Cache
+#' Clear All SIDRA Caches
 #'
-#' Clears all cached SIDRA series data. Use this if you need to force a
-#' fresh download, for example after IBGE updates their data.
+#' Clears all cached SIDRA data (both rolling quarter series and population).
+#' Use this if you need to force a fresh download, for example after IBGE
+#' updates their data.
 #'
-#' @return Invisibly returns TRUE if cache was cleared, FALSE if empty.
+#' @return Invisibly returns TRUE if any cache was cleared, FALSE if all empty.
 #'
 #' @examples
 #' \dontrun{
-#' clear_sidra_series_cache()
+#' clear_sidra_cache()
 #' series <- fetch_sidra_rolling_quarters()  # Will fetch fresh from API
+#' pop <- fetch_monthly_population()          # Will also fetch fresh
 #' }
 #'
 #' @export
-clear_sidra_series_cache <- function() {
+clear_sidra_cache <- function() {
+  had_series_cache <- FALSE
+  had_pop_cache <- FALSE
+
+  # Clear series cache
   cache_names <- ls(envir = .sidra_series_cache)
-  had_cache <- length(cache_names) > 0
-  if (had_cache) {
+  if (length(cache_names) > 0) {
     rm(list = cache_names, envir = .sidra_series_cache)
+    had_series_cache <- TRUE
   }
-  invisible(had_cache)
+
+  # Clear population cache
+  pop_cache_names <- ls(envir = .sidra_population_cache)
+  if (length(pop_cache_names) > 0) {
+    rm(list = pop_cache_names, envir = .sidra_population_cache)
+    had_pop_cache <- TRUE
+  }
+
+  invisible(had_series_cache || had_pop_cache)
 }
 
 #' Check if SIDRA Series Cache Exists
@@ -75,14 +89,14 @@ clear_sidra_series_cache <- function() {
 #' observations per year.
 #'
 #' @param series Character vector of series names to fetch, or "all" (default)
-#'   for all available series. Use \code{\link{list_sidra_series}} to see
-#'   available names.
+#'   for all available series. Use \code{get_sidra_series_metadata()$series_name}
+#'   to see available names.
 #' @param category Character vector of categories to filter by. Valid options:
 #'   "rate", "population", "employment", "sector", "income_nominal",
 #'   "income_real", "underutilization", "price_index". Use NULL for no filter.
 #' @param use_cache Logical. Use cached data if available? Default FALSE.
 #'   When TRUE, shows the date when data was cached (may be outdated).
-#'   Use \code{\link{clear_sidra_series_cache}} to force fresh download.
+#'   Use \code{\link{clear_sidra_cache}} to force fresh download.
 #' @param verbose Logical. Print progress messages? Default TRUE.
 #' @param retry_failed Logical. Retry failed series downloads? Default TRUE.
 #' @param max_retries Integer. Maximum retry attempts per series. Default 3.
@@ -126,7 +140,7 @@ clear_sidra_series_cache <- function() {
 #' }
 #'
 #' @seealso
-#' \code{\link{list_sidra_series}} for available series names
+#' \code{\link{get_sidra_series_metadata}} for available series names and metadata
 #' \code{\link{get_sidra_series_metadata}} for series details
 #' \code{\link{mensalize_sidra_series}} to convert to exact months
 #'
@@ -161,7 +175,7 @@ fetch_sidra_rolling_quarters <- function(series = "all",
 
       if (verbose) {
         message("Using cached data from ", cache_date)
-        message("  (Data may be outdated. Use use_cache=FALSE or clear_sidra_series_cache() to refresh)")
+        message("  (Data may be outdated. Use use_cache=FALSE or clear_sidra_cache() to refresh)")
       }
 
       # Return only requested columns

@@ -7,8 +7,7 @@
 fetch_sidra_rolling_quarters(
   series = "all",
   category = NULL,
-  use_cache = TRUE,
-  cache_hours = 24,
+  use_cache = FALSE,
   verbose = TRUE,
   retry_failed = TRUE,
   max_retries = 3
@@ -16,16 +15,16 @@ fetch_sidra_rolling_quarters(
 }
 \arguments{
 \item{series}{Character vector of series names to fetch, or "all" (default)
-for all available series. Use \code{\link{list_sidra_series}} to see
-available names.}
+for all available series. Use \code{get_sidra_series_metadata()$series_name}
+to see available names.}
 
 \item{category}{Character vector of categories to filter by. Valid options:
 "rate", "population", "employment", "sector", "income_nominal",
 "income_real", "underutilization", "price_index". Use NULL for no filter.}
 
-\item{use_cache}{Logical. Use cached data if available? Default TRUE.}
-
-\item{cache_hours}{Numeric. Cache expiration in hours. Default 24.}
+\item{use_cache}{Logical. Use cached data if available? Default FALSE.
+When TRUE, shows the date when data was cached (may be outdated).
+Use \code{\link{clear_sidra_cache}} to force fresh download.}
 
 \item{verbose}{Logical. Print progress messages? Default TRUE.}
 
@@ -81,7 +80,7 @@ rq <- fetch_sidra_rolling_quarters(
 
 }
 \seealso{
-\code{\link{list_sidra_series}} for available series names
+\code{\link{get_sidra_series_metadata}} for available series names and metadata
 \code{\link{get_sidra_series_metadata}} for series details
 \code{\link{mensalize_sidra_series}} to convert to exact months
 }

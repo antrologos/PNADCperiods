@@ -11,33 +11,9 @@ NULL
 
 # Package-level cache environment for SIDRA population data
 # This avoids repeated API calls within a session
-.sidra_cache <- new.env(parent = emptyenv())
+.sidra_population_cache <- new.env(parent = emptyenv())
 
-#' Clear SIDRA Population Cache
-#'
-#' Clears the cached population data from SIDRA API. Use this if you need
-#' to force a fresh download, for example after IBGE updates their data.
-#'
-#' @return Invisibly returns TRUE if cache was cleared, FALSE if cache was empty.
-#'
-#' @examples
-#' \dontrun{
-#' # Clear cache to force fresh download
-#' clear_sidra_cache()
-#' pop <- fetch_monthly_population()  # Will fetch from API
-#' }
-#'
-#' @export
-clear_sidra_cache <- function() {
-  had_cache <- exists("population_data", envir = .sidra_cache)
-  if (had_cache) {
-    rm("population_data", envir = .sidra_cache)
-    rm("cache_time", envir = .sidra_cache)
-  }
-  invisible(had_cache)
-}
-
-#' Check if SIDRA Cache is Valid
+#' Check if SIDRA Population Cache is Valid
 #'
 #' Internal function to check if cached data exists and is not expired.
 #'
@@ -46,14 +22,14 @@ clear_sidra_cache <- function() {
 #' @keywords internal
 #' @noRd
 .is_cache_valid <- function(max_age_hours = 24) {
-  if (!exists("population_data", envir = .sidra_cache)) {
+  if (!exists("population_data", envir = .sidra_population_cache)) {
     return(FALSE)
   }
-  if (!exists("cache_time", envir = .sidra_cache)) {
+  if (!exists("cache_time", envir = .sidra_population_cache)) {
     return(FALSE)
   }
 
-  cache_time <- get("cache_time", envir = .sidra_cache)
+  cache_time <- get("cache_time", envir = .sidra_population_cache)
   age_hours <- as.numeric(difftime(Sys.time(), cache_time, units = "hours"))
 
   age_hours < max_age_hours
@@ -123,7 +99,7 @@ fetch_monthly_population <- function(start_yyyymm = NULL,
  # OPTIMIZATION: Check cache first to avoid repeated API calls
  if (use_cache && .is_cache_valid(cache_max_age_hours)) {
    if (verbose) message("  Using cached population data...")
-   dt <- data.table::copy(get("population_data", envir = .sidra_cache))
+   dt <- data.table::copy(get("population_data", envir = .sidra_population_cache))
 
    # Filter to requested date range if specified
    if (!is.null(start_yyyymm)) {
@@ -211,8 +187,8 @@ fetch_monthly_population <- function(start_yyyymm = NULL,
 
  # OPTIMIZATION: Store FULL unfiltered data in cache for future calls
  if (use_cache) {
-   assign("population_data", data.table::copy(dt), envir = .sidra_cache)
-   assign("cache_time", Sys.time(), envir = .sidra_cache)
+   assign("population_data", data.table::copy(dt), envir = .sidra_population_cache)
+   assign("cache_time", Sys.time(), envir = .sidra_population_cache)
  }
 
  # Apply date filters AFTER caching (cache stores full data, then we filter)
