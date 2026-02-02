@@ -7,13 +7,13 @@
 \format{
 A data.table with 159 rows and 3 columns:
 \describe{
-\item{series_name}{Character. Name of the SIDRA series}
+\item{series_name}{Character. Name of the SIDRA series (53 series)}
 \item{mesnotrim}{Integer. Month position in quarter (1, 2, or 3)}
 \item{y0}{Numeric. Starting point value for this series and position}
 }
 }
 \source{
-Computed using \code{data-raw/generate_starting_points.R}
+Computed using \code{data-raw/regenerate_starting_points_from_microdata.R}
 }
 \usage{
 data(pnadc_series_starting_points)
@@ -23,13 +23,17 @@ Pre-computed starting point values (y0) for mensalizing IBGE's rolling
 quarterly series into exact monthly estimates.
 }
 \details{
-These starting points were computed using the methodology from Hecksher (2024):
+These starting points were computed from PNADC microdata using the full
+R package pipeline, ensuring consistency with
+\code{\link{compute_starting_points_from_microdata}}:
 \enumerate{
-\item Mensalized estimates were computed from PNADC microdata with calibrated
-weights for the period 2013-2019
-\item Cumulative variations were calculated from SIDRA rolling quarter data
-\item Back-projection: e0 = mensalized - cumulative for each month
-\item Starting points: y0 = mean(e0) by month position in quarter
+\item Weight calibration via \code{\link{pnadc_apply_periods}} with Marcos'
+methodology: month 2 scaled to poptrim (quarterly V1028 sum from ALL
+observations), months 1 and 3 scaled to SIDRA monthly population
+\item z_ aggregates computed via \code{\link{compute_z_aggregates}} using
+calibrated \code{weight_monthly}
+\item Starting points computed via \code{\link{compute_series_starting_points}}
+with CNPJ-aware calibration periods
 }
 
 The calibration period (2013-2019) was chosen because:
@@ -38,15 +42,27 @@ The calibration period (2013-2019) was chosen because:
 \item IBGE methodology was consistent during this period
 \item Sufficient observations for reliable estimates
 }
+
+CNPJ series (empregadorcomcnpj, empregadorsemcnpj, contapropriacomcnpj,
+contapropriasemcnpj) use calibration period 2016-2019 with cumulative sum
+starting from October 2015 due to V4019 variable availability.
 }
+\section{Methodology Consistency}{
+
+The bundled starting points are generated using the same pipeline as
+\code{\link{compute_starting_points_from_microdata}}, ensuring that users
+who compute custom starting points will get consistent results.
+}
+
 \section{When to Use Custom Starting Points}{
 
 The bundled starting points are suitable for most users. Consider computing
-custom starting points with \code{\link{compute_series_starting_points}} if:
+custom starting points with \code{\link{compute_starting_points_from_microdata}} if:
 \itemize{
 \item IBGE makes major methodological changes to the PNADC
 \item You need series not included in the bundled data
 \item You want to use a different calibration period
+\item You are working with updated or different microdata
 }
 }
 

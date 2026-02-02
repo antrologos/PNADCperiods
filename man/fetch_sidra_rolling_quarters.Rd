@@ -7,6 +7,7 @@
 fetch_sidra_rolling_quarters(
   series = "all",
   category = NULL,
+  exclude_derived = FALSE,
   use_cache = FALSE,
   verbose = TRUE,
   retry_failed = TRUE,
@@ -21,6 +22,11 @@ to see available names.}
 \item{category}{Character vector of categories to filter by. Valid options:
 "rate", "population", "employment", "sector", "income_nominal",
 "income_real", "underutilization", "price_index". Use NULL for no filter.}
+
+\item{exclude_derived}{Logical. If TRUE, exclude series marked as derived
+(is_derived = TRUE in metadata). Default FALSE for backward compatibility.
+Derived series (rates) are computed from other series during mensalization,
+so excluding them saves API calls when fetching for mensalization.}
 
 \item{use_cache}{Logical. Use cached data if available? Default FALSE.
 When TRUE, shows the date when data was cached (may be outdated).

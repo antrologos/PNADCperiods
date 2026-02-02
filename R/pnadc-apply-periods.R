@@ -440,6 +440,32 @@ calibrate_weights_internal <- function(dt,
   # Pre-extract ref column for direct access
   ref_col <- dt[[ref_var]]
 
+  # ==========================================================================
+  # MARCOS' METHODOLOGY: Compute poptrim from ALL observations BEFORE filtering
+  # ==========================================================================
+  # poptrim = sum(V1028) for the quarter, using ALL observations (including
+
+  # undetermined). In PNADC quarterly data, this equals the population of the
+  # middle month (month 2) of the quarter.
+  # This must be computed BEFORE filtering to determined observations.
+
+  is_month <- grepl("month", ref_var, ignore.case = TRUE)
+  if (is_month) {
+    # Create quarter key for poptrim computation
+    dt[, .poptrim_quarter := Ano * 10L + Trimestre]
+    # Compute poptrim from ALL observations (including undetermined)
+    dt[, poptrim := sum(get(weight_var), na.rm = TRUE), by = .poptrim_quarter]
+    if (verbose) {
+      poptrim_sample <- dt[!duplicated(.poptrim_quarter), .(quarter = .poptrim_quarter, poptrim)]
+      cat(sprintf("    Computed poptrim (quarterly V1028 sum) for %d quarters\n",
+                  nrow(poptrim_sample)))
+      cat(sprintf("    Sample poptrim values: %.1fM - %.1fM\n",
+                  min(poptrim_sample$poptrim) / 1e6,
+                  max(poptrim_sample$poptrim) / 1e6))
+    }
+    dt[, .poptrim_quarter := NULL]
+  }
+
   # Determine anchor grouping variable
   anchor_vars <- if (anchor == "quarter") {
     c("Ano", "Trimestre")
@@ -560,7 +586,7 @@ calibrate_weights_internal <- function(dt,
   cell_cols <- paste0("celula", seq_len(n_cells))
   temp_cols <- c("anchor_year", ".anchor_key", ".is_determined",
                  cell_cols,
-                 "pop_current", "target_pop")
+                 "pop_current", "target_pop", "poptrim")
   existing_temp <- temp_cols[temp_cols %in% names(dt)]
   if (length(existing_temp) > 0) {
     dt[, (existing_temp) := NULL]
@@ -702,6 +728,12 @@ reweight_at_cell_level <- function(dt, cell_var, anchor_vars, ref_var, weight_ve
 
 #' Calibrate to External Population Totals
 #'
+#' Implements Marcos Hecksher's methodology for monthly calibration:
+#' - Month 2: Scale to poptrim (quarterly V1028 sum from ALL observations)
+#' - Months 1 and 3: Scale to SIDRA monthly population
+#'
+#' For fortnights and weeks, all periods are scaled to their respective SIDRA targets.
+#'
 #' @keywords internal
 #' @noRd
 calibrate_to_external_totals <- function(dt, target_totals, ref_var) {
@@ -759,12 +791,37 @@ calibrate_to_external_totals <- function(dt, target_totals, ref_var) {
   # Join targets
   dt[tt, on = ref_var, target_pop := i.target_pop]
 
-  # Apply calibration (population in thousands) - only for determined
-  dt[.is_determined == TRUE & !is.na(target_pop) & pop_current > 0,
-     weight_current := weight_current * (target_pop * 1000 / pop_current)]
+  # ==========================================================================
+  # MARCOS' METHODOLOGY: Different calibration for month 2 vs months 1,3
+  # ==========================================================================
+  # For MONTHS:
+  #   - Month 2: Scale to poptrim (quarterly V1028 sum = population of middle month)
+  #   - Months 1,3: Scale to SIDRA monthly population
+  # For FORTNIGHTS/WEEKS: All periods scale to their respective SIDRA targets
 
-  # Clean up
-  dt[, c("pop_current", "target_pop") := NULL]
+  is_month <- grepl("month", ref_var, ignore.case = TRUE)
+
+  if (is_month && "poptrim" %in% names(dt) && "ref_month_in_quarter" %in% names(dt)) {
+    # Month 2: Use poptrim (quarterly V1028 sum from ALL observations)
+    # poptrim is already in the data.table, computed before filtering
+    dt[.is_determined == TRUE & ref_month_in_quarter == 2L & pop_current > 0,
+       weight_current := weight_current * (poptrim / pop_current)]
+
+    # Months 1 and 3: Use SIDRA monthly population (target_pop is in thousands)
+    dt[.is_determined == TRUE & ref_month_in_quarter %in% c(1L, 3L) &
+         !is.na(target_pop) & pop_current > 0,
+       weight_current := weight_current * (target_pop * 1000 / pop_current)]
+  } else {
+    # Fortnights, weeks, or monthly without position info: scale all to SIDRA
+    dt[.is_determined == TRUE & !is.na(target_pop) & pop_current > 0,
+       weight_current := weight_current * (target_pop * 1000 / pop_current)]
+  }
+
+  # Clean up (keep poptrim for now, it will be cleaned up in calibrate_weights_internal)
+  cols_to_remove <- intersect(c("pop_current", "target_pop"), names(dt))
+  if (length(cols_to_remove) > 0) {
+    dt[, (cols_to_remove) := NULL]
+  }
 
   dt
 }
@@ -904,9 +961,28 @@ apply_parent_period_constraint <- function(dt, weight_var, ref_var, verbose = FA
   is_week <- grepl("week", ref_var, ignore.case = TRUE)
 
   # ==========================================================================
+  # CRITICAL FIX: Skip quarterly SUM constraint for MONTHS
+  # ==========================================================================
+  # Each month represents the FULL Brazilian population (~200M), not 1/3 of
+  # the quarterly total. IBGE's rolling quarter design means months are
+  # independently sampled populations, not subdivisions of a quarter.
+  #
+  # The old constraint computed: factor = quarterly_V1028 / sum(3_months)
+  # which yielded ~0.333 (crushing weights by 2/3) - THIS WAS WRONG.
+  #
+  # Correct behavior: Each month keeps its external calibration (~200M).
+  # Parent-period consistency is evaluated via WEIGHTED AVERAGES of estimates,
+  # not via forcing weight SUMS to match.
+
+  if (is_month) {
+    if (verbose) cat("    Skipping quarterly sum constraint for months (each month = full population)\n")
+    return(dt)
+  }
+
+  # ==========================================================================
   # CONSTRAINT 1: All child periods sum to quarterly V1028 total
   # ==========================================================================
-  # This is the ultimate anchor - ensures consistency with quarterly benchmark
+  # For fortnights/weeks only - ensures consistency with quarterly benchmark
 
   if (verbose) cat("    Applying parent-period constraint (quarterly anchor)...\n")
 

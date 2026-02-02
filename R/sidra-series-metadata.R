@@ -67,6 +67,10 @@ meta <- data.table::data.table(
   # CATEGORY: RATES (from specific rate tables)
   # ============================================================================
 
+  # Rate series are derived during mensalization (computed as ratios of
+  # mensalized population series), so they are marked is_derived = TRUE.
+  # They can still be fetched from SIDRA for comparison, but are excluded
+  # from mensalization by default.
   rates <- data.table::data.table(
     series_name = c("taxapartic", "nivelocup", "niveldesocup", "taxadesocup"),
     api_path = c(
@@ -87,7 +91,7 @@ meta <- data.table::data.table(
       "Taxa de desocupacao"
     ),
     unit = "rate",
-    is_derived = FALSE,
+    is_derived = TRUE,  # Computed from population ratios during mensalization
     requires_deflation = FALSE
   )
 
@@ -398,6 +402,8 @@ meta <- data.table::data.table(
   # CATEGORY: UNDERUTILIZATION (subutilizacao da forca de trabalho)
   # ============================================================================
 
+  # Underutilization series: first 5 are population counts (thousands),
+  # last 6 are rates (derived during mensalization from population ratios)
   underutilization <- data.table::data.table(
     series_name = c(
       "contribuinteprev", "subocuphoras", "forcapotencial", "forcaampliada", "desalentado",
@@ -436,7 +442,8 @@ meta <- data.table::data.table(
       "Percentual de desalentados na forca potencial"
     ),
     unit = c(rep("thousands", 5), rep("rate", 6)),
-    is_derived = FALSE,
+    # Population counts (first 5) are primary; rates (last 6) are derived
+    is_derived = c(rep(FALSE, 5), rep(TRUE, 6)),
     requires_deflation = FALSE
   )
 
@@ -507,63 +514,6 @@ meta <- data.table::data.table(
 # Internal Helper Functions
 # =============================================================================
 
-#' Get Primary Series Names (for mensalization)
-#'
-#' Returns series that can be directly mensalized (not derived from others).
-#' These are population counts, employment counts, sector counts, and
-#' some income series.
-#'
-#' @return Character vector of primary series names.
-#'
-#' @keywords internal
-.get_primary_series <- function() {
-  meta <- get_sidra_series_metadata()
-  meta[unit %in% c("thousands", "currency", "currency_millions") &
-         is_derived == FALSE, series_name]
-}
-
-#' Get Rate Series Names
-#'
-#' Returns series that are rates (typically derived from primary series).
-#'
-#' @return Character vector of rate series names.
-#'
-#' @keywords internal
-.get_rate_series <- function() {
-  meta <- get_sidra_series_metadata()
-  meta[unit == "rate", series_name]
-}
-
-#' Get Series Requiring IPCA Deflation
-#'
-#' Returns series that need IPCA deflation for proper mensalization.
-#'
-#' @return Character vector of series names requiring deflation.
-#'
-#' @keywords internal
-.get_deflation_series <- function() {
-  meta <- get_sidra_series_metadata()
-  meta[requires_deflation == TRUE, series_name]
-}
-
-#' Map SIDRA Period String to YYYYMM Format
-#'
-#' Converts SIDRA period codes (e.g., "202301 janeiro - marco 2023") to
-#' anomesfinaltrimmovel format (YYYYMM of quarter end month).
-#'
-#' @param period_string Character. SIDRA period description.
-#'
-#' @return Integer. YYYYMM format of quarter end month.
-#'
-#' @keywords internal
-.parse_sidra_period <- function(period_string) {
-  # SIDRA returns periods like "202301 janeiro - marco 2023"
-
-# We need to extract the end month
-  # The period code format is YYYYMM where MM is the end month
-  as.integer(substr(period_string, 1, 6))
-}
-
 #' Get Month Position in Quarter (mesnotrim)
 #'
 #' Given a month (1-12), returns its position in the rolling quarter (1, 2, or 3).
@@ -579,3 +529,36 @@ meta <- data.table::data.table(
 .get_mesnotrim <- function(month) {
   ((month - 1) %% 3) + 1
 }
+
+
+# =============================================================================
+# PNADC Survey Date Constants
+# =============================================================================
+#
+# Centralized constants for PNADC survey dates to ensure consistency across
+# all mensalization functions. These reflect IBGE methodology changes.
+#
+# Usage: Access via .PNADC_DATES$<name>
+# =============================================================================
+
+.PNADC_DATES <- list(
+  # ==========================================================================
+  # Survey inception
+  # ==========================================================================
+  PNADC_START = 201203L,         # First rolling quarter available (Mar 2012)
+
+  # ==========================================================================
+  # Variable transitions
+  # ==========================================================================
+  VD4004_SPLIT = 201509L,        # Last month using VD4004 (underemployment)
+                                  # VD4004A used from 201510 onwards
+  V4019_AVAILABLE = 201510L,     # First month V4019 (CNPJ status) available
+
+  # ==========================================================================
+  # Calibration periods
+  # ==========================================================================
+  DEFAULT_CALIB_START = 201301L, # Default calibration period start
+  DEFAULT_CALIB_END = 201912L,   # Default calibration period end (pre-COVID)
+  CNPJ_CALIB_START = 201601L,    # Calibration start for CNPJ series
+  PRESPLIT_CALIB_END = 201412L   # Calibration end for pre-VD4004A period
+)

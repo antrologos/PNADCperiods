@@ -112,6 +112,27 @@ mensalize_sidra_series <- function(rolling_quarters,
                      "inpc100dez1993", "inpcvarmensal")
   all_series <- setdiff(all_series, price_indices)
 
+  # Filter out rate series - they are DERIVED from mensalized components
+  # (e.g., m_taxadesocup = m_popdesocup / m_popnaforca * 100)
+  # Mensalizing rates directly is WRONG - Marcos derives them post-mensalization
+  rate_series <- c("taxapartic", "nivelocup", "niveldesocup", "taxadesocup",
+                   "perccontribprev", "taxasubocuphoras", "taxacombdesosub",
+                   "taxacombdesopot", "taxacompsubutlz", "percdesalento")
+  all_series <- setdiff(all_series, rate_series)
+
+  # Filter out average income series - they are DERIVED from mensalized components
+  # Marcos: m_rendhabnominaltodos = m_massahabnominaltodos / m_comrendtodos * 1000
+  # Mensalizing ratios directly is mathematically WRONG
+  avg_income_series <- c("rendhabnominaltodos", "rendefetnominaltodos")
+  all_series <- setdiff(all_series, avg_income_series)
+
+  # Filter out residual series - they are COMPUTED from mensalized components
+  # Marcos computes these as residuals after mensalization (Stata lines 511-514)
+  # to ensure subcategories sum exactly to parent totals
+  residual_series <- c("popforadaforca", "empregadorsemcnpj",
+                       "contapropriasemcnpj", "trabfamauxiliar")
+  all_series <- setdiff(all_series, residual_series)
+
   if (length(all_series) == 0) {
     stop("No series columns found in rolling_quarters")
   }
@@ -172,18 +193,38 @@ mensalize_sidra_series <- function(rolling_quarters,
   # Make a copy to avoid modifying input
   dt <- data.table::copy(rolling_quarters)
 
+  # Compute comrendtodos (number of people with income) from SIDRA data
+  # This is needed to derive average income series (rendhabnominaltodos, rendefetnominaltodos)
+  # Formula from Marcos' Stata: comrendtodos = (massa/rend + massa/rend)/2 * 1000
+  # The SIDRA series are: massa in millions, rend in reais, so result is in thousands
+  if ("massahabnominaltodos" %in% names(dt) && "rendhabnominaltodos" %in% names(dt) &&
+      "massaefetnominaltodos" %in% names(dt) && "rendefetnominaltodos" %in% names(dt)) {
+    # Note: massa is in millions, rend is in reais
+    # massa/rend gives millions of people, multiply by 1000 to get thousands
+    # IMPORTANT: Guard against division by zero - only compute where denominators are positive
+    dt[rendhabnominaltodos > 0 & rendefetnominaltodos > 0,
+       comrendtodos := (massahabnominaltodos / rendhabnominaltodos +
+                        massaefetnominaltodos / rendefetnominaltodos) / 2 * 1000]
+    if (verbose) message("Computed comrendtodos from SIDRA massa/rend series")
+    # Add comrendtodos to the series list for mensalization
+    # (it's derived from SIDRA but needs to be mensalized like other population counts)
+    if (!"comrendtodos" %in% all_series) {
+      all_series <- c(all_series, "comrendtodos")
+    }
+  }
+
   # PNADC started in January 2012; first rolling quarter is March 2012 (201203)
 
   # Filter to PNADC-era data only. Price indices (IPCA) go back to 1979 but
   # mensalization is only valid for PNADC series. Without this filter, pre-2012
   # rows would just output the y0 starting points cyclically (no actual data).
-  PNADC_START <- 201203L
-  if (min(dt$anomesfinaltrimmovel) < PNADC_START) {
-    n_pre_pnadc <- sum(dt$anomesfinaltrimmovel < PNADC_START)
+  pnadc_start <- .PNADC_DATES$PNADC_START
+  if (min(dt$anomesfinaltrimmovel) < pnadc_start) {
+    n_pre_pnadc <- sum(dt$anomesfinaltrimmovel < pnadc_start)
     if (verbose) {
-      message("Filtering out ", n_pre_pnadc, " pre-PNADC rows (before ", PNADC_START, ")")
+      message("Filtering out ", n_pre_pnadc, " pre-PNADC rows (before ", pnadc_start, ")")
     }
-    dt <- dt[anomesfinaltrimmovel >= PNADC_START]
+    dt <- dt[anomesfinaltrimmovel >= pnadc_start]
   }
 
   data.table::setorder(dt, anomesfinaltrimmovel)
@@ -193,21 +234,50 @@ mensalize_sidra_series <- function(rolling_quarters,
     anomesexato = dt$anomesfinaltrimmovel  # Same as end month of rolling quarter
   )
 
+  # Define split-calibration series (require two separate mensalizations stitched together)
+  # subocuphoras: VD4004 pre-201509, VD4004A post-201509 (Stata lines 461-480)
+  split_series <- c("subocuphoras")
+
   # Process each series
   for (v in all_series) {
     if (verbose && length(all_series) > 5) {
       message("  Processing: ", v)
     }
 
-    m_values <- .mensalize_single_series(
-      dt = dt,
-      series_name = v,
-      starting_points = starting_points
-    )
+    # Check if this series needs split calibration
+    if (v %in% split_series) {
+      # Use split mensalization (two separate processes stitched at VD4004 split)
+      if (verbose) message("    (using split calibration for ", v, ")")
+      m_values <- .mensalize_split_series(
+        dt = dt,
+        series_name = v,
+        starting_points = starting_points,
+        split_month = .PNADC_DATES$VD4004_SPLIT
+      )
+    } else {
+      # Standard single mensalization
+      m_values <- .mensalize_single_series(
+        dt = dt,
+        series_name = v,
+        starting_points = starting_points
+      )
+    }
 
     # Add to result with m_ prefix
     result[, paste0("m_", v) := m_values]
   }
+
+  # Add price indices (pass through - already monthly, no mensalization needed)
+  price_indices <- c("ipca100dez1993", "ipcavarmensal",
+                     "inpc100dez1993", "inpcvarmensal")
+  for (pi in price_indices) {
+    if (pi %in% names(dt)) {
+      result[, (pi) := dt[[pi]]]
+    }
+  }
+
+  # Note: comrendtodos is now mensalized (added to all_series above)
+  # and will be available as m_comrendtodos for deriving average income series
 
   # Compute derived series if requested
   if (compute_derived) {
@@ -224,25 +294,31 @@ mensalize_sidra_series <- function(rolling_quarters,
 }
 
 
-#' Mensalize a Single Series
+# =============================================================================
+# MENSALIZATION HELPER FUNCTIONS
+# =============================================================================
+
+#' Compute Cumulative Sum by Month Position
 #'
-#' Internal function implementing the core mensalization algorithm for one series.
+#' Internal helper that computes d3 differences and cumsum separated by mesnotrim.
 #'
-#' @param dt data.table with rolling quarter data
-#' @param series_name Name of the series column
-#' @param starting_points data.table with y0 values
-#' @return Numeric vector of mensalized values
+#' @param rq Numeric vector of rolling quarter values
+#' @param mesnotrim Integer vector of month positions (1, 2, or 3)
+#' @param filter_mask Logical vector. If provided, NA out d3 where FALSE before cumsum.
+#' @return Numeric vector of cumulative sums aligned by mesnotrim
 #' @keywords internal
 #' @noRd
-.mensalize_single_series <- function(dt, series_name, starting_points) {
-
-  n <- nrow(dt)
-  rq <- dt[[series_name]]
-  mesnotrim <- dt$mesnotrim
+.compute_cumsum_by_mesnotrim <- function(rq, mesnotrim, filter_mask = NULL) {
+  n <- length(rq)
 
   # Step 1: Calculate d3 = 3 × (RQ_t - RQ_{t-1})
   d3 <- 3 * (rq - data.table::shift(rq, 1L))
   d3[1] <- NA_real_
+
+  # Apply filter mask if provided (for split series)
+  if (!is.null(filter_mask)) {
+    d3[!filter_mask] <- NA_real_
+  }
 
   # Step 2: Separate by month position
   d3m1 <- ifelse(mesnotrim == 1, d3, NA_real_)
@@ -260,37 +336,53 @@ mensalize_sidra_series <- function(rolling_quarters,
   cum[mesnotrim == 2] <- cum2[mesnotrim == 2]
   cum[mesnotrim == 3] <- cum3[mesnotrim == 3]
 
-  # Step 5: Get starting points (y0 for each mesnotrim position)
-  # Use local variable to avoid data.table scoping issues
-  target_series <- series_name
+  cum
+}
+
+
+#' Extract y0 Starting Points Vector
+#'
+#' Internal helper that extracts y0 values for a series from starting_points.
+#'
+#' @param starting_points data.table with series_name, mesnotrim, y0 columns
+#' @param target_series Character. Series name to extract.
+#' @return Numeric vector of length 3 (y0 for mesnotrim 1, 2, 3)
+#' @keywords internal
+#' @noRd
+.extract_y0_vector <- function(starting_points, target_series) {
   sp <- starting_points[get("series_name") == target_series]
 
   if (nrow(sp) == 0) {
-    # No starting points for this series - use zeros
-    y0 <- c(0, 0, 0)
-  } else {
-    y0 <- numeric(3)
-    for (pos in 1:3) {
-      val <- sp[mesnotrim == pos, y0]
-      y0[pos] <- if (length(val) > 0) val[1] else 0
-    }
+    return(c(0, 0, 0))
   }
 
-  # Step 6: Apply starting points: y = y0[mesnotrim] + cum
-  y <- y0[mesnotrim] + cum
+  y0 <- numeric(3)
+  for (pos in 1:3) {
+    val <- sp[mesnotrim == pos, y0]
+    y0[pos] <- if (length(val) > 0) val[1] else 0
+  }
 
-  # Step 7: Final adjustment for rolling quarter consistency
-  # This ensures that the average of 3 consecutive months equals the rolling quarter
-  #
-  # The rolling quarter at position k covers exact months at positions k-2, k-1, k
-  # (where position k has mesnotrim==3).
-  #
-  # For each trio of consecutive rows (mesnotrim 1,2,3):
-  # - All three should average to the rolling quarter value at the mesnotrim==3 position
-  # - Formula: m = y + rq - avg(y) where rq is from the mesnotrim==3 position
+  y0
+}
 
-  # Shift: positive n with type="lead" shifts values UP (future -> current)
-  # e.g., y_lead1[i] = y[i+1]
+
+#' Apply Final Rolling Quarter Adjustment
+#'
+#' Internal helper that applies the final adjustment to ensure rolling quarter consistency.
+#' For each trio of consecutive months, the average equals the rolling quarter value.
+#'
+#' Uses fully vectorized operations for performance - no for loops.
+#'
+#' @param y Numeric vector of y values (y0 + cumsum)
+#' @param rq Numeric vector of rolling quarter values
+#' @param mesnotrim Integer vector of month positions (1, 2, or 3)
+#' @return Numeric vector of final mensalized values
+#' @keywords internal
+#' @noRd
+.apply_final_adjustment <- function(y, rq, mesnotrim) {
+  n <- length(y)
+
+  # Shift values for computing averages
   y_lead1 <- data.table::shift(y, 1L, type = "lead")
   y_lead2 <- data.table::shift(y, 2L, type = "lead")
   y_lag1 <- data.table::shift(y, 1L, type = "lag")
@@ -300,49 +392,177 @@ mensalize_sidra_series <- function(rolling_quarters,
   rq_lead1 <- data.table::shift(rq, 1L, type = "lead")
   rq_lead2 <- data.table::shift(rq, 2L, type = "lead")
 
-  # Vectorized computation
-  m <- numeric(n)
+  # Initialize result with fallback values (y itself)
+  m <- y
 
-  # For mesnotrim==1: use rq at n+2, avg of y at n, n+1, n+2
-  idx1 <- which(mesnotrim == 1)
-  for (i in idx1) {
-    if (i + 2 <= n && !anyNA(c(y[i], y_lead1[i], y_lead2[i], rq_lead2[i]))) {
-      avg_y <- (y[i] + y_lead1[i] + y_lead2[i]) / 3
-      m[i] <- y[i] + rq_lead2[i] - avg_y
-    } else {
-      m[i] <- y[i]
-    }
-  }
+  # Vectorized computation for mesnotrim==1
+  # avg_y = (y + y_lead1 + y_lead2) / 3, m = y + rq_lead2 - avg_y
+  valid1 <- mesnotrim == 1L & !is.na(y) & !is.na(y_lead1) & !is.na(y_lead2) & !is.na(rq_lead2)
+  avg_y1 <- (y + y_lead1 + y_lead2) / 3
+  m[valid1] <- y[valid1] + rq_lead2[valid1] - avg_y1[valid1]
 
-  # For mesnotrim==2: use rq at n+1, avg of y at n-1, n, n+1
-  idx2 <- which(mesnotrim == 2)
-  for (i in idx2) {
-    if (i > 1 && i < n && !anyNA(c(y_lag1[i], y[i], y_lead1[i], rq_lead1[i]))) {
-      avg_y <- (y_lag1[i] + y[i] + y_lead1[i]) / 3
-      m[i] <- y[i] + rq_lead1[i] - avg_y
-    } else {
-      m[i] <- y[i]
-    }
-  }
+  # Vectorized computation for mesnotrim==2
+  # avg_y = (y_lag1 + y + y_lead1) / 3, m = y + rq_lead1 - avg_y
+  valid2 <- mesnotrim == 2L & !is.na(y_lag1) & !is.na(y) & !is.na(y_lead1) & !is.na(rq_lead1)
+  avg_y2 <- (y_lag1 + y + y_lead1) / 3
+  m[valid2] <- y[valid2] + rq_lead1[valid2] - avg_y2[valid2]
 
-  # For mesnotrim==3: use rq at n, avg of y at n-2, n-1, n
-  idx3 <- which(mesnotrim == 3)
-  for (i in idx3) {
-    if (i > 2 && !anyNA(c(y_lag2[i], y_lag1[i], y[i], rq[i]))) {
-      avg_y <- (y_lag2[i] + y_lag1[i] + y[i]) / 3
-      m[i] <- y[i] + rq[i] - avg_y
-    } else {
-      m[i] <- y[i]
-    }
-  }
+  # Vectorized computation for mesnotrim==3
+  # avg_y = (y_lag2 + y_lag1 + y) / 3, m = y + rq - avg_y
+  valid3 <- mesnotrim == 3L & !is.na(y_lag2) & !is.na(y_lag1) & !is.na(y) & !is.na(rq)
+  avg_y3 <- (y_lag2 + y_lag1 + y) / 3
+  m[valid3] <- y[valid3] + rq[valid3] - avg_y3[valid3]
 
   m
+}
+
+
+# =============================================================================
+# MENSALIZATION FUNCTIONS
+# =============================================================================
+
+#' Mensalize a Single Series
+#'
+#' Internal function implementing the core mensalization algorithm for one series.
+#'
+#' @param dt data.table with rolling quarter data
+#' @param series_name Name of the series column
+#' @param starting_points data.table with y0 values
+#' @return Numeric vector of mensalized values
+#' @keywords internal
+#' @noRd
+.mensalize_single_series <- function(dt, series_name, starting_points) {
+
+  rq <- dt[[series_name]]
+  mesnotrim <- dt$mesnotrim
+
+  # Step 1-4: Compute cumsum by month position
+  cum <- .compute_cumsum_by_mesnotrim(rq, mesnotrim)
+
+  # Step 5: Get starting points
+  y0 <- .extract_y0_vector(starting_points, series_name)
+
+  # Step 6: Apply starting points
+  y <- y0[mesnotrim] + cum
+
+  # Step 7: Final adjustment for rolling quarter consistency
+  .apply_final_adjustment(y, rq, mesnotrim)
+}
+
+
+#' Mensalize a Split-Calibration Series
+#'
+#' Internal function for series that require split calibration (like subocuphoras).
+#' Performs TWO separate mensalizations and stitches them together at the split point.
+#'
+#' The key insight is that each period must be processed INDEPENDENTLY to avoid
+#' cross-contamination at the boundary. The final adjustment uses lead/lag operations
+#' that would otherwise cross the 201509/201510 boundary.
+#'
+#' @param dt data.table with rolling quarter data
+#' @param series_name Name of the series column (e.g., "subocuphoras")
+#' @param starting_points data.table with y0 values (must include both "series" and "series_pre")
+#' @param split_month Integer. The last month of the pre-split period.
+#'   Default NULL uses .PNADC_DATES$VD4004_SPLIT (201509).
+#' @return Numeric vector of mensalized values
+#' @keywords internal
+#' @noRd
+.mensalize_split_series <- function(dt, series_name, starting_points, split_month = NULL) {
+
+  # Resolve default from centralized constants
+
+  if (is.null(split_month)) {
+    split_month <- .PNADC_DATES$VD4004_SPLIT
+  }
+
+  rq <- dt[[series_name]]
+  mesnotrim <- dt$mesnotrim
+  yyyymm <- dt$anomesfinaltrimmovel
+  n <- length(rq)
+
+  # Initialize result vector
+  m_result <- numeric(n)
+
+  # ============================================================================
+  # PART 1: Process PRE-SPLIT period independently (up to and including split_month)
+  # ============================================================================
+
+  pre_idx <- which(yyyymm <= split_month)
+  if (length(pre_idx) > 0) {
+    # Extract subset for pre-split period
+    rq_pre <- rq[pre_idx]
+    mesnotrim_pre <- mesnotrim[pre_idx]
+
+    # Compute cumsum for pre-split period only
+    cum_pre <- .compute_cumsum_by_mesnotrim(rq_pre, mesnotrim_pre)
+
+    # Get starting points for pre-split
+    y0_pre <- .extract_y0_vector(starting_points, paste0(series_name, "_pre"))
+    y_pre <- y0_pre[mesnotrim_pre] + cum_pre
+
+    # Apply final adjustment ONLY to pre-split data (no boundary crossing)
+    m_pre <- .apply_final_adjustment(y_pre, rq_pre, mesnotrim_pre)
+
+    # Store results
+    m_result[pre_idx] <- m_pre
+  }
+
+  # ============================================================================
+  # PART 2: Process POST-SPLIT period independently (after split_month)
+  # ============================================================================
+
+  post_idx <- which(yyyymm > split_month)
+  if (length(post_idx) > 0) {
+    # Extract subset for post-split period
+    rq_post <- rq[post_idx]
+    mesnotrim_post <- mesnotrim[post_idx]
+
+    # Compute cumsum for post-split period only (cumsum starts fresh from 201510)
+    cum_post <- .compute_cumsum_by_mesnotrim(rq_post, mesnotrim_post)
+
+    # Get starting points for post-split
+    y0_post <- .extract_y0_vector(starting_points, series_name)
+    y_post <- y0_post[mesnotrim_post] + cum_post
+
+    # Apply final adjustment ONLY to post-split data (no boundary crossing)
+    m_post <- .apply_final_adjustment(y_post, rq_post, mesnotrim_post)
+
+    # Store results
+    m_result[post_idx] <- m_post
+  }
+
+  m_result
 }
 
 
 #' Compute Derived Series (Rates and Aggregates)
 #'
 #' Internal function to compute rates and aggregates from primary mensalized series.
+#'
+#' @section Why Derived Series Are Computed Here (Not From Starting Points):
+#'
+#' Some series have two possible computation paths:
+#' \enumerate{
+#'   \item **Direct mensalization**: Use z_ aggregates from microdata for starting
+#'     points, then mensalize the SIDRA rolling quarter series
+#'   \item **Derived computation**: Compute from other mensalized series (sums, ratios)
+#' }
+#'
+#' For certain series, we use path 2 (derived) because:
+#'
+#' \itemize{
+#'   \item **Rate series** (taxadesocup, percdesalento, etc.): Computed as ratios
+#'     of mensalized populations. This ensures mathematical consistency -
+#'     rate = mensalized_numerator / mensalized_denominator
+#'   \item **Aggregate sums** (popnaforca = popocup + popdesocup): Ensures parts
+#'     sum exactly to totals after mensalization
+#'   \item **Residual series** (empregadorsemcnpj = empregador - empregadorcomcnpj):
+#'     Ensures subcategories sum to parent totals (accounting identity)
+#' }
+#'
+#' The alternative (direct mensalization) would require separate z_ aggregates
+#' for each rate/aggregate, and the resulting mensalized values wouldn't have
+#' guaranteed mathematical relationships with their components.
 #'
 #' @param dt data.table with mensalized primary series
 #' @param verbose Logical. Print progress?
@@ -351,103 +571,298 @@ mensalize_sidra_series <- function(rolling_quarters,
 #' @noRd
 .compute_derived_series <- function(dt, verbose = FALSE) {
 
-  # Check which primary series are available
-  has_col <- function(x) x %in% names(dt)
+  # Helper to check column existence (with m_ prefix)
+  has_col <- function(x) paste0("m_", x) %in% names(dt)
+  has_col_raw <- function(x) x %in% names(dt)
 
   # ============================================================================
-  # Aggregates (sums of components)
+  # PHASE 1: AGGREGATES (sums of components)
+  # Must be computed first as some rates depend on these aggregates
   # ============================================================================
-
-  # Labor force = employed + unemployed
-  if (has_col("m_popocup") && has_col("m_popdesocup")) {
-    dt[, m_popnaforca := m_popocup + m_popdesocup]
-  }
-
-  # Private sector employees (total)
-  if (has_col("m_empregprivcomcart") && has_col("m_empregprivsemcart")) {
-    dt[, m_empregpriv := m_empregprivcomcart + m_empregprivsemcart]
-  }
-
-  # Domestic workers (total)
-  if (has_col("m_domesticocomcart") && has_col("m_domesticosemcart")) {
-    dt[, m_domestico := m_domesticocomcart + m_domesticosemcart]
-  }
-
-  # Public sector employees (total)
-  if (has_col("m_empregpublcomcart") && has_col("m_empregpublsemcart") &&
-      has_col("m_estatutmilitar")) {
-    dt[, m_empregpubl := m_empregpublcomcart + m_empregpublsemcart + m_estatutmilitar]
-  }
-
-  # All employees (total)
-  if (has_col("m_empregpriv") && has_col("m_domestico") && has_col("m_empregpubl")) {
-    dt[, m_empregado := m_empregpriv + m_domestico + m_empregpubl]
-  }
-
-  # Extended labor force
-  if (has_col("m_popnaforca") && has_col("m_forcapotencial")) {
-    dt[, m_forcaampliada := m_popnaforca + m_forcapotencial]
+  for (spec in .DERIVED_SERIES_SPEC$aggregates) {
+    if (all(sapply(spec$components, has_col))) {
+      cols <- paste0("m_", spec$components)
+      dt[, paste0("m_", spec$name) := Reduce(`+`, .SD), .SDcols = cols]
+      if (verbose) message("    Computed aggregate: m_", spec$name)
+    }
   }
 
   # ============================================================================
-  # Rates (percentages)
+  # PHASE 2: AVERAGE INCOME (massa / comrendtodos * 1000)
   # ============================================================================
-
-  # Participation rate = (employed + unemployed) / pop14+
-  if (has_col("m_popocup") && has_col("m_popdesocup") && has_col("m_pop14mais")) {
-    dt[, m_taxapartic_calc := round((m_popocup + m_popdesocup) / m_pop14mais * 100, 1)]
+  for (spec in .DERIVED_SERIES_SPEC$average_income) {
+    if (has_col(spec$numerator) && has_col(spec$denominator)) {
+      num_col <- paste0("m_", spec$numerator)
+      denom_col <- paste0("m_", spec$denominator)
+      out_col <- paste0("m_", spec$name)
+      dt[get(denom_col) > 0, (out_col) := round(get(num_col) / get(denom_col) * spec$multiplier, spec$decimals)]
+      if (verbose) message("    Computed average income: m_", spec$name)
+    }
   }
 
-  # Employment rate = employed / pop14+
-  if (has_col("m_popocup") && has_col("m_pop14mais")) {
-    dt[, m_nivelocup_calc := round(m_popocup / m_pop14mais * 100, 1)]
+  # ============================================================================
+  # PHASE 3: RESIDUALS (parent - sum of subtracted components)
+  # Ensures accounting identities hold
+  # ============================================================================
+  for (spec in .DERIVED_SERIES_SPEC$residuals) {
+    if (has_col(spec$parent) && all(sapply(spec$subtract, has_col))) {
+      parent_col <- paste0("m_", spec$parent)
+      subtract_cols <- paste0("m_", spec$subtract)
+      out_col <- paste0("m_", spec$name)
+      dt[, (out_col) := get(parent_col) - Reduce(`+`, .SD), .SDcols = subtract_cols]
+      if (verbose) message("    Computed residual: m_", spec$name)
+    }
   }
 
-  # Unemployment level = unemployed / pop14+
-  if (has_col("m_popdesocup") && has_col("m_pop14mais")) {
-    dt[, m_niveldesocup_calc := round(m_popdesocup / m_pop14mais * 100, 1)]
+  # ============================================================================
+  # PHASE 4: RATES (numerator / denominator * 100)
+  # ============================================================================
+  for (spec in .DERIVED_SERIES_SPEC$rates) {
+    # Build list of numerator components (may be single or multiple)
+    num_components <- if (is.list(spec$numerator)) spec$numerator else list(spec$numerator)
+    num_is_sum <- length(num_components) > 1 || (is.list(spec$numerator) && length(spec$numerator) > 1)
+
+    # Check if all required columns exist
+    all_num_exist <- all(sapply(unlist(num_components), has_col))
+    denom_components <- if (is.list(spec$denominator)) spec$denominator else list(spec$denominator)
+    all_denom_exist <- all(sapply(unlist(denom_components), has_col))
+
+    if (all_num_exist && all_denom_exist) {
+      # Compute numerator (may be sum of multiple components)
+      num_cols <- paste0("m_", unlist(num_components))
+      denom_cols <- paste0("m_", unlist(denom_components))
+      out_col <- paste0("m_", spec$name)
+      decimals <- spec$decimals
+
+      # For rates with compound numerator or denominator
+      if (length(num_cols) == 1 && length(denom_cols) == 1) {
+        dt[, (out_col) := round(get(num_cols) / get(denom_cols) * 100, decimals)]
+      } else {
+        # Build expression for compound numerator/denominator
+        num_sum <- rowSums(dt[, num_cols, with = FALSE], na.rm = TRUE)
+        denom_sum <- rowSums(dt[, denom_cols, with = FALSE], na.rm = TRUE)
+        dt[, (out_col) := round(num_sum / denom_sum * 100, decimals)]
+      }
+      if (verbose) message("    Computed rate: m_", spec$name)
+    }
   }
 
-  # Unemployment rate = unemployed / labor force
-  if (has_col("m_popdesocup") && has_col("m_popnaforca")) {
-    dt[, m_taxadesocup_calc := round(m_popdesocup / m_popnaforca * 100, 1)]
-  }
+  # ============================================================================
+  # PHASE 5: DEFLATED SERIES (nominal * deflator)
+  # Uses IPCA index with different lag for hab vs efet series
+  # ============================================================================
+  if (has_col_raw("ipca100dez1993")) {
+    latest_ipca <- dt[anomesexato == max(anomesexato), ipca100dez1993][1]
 
-  # Social security contribution rate
-  if (has_col("m_contribuinteprev") && has_col("m_popocup")) {
-    dt[, m_perccontribprev_calc := round(m_contribuinteprev / m_popocup * 100, 1)]
-  }
+    if (!is.na(latest_ipca) && latest_ipca > 0) {
+      # Pre-compute deflators
+      dt[, .deflator_hab := latest_ipca / ipca100dez1993]
+      dt[, .ipca_lagged := data.table::shift(ipca100dez1993, n = 1L, type = "lag")]
+      dt[, .deflator_efet := latest_ipca / .ipca_lagged]
 
-  # Combined unemployment + underemployment rate
-  if (has_col("m_subocuphoras") && has_col("m_popdesocup") && has_col("m_popnaforca")) {
-    dt[, m_taxacombdesosub_calc := round((m_subocuphoras + m_popdesocup) / m_popnaforca * 100, 1)]
-  }
+      for (spec in .DERIVED_SERIES_SPEC$deflated) {
+        if (has_col(spec$source)) {
+          source_col <- paste0("m_", spec$source)
+          out_col <- paste0("m_", spec$name)
+          deflator_col <- if (spec$use_lagged_ipca) ".deflator_efet" else ".deflator_hab"
+          dt[, (out_col) := round(get(source_col) * get(deflator_col), spec$decimals)]
+          if (verbose) message("    Computed deflated: m_", spec$name)
+        }
+      }
 
-  # Combined unemployment + potential labor force rate
-  if (has_col("m_popdesocup") && has_col("m_forcapotencial") && has_col("m_forcaampliada")) {
-    dt[, m_taxacombdesopot_calc := round((m_popdesocup + m_forcapotencial) / m_forcaampliada * 100, 1)]
-  }
-
-  # Composite underutilization rate
-  if (has_col("m_subocuphoras") && has_col("m_popdesocup") &&
-      has_col("m_forcapotencial") && has_col("m_forcaampliada")) {
-    dt[, m_taxacompsubutlz_calc := round(
-      (m_subocuphoras + m_popdesocup + m_forcapotencial) / m_forcaampliada * 100, 1
-    )]
-  }
-
-  # Underemployment rate
-  if (has_col("m_subocuphoras") && has_col("m_popocup")) {
-    dt[, m_taxasubocuphoras_calc := round(m_subocuphoras / m_popocup * 100, 1)]
-  }
-
-  # Discouraged worker percentage
-  if (has_col("m_desalentado") && has_col("m_popnaforca")) {
-    dt[, m_percdesalento_calc := round(m_desalentado / (m_popnaforca + m_desalentado) * 100, 1)]
+      # Cleanup temporary columns
+      dt[, c(".deflator_hab", ".deflator_efet", ".ipca_lagged") := NULL]
+    }
   }
 
   dt
 }
+
+
+# =============================================================================
+# DERIVED SERIES SPECIFICATION (metadata-driven)
+# =============================================================================
+# This declarative structure defines all derived series and their computation.
+# Processing order: aggregates -> average_income -> residuals -> rates -> deflated
+# =============================================================================
+
+.DERIVED_SERIES_SPEC <- list(
+
+  # ==========================================================================
+  # AGGREGATES: output = sum of components
+  # Order matters: some aggregates depend on others (e.g., empregado needs empregpriv)
+  # ==========================================================================
+  aggregates = list(
+    list(name = "popnaforca",
+         components = c("popocup", "popdesocup"),
+         description = "Labor force = employed + unemployed"),
+
+    list(name = "empregpriv",
+         components = c("empregprivcomcart", "empregprivsemcart"),
+         description = "Private sector employees (total)"),
+
+    list(name = "domestico",
+         components = c("domesticocomcart", "domesticosemcart"),
+         description = "Domestic workers (total)"),
+
+    list(name = "empregpubl",
+         components = c("empregpublcomcart", "empregpublsemcart", "estatutmilitar"),
+         description = "Public sector employees (total)"),
+
+    list(name = "empregado",
+         components = c("empregpriv", "domestico", "empregpubl"),
+         description = "All employees (total) - depends on prior aggregates"),
+
+    list(name = "forcaampliada",
+         components = c("popnaforca", "forcapotencial"),
+         description = "Extended labor force - depends on popnaforca aggregate")
+  ),
+
+  # ==========================================================================
+  # AVERAGE INCOME: output = numerator / denominator * multiplier
+  # Formula: m_rend = m_massa / m_comrendtodos * 1000 (Stata lines 531-532)
+  # ==========================================================================
+  average_income = list(
+    list(name = "rendhabnominaltodos",
+         numerator = "massahabnominaltodos",
+         denominator = "comrendtodos",
+         multiplier = 1000,
+         decimals = 0,
+         description = "Average habitual income (nominal)"),
+
+    list(name = "rendefetnominaltodos",
+         numerator = "massaefetnominaltodos",
+         denominator = "comrendtodos",
+         multiplier = 1000,
+         decimals = 0,
+         description = "Average effective income (nominal)")
+  ),
+
+  # ==========================================================================
+  # RESIDUALS: output = parent - sum(subtract)
+  # Computed as residuals to ensure accounting identities (Stata lines 511-514)
+  # ==========================================================================
+  residuals = list(
+    list(name = "popforadaforca",
+         parent = "pop14mais",
+         subtract = c("popocup", "popdesocup"),
+         description = "Population outside labor force"),
+
+    list(name = "empregadorsemcnpj",
+         parent = "empregador",
+         subtract = c("empregadorcomcnpj"),
+         description = "Employers without CNPJ"),
+
+    list(name = "contapropriasemcnpj",
+         parent = "contapropria",
+         subtract = c("contapropriacomcnpj"),
+         description = "Self-employed without CNPJ"),
+
+    list(name = "trabfamauxiliar",
+         parent = "popocup",
+         subtract = c("empregprivcomcart", "empregprivsemcart",
+                      "domesticocomcart", "domesticosemcart",
+                      "empregpublcomcart", "empregpublsemcart",
+                      "estatutmilitar", "empregador", "contapropria"),
+         description = "Unpaid family workers (residual)")
+  ),
+
+  # ==========================================================================
+  # RATES: output = (sum of numerator) / (sum of denominator) * 100
+  # All rates use decimals = 1 for consistency with Stata output
+  # ==========================================================================
+  rates = list(
+    list(name = "taxapartic",
+         numerator = c("popocup", "popdesocup"),
+         denominator = c("pop14mais"),
+         decimals = 1,
+         description = "Participation rate"),
+
+    list(name = "nivelocup",
+         numerator = c("popocup"),
+         denominator = c("pop14mais"),
+         decimals = 1,
+         description = "Employment rate"),
+
+    list(name = "niveldesocup",
+         numerator = c("popdesocup"),
+         denominator = c("pop14mais"),
+         decimals = 1,
+         description = "Unemployment level"),
+
+    list(name = "taxadesocup",
+         numerator = c("popdesocup"),
+         denominator = c("popnaforca"),
+         decimals = 1,
+         description = "Unemployment rate"),
+
+    list(name = "perccontribprev",
+         numerator = c("contribuinteprev"),
+         denominator = c("popocup"),
+         decimals = 1,
+         description = "Social security contribution rate"),
+
+    list(name = "taxacombdesosub",
+         numerator = c("subocuphoras", "popdesocup"),
+         denominator = c("popnaforca"),
+         decimals = 1,
+         description = "Combined unemployment + underemployment rate"),
+
+    list(name = "taxacombdesopot",
+         numerator = c("popdesocup", "forcapotencial"),
+         denominator = c("forcaampliada"),
+         decimals = 1,
+         description = "Combined unemployment + potential labor force rate"),
+
+    list(name = "taxacompsubutlz",
+         numerator = c("subocuphoras", "popdesocup", "forcapotencial"),
+         denominator = c("forcaampliada"),
+         decimals = 1,
+         description = "Composite underutilization rate"),
+
+    list(name = "taxasubocuphoras",
+         numerator = c("subocuphoras"),
+         denominator = c("popocup"),
+         decimals = 1,
+         description = "Underemployment rate"),
+
+    list(name = "percdesalento",
+         numerator = c("desalentado"),
+         denominator = c("popnaforca", "desalentado"),
+         decimals = 1,
+         description = "Discouraged worker percentage")
+  ),
+
+  # ==========================================================================
+  # DEFLATED: output = source * deflator (rounded)
+  # "hab" series use current IPCA, "efet" series use lagged IPCA (Stata lines 232, 261-264)
+  # ==========================================================================
+  deflated = list(
+    list(name = "massahabtodosipcabr",
+         source = "massahabnominaltodos",
+         use_lagged_ipca = FALSE,
+         decimals = 0,
+         description = "Real habitual income mass (IPCA-deflated)"),
+
+    list(name = "rendhabtodosipcabr",
+         source = "rendhabnominaltodos",
+         use_lagged_ipca = FALSE,
+         decimals = 0,
+         description = "Real average habitual income (IPCA-deflated)"),
+
+    list(name = "massaefettodosipcabr",
+         source = "massaefetnominaltodos",
+         use_lagged_ipca = TRUE,
+         decimals = 0,
+         description = "Real effective income mass (IPCA-deflated, lagged)"),
+
+    list(name = "rendefettodosipcabr",
+         source = "rendefetnominaltodos",
+         use_lagged_ipca = TRUE,
+         decimals = 0,
+         description = "Real average effective income (IPCA-deflated, lagged)")
+  )
+)
 
 
 #' Compute Starting Points from Microdata
@@ -461,9 +876,15 @@ mensalize_sidra_series <- function(rolling_quarters,
 #'     \item \code{z_<series>}: Monthly estimates from calibrated microdata
 #'   }
 #' @param rolling_quarters data.table from \code{fetch_sidra_rolling_quarters}
-#' @param calibration_start Integer. Start of calibration period (YYYYMM). Default 201301.
-#' @param calibration_end Integer. End of calibration period (YYYYMM). Default 201912.
+#' @param calibration_start Integer. Start of calibration period (YYYYMM).
+#'   Default NULL uses .PNADC_DATES$DEFAULT_CALIB_START (201301).
+#'   Note: CNPJ series automatically use CNPJ_CALIB_START (201601) regardless.
+#' @param calibration_end Integer. End of calibration period (YYYYMM).
+#'   Default NULL uses .PNADC_DATES$DEFAULT_CALIB_END (201912).
 #' @param scale_factor Numeric. Scale factor for z_ values (usually 1000). Default 1000.
+#' @param use_series_specific_periods Logical. If TRUE (default), use series-specific
+#'   calibration periods for CNPJ series (201601-201912) and cumsum starting dates
+#'   (201510). Set to FALSE to use uniform calibration for all series.
 #' @param verbose Logical. Print progress? Default TRUE.
 #'
 #' @return data.table with columns:
@@ -479,6 +900,15 @@ mensalize_sidra_series <- function(rolling_quarters,
 #' 2. Computing backprojection: e0 = z / scale_factor - cum
 #' 3. Averaging e0 by mesnotrim over the calibration period
 #'
+#' @section Series-Specific Handling:
+#' When \code{use_series_specific_periods = TRUE}, the following series receive
+#' special handling to match Marcos Hecksher's methodology:
+#' \describe{
+#'   \item{CNPJ series}{empregadorcomcnpj, empregadorsemcnpj, contapropriacomcnpj,
+#'     contapropriasemcnpj use calibration period 201601-201912 and cumsum starts
+#'     from 201510 (when V4019 became available)}
+#' }
+#'
 #' @examples
 #' \dontrun{
 #' # After calibrating microdata with pnadc_apply_periods():
@@ -491,10 +921,19 @@ mensalize_sidra_series <- function(rolling_quarters,
 #' @export
 compute_series_starting_points <- function(monthly_estimates,
                                             rolling_quarters,
-                                            calibration_start = 201301L,
-                                            calibration_end = 201912L,
+                                            calibration_start = NULL,
+                                            calibration_end = NULL,
                                             scale_factor = 1000,
+                                            use_series_specific_periods = TRUE,
                                             verbose = TRUE) {
+
+  # Resolve defaults from centralized constants
+  if (is.null(calibration_start)) {
+    calibration_start <- .PNADC_DATES$DEFAULT_CALIB_START
+  }
+  if (is.null(calibration_end)) {
+    calibration_end <- .PNADC_DATES$DEFAULT_CALIB_END
+  }
 
   # Ensure data.tables
   if (!inherits(monthly_estimates, "data.table")) {
@@ -512,18 +951,35 @@ compute_series_starting_points <- function(monthly_estimates,
 
   series_names <- sub("^z_", "", z_cols)
 
+  # Define series-specific calibration periods
+  # CNPJ series: V4019 only available from 201510, use calibration 201601-201912
+
+  cnpj_series <- c("empregadorcomcnpj", "empregadorsemcnpj",
+                   "contapropriacomcnpj", "contapropriasemcnpj")
+
+  # subocuphoras requires SPLIT CALIBRATION (Stata lines 440-480)
+  # The VD4004 -> VD4004A transition at 201510 requires TWO separate mensalizations:
+  # - Post-201509: cumsum from 201510, calibration 201601-201912 (same as CNPJ)
+  # - Pre-201509: cumsum from start, calibration 201301-201412
+  # Then the two are stitched together at 201509
+  split_series <- c("subocuphoras")
+
   if (verbose) {
     message("Computing starting points for ", length(series_names), " series")
     message("Calibration period: ", calibration_start, " to ", calibration_end)
+    if (use_series_specific_periods) {
+      message("  (CNPJ series will use 201601-201912 with cumsum from 201510)")
+      message("  (subocuphoras uses split calibration: post-201509 + pre-201509)")
+    }
   }
 
   # Prepare rolling quarters
   rq <- data.table::copy(rolling_quarters)
   data.table::setorder(rq, anomesfinaltrimmovel)
 
-  # Add mesnotrim if missing
+  # Add mesnotrim if missing (use .get_mesnotrim() for consistency)
   if (!"mesnotrim" %in% names(rq)) {
-    rq[, mesnotrim := ((anomesfinaltrimmovel %% 100L - 1L) %% 3L) + 1L]
+    rq[, mesnotrim := .get_mesnotrim(anomesfinaltrimmovel %% 100L)]
   }
 
   # Merge with monthly estimates
@@ -557,30 +1013,28 @@ compute_series_starting_points <- function(monthly_estimates,
     rq_values <- dt[[v]]
     z_values <- dt[[z_col]]
     mesnotrim <- dt$mesnotrim
+    yyyymm <- dt$anomesfinaltrimmovel
 
-    # Calculate cumulative variations
-    d3 <- 3 * (rq_values - data.table::shift(rq_values, 1L))
-    d3[1] <- NA_real_
+    # Determine series-specific calibration period
+    # CNPJ series: use 201601-201912 with cumsum from 201510 (V4019 only available from 201510)
+    is_cnpj_series <- use_series_specific_periods && v %in% cnpj_series
+    is_split_series <- use_series_specific_periods && v %in% split_series
 
-    d3m1 <- ifelse(mesnotrim == 1, d3, NA_real_)
-    d3m2 <- ifelse(mesnotrim == 2, d3, NA_real_)
-    d3m3 <- ifelse(mesnotrim == 3, d3, NA_real_)
+    # For subocuphoras, use the same post-VD4004_SPLIT parameters as CNPJ (handled below)
+    series_cal_start <- if (is_cnpj_series || is_split_series) .PNADC_DATES$CNPJ_CALIB_START else calibration_start
+    series_cal_end <- calibration_end
+    cumsum_start <- if (is_cnpj_series || is_split_series) .PNADC_DATES$V4019_AVAILABLE else NA_integer_
 
-    cum1 <- cumsum(ifelse(is.na(d3m1), 0, d3m1))
-    cum2 <- cumsum(ifelse(is.na(d3m2), 0, d3m2))
-    cum3 <- cumsum(ifelse(is.na(d3m3), 0, d3m3))
-
-    cum <- numeric(length(rq_values))
-    cum[mesnotrim == 1] <- cum1[mesnotrim == 1]
-    cum[mesnotrim == 2] <- cum2[mesnotrim == 2]
-    cum[mesnotrim == 3] <- cum3[mesnotrim == 3]
+    # Calculate cumulative variations using shared helper
+    # For CNPJ and split series, cumsum should start from 201510
+    filter_mask <- if (!is.na(cumsum_start)) (yyyymm >= cumsum_start) else NULL
+    cum <- .compute_cumsum_by_mesnotrim(rq_values, mesnotrim, filter_mask = filter_mask)
 
     # Backprojection error
     e0 <- z_values / scale_factor - cum
 
-    # Filter to calibration period
-    yyyymm <- dt$anomesfinaltrimmovel
-    in_calibration <- yyyymm >= calibration_start & yyyymm <= calibration_end
+    # Filter to calibration period (series-specific)
+    in_calibration <- yyyymm >= series_cal_start & yyyymm <= series_cal_end
 
     # Average by mesnotrim
     for (pos in 1:3) {
@@ -595,6 +1049,40 @@ compute_series_starting_points <- function(monthly_estimates,
         y0 = y0_val
       )
     }
+
+    # ========================================================================
+    # SPLIT CALIBRATION for subocuphoras (and similar series)
+    # Compute ADDITIONAL starting points for pre-VD4004_SPLIT data
+    # (Matches Marcos' Stata lines 461-480)
+    # ========================================================================
+    if (is_split_series) {
+      split_month <- .PNADC_DATES$VD4004_SPLIT
+      if (verbose) message("    Computing pre-", split_month, " starting points for split calibration...")
+
+      # For pre-split: cumsum only for data <= split_month, calibration period before split
+      cum_pre <- .compute_cumsum_by_mesnotrim(rq_values, mesnotrim,
+                                              filter_mask = (yyyymm <= split_month))
+
+      # Backprojection for pre-split calibration period
+      e0_pre <- z_values / scale_factor - cum_pre
+
+      # Pre-split calibration period: DEFAULT_CALIB_START to PRESPLIT_CALIB_END
+      in_calib_pre <- yyyymm >= .PNADC_DATES$DEFAULT_CALIB_START & yyyymm <= .PNADC_DATES$PRESPLIT_CALIB_END
+
+      for (pos in 1:3) {
+        mask <- in_calib_pre & mesnotrim == pos
+        y0_val <- mean(e0_pre[mask], na.rm = TRUE)
+
+        if (!is.finite(y0_val)) y0_val <- 0
+
+        # Store with "_pre" suffix to distinguish from post-201509 y0
+        results[[length(results) + 1]] <- data.table::data.table(
+          series_name = paste0(v, "_pre"),
+          mesnotrim = pos,
+          y0 = y0_val
+        )
+      }
+    }
   }
 
   result <- data.table::rbindlist(results)
@@ -604,4 +1092,428 @@ compute_series_starting_points <- function(monthly_estimates,
   }
 
   result
+}
+
+
+# ==============================================================================
+# Stata-Compatible Starting Points Computation
+# ==============================================================================
+
+#' Compute z_ Aggregates Using Stata-Compatible Methodology
+#'
+#' Computes monthly z_ aggregates from PNADC microdata. Can replicate Marcos
+#' Hecksher's exact Stata calibration or use a corrected methodology that scales
+#' all months to external population.
+#'
+#' @param calibrated_data PNADC microdata output from \code{pnadc_apply_periods()}
+#'   with \code{calibrate = TRUE}. Must include \code{weight_monthly},
+#'   \code{ref_month_yyyymm}, and \code{ref_month_in_quarter}.
+#' @param verbose Print progress messages.
+#'
+#' @return data.table with columns:
+#'   \describe{
+#'     \item{anomesexato}{Integer YYYYMM month}
+#'     \item{z_<series>}{Numeric weighted aggregates for each series}
+#'   }
+#'
+#' @details
+#' This function creates z_ indicator variables and aggregates them using the
+#' calibrated \code{weight_monthly} from \code{pnadc_apply_periods()}.
+#'
+#' The \code{pnadc_apply_periods()} function now implements Marcos Hecksher's
+#' methodology correctly:
+#' \itemize{
+#'   \item Month 2: Scaled to poptrim (quarterly V1028 sum from ALL observations)
+#'   \item Months 1,3: Scaled to SIDRA monthly population
+#' }
+#'
+#' This function simply aggregates the indicators using the already-calibrated weights.
+#'
+#' @examples
+#' \dontrun{
+#' # Step 1: Build crosswalk
+#' crosswalk <- pnadc_identify_periods(stacked_data)
+#'
+#' # Step 2: Calibrate weights (implements Marcos' methodology)
+#' calibrated <- pnadc_apply_periods(stacked_data, crosswalk,
+#'                                    weight_var = "V1028",
+#'                                    calibration_unit = "month")
+#'
+#' # Step 3: Compute z_ aggregates using calibrated weights
+#' z_agg <- compute_z_aggregates(calibrated)
+#'
+#' # Step 4: Compute starting points
+#' rq <- fetch_sidra_rolling_quarters()
+#' y0 <- compute_series_starting_points(z_agg, rq)
+#' }
+#'
+#' @seealso
+#' \code{\link{pnadc_apply_periods}} for the calibration step
+#' \code{\link{compute_series_starting_points}} for the y0 computation
+#'
+#' @export
+compute_z_aggregates <- function(calibrated_data, verbose = TRUE) {
+
+  # Validate input: must be output from pnadc_apply_periods with calibrate = TRUE
+  required_cols <- c("weight_monthly", "ref_month_yyyymm", "ref_month_in_quarter")
+  missing_cols <- setdiff(required_cols, names(calibrated_data))
+  if (length(missing_cols) > 0) {
+    stop("Input must be output from pnadc_apply_periods() with calibrate = TRUE. ",
+         "Missing columns: ", paste(missing_cols, collapse = ", "))
+  }
+
+  # Ensure data.table
+  if (!inherits(calibrated_data, "data.table")) {
+    calibrated_data <- data.table::as.data.table(calibrated_data)
+  }
+  dt <- data.table::copy(calibrated_data)
+
+  # Filter to observations with valid weights (determined months)
+  dt <- dt[!is.na(weight_monthly) & weight_monthly > 0]
+  if (nrow(dt) == 0) {
+    stop("No observations with valid weight_monthly")
+  }
+
+  if (verbose) {
+    message("Computing z_ aggregates using calibrated weights")
+    message("  Observations: ", format(nrow(dt), big.mark = ","))
+  }
+
+  # ============================================================================
+  # Step 1: Create anomesexato from ref_month_yyyymm
+  # ============================================================================
+
+  dt[, anomesexato := ref_month_yyyymm]
+
+  # ============================================================================
+  # Step 2: Create indicator variables
+  # ============================================================================
+
+  if (verbose) message("  Creating indicator variables...")
+
+  # Convert character VD variables to integer (PNADC stores them as "01", "02", etc.)
+  vd_vars <- c("VD4001", "VD4002", "VD4003", "VD4004", "VD4004A", "VD4005",
+               "VD4009", "VD4010", "VD4012", "V4019")
+  for (vv in vd_vars) {
+    if (vv %in% names(dt) && is.character(dt[[vv]])) {
+      data.table::set(dt, j = vv, value = as.integer(dt[[vv]]))
+    }
+  }
+
+  # Population indicators
+  dt[, z_populacao := 1L]
+  dt[, z_pop14mais := as.integer(V2009 >= 14)]
+
+  # Labor force status
+  if ("VD4001" %in% names(dt)) {
+    dt[, z_popforadaforca := as.integer(VD4001 == 2L)]
+  }
+  if ("VD4002" %in% names(dt)) {
+    dt[, z_popocup := as.integer(VD4002 == 1L)]
+    dt[, z_popdesocup := as.integer(VD4002 == 2L)]
+  }
+
+  # Employment type (VD4009)
+  if ("VD4009" %in% names(dt)) {
+    dt[, `:=`(
+      z_empregprivcomcart = as.integer(VD4009 == 1L),
+      z_empregprivsemcart = as.integer(VD4009 == 2L),
+      z_domesticocomcart = as.integer(VD4009 == 3L),
+      z_domesticosemcart = as.integer(VD4009 == 4L),
+      z_empregpublcomcart = as.integer(VD4009 == 5L),
+      z_empregpublsemcart = as.integer(VD4009 == 6L),
+      z_estatutmilitar = as.integer(VD4009 == 7L),
+      z_empregador = as.integer(VD4009 == 8L),
+      z_contapropria = as.integer(VD4009 == 9L),
+      z_trabfamauxiliar = as.integer(VD4009 == 10L)
+    )]
+
+    # CNPJ indicators - use %in% for NA-safe comparison (matches Stata behavior)
+    # V4019 only available from ~201510, so these will be 0/FALSE for earlier periods
+    if ("V4019" %in% names(dt)) {
+      dt[, z_empregadorcomcnpj := as.integer(VD4009 %in% 8L & V4019 %in% 1L)]
+      dt[, z_empregadorsemcnpj := as.integer(VD4009 %in% 8L & V4019 %in% 2L)]
+      dt[, z_contapropriacomcnpj := as.integer(VD4009 %in% 9L & V4019 %in% 1L)]
+      dt[, z_contapropriasemcnpj := as.integer(VD4009 %in% 9L & V4019 %in% 2L)]
+    }
+  }
+
+  # Sectors (VD4010)
+  if ("VD4010" %in% names(dt)) {
+    dt[, `:=`(
+      z_agropecuaria = as.integer(VD4010 == 1L),
+      z_industria = as.integer(VD4010 == 2L),
+      z_construcao = as.integer(VD4010 == 3L),
+      z_comercio = as.integer(VD4010 == 4L),
+      z_transporte = as.integer(VD4010 == 5L),
+      z_alojaliment = as.integer(VD4010 == 6L),
+      z_infcomfinimobadm = as.integer(VD4010 == 7L),
+      z_adminpublica = as.integer(VD4010 %in% c(8L, 9L)),
+      z_outroservico = as.integer(VD4010 == 10L),
+      z_servicodomestico = as.integer(VD4010 == 11L)
+    )]
+  }
+
+  # Other indicators
+  if ("VD4012" %in% names(dt)) {
+    dt[, z_contribuinteprev := as.integer(VD4012 == 1L)]
+  }
+  if ("VD4003" %in% names(dt)) {
+    dt[, z_forcapotencial := as.integer(VD4003 == 1L)]
+  }
+  if ("VD4005" %in% names(dt)) {
+    dt[, z_desalentado := as.integer(VD4005 == 1L)]
+  }
+
+  # Suboccupation (variable changed name over time: VD4004 -> VD4004A at 201510)
+  # Stata boundary: VD4004 used for anomesexato <= VD4004_SPLIT, VD4004A for > VD4004_SPLIT
+  if ("VD4004A" %in% names(dt) || "VD4004" %in% names(dt)) {
+    split_month <- .PNADC_DATES$VD4004_SPLIT
+    dt[, z_subocuphoras := 0L]
+    if ("VD4004A" %in% names(dt)) {
+      dt[anomesexato > split_month, z_subocuphoras := as.integer(VD4004A == 1L)]
+    }
+    if ("VD4004" %in% names(dt)) {
+      dt[anomesexato <= split_month, z_subocuphoras := as.integer(VD4004 == 1L)]
+    }
+  }
+
+  # ==========================================================================
+  # AGGREGATE SERIES (sums of subcategories)
+  # These can be computed directly from microdata rather than as post-hoc sums
+  # ==========================================================================
+
+  # Labor force (popnaforca = popocup + popdesocup)
+  if ("VD4002" %in% names(dt)) {
+    dt[, z_popnaforca := as.integer(VD4002 %in% c(1L, 2L))]
+  }
+
+  # Aggregate employment types
+  if ("VD4009" %in% names(dt)) {
+    dt[, z_empregpriv := as.integer(VD4009 %in% c(1L, 2L))]           # Private employees
+    dt[, z_domestico := as.integer(VD4009 %in% c(3L, 4L))]            # Domestic workers
+    dt[, z_empregpubl := as.integer(VD4009 %in% c(5L, 6L, 7L))]       # Public sector
+    dt[, z_empregado := as.integer(VD4009 %in% 1:7)]                   # All employees
+  }
+
+  # Extended labor force (forcaampliada = popnaforca + forcapotencial)
+  if ("VD4002" %in% names(dt) && "VD4003" %in% names(dt)) {
+    dt[, z_forcaampliada := as.integer(VD4002 %in% c(1L, 2L) | VD4003 == 1L)]
+  }
+
+  # ==========================================================================
+  # INCOME SERIES
+  # These are income VALUES (not indicators) - aggregated as sum(value * weight)
+  # ==========================================================================
+
+  # Habitual income mass from all jobs (VD4019)
+  if ("VD4019" %in% names(dt)) {
+    # Convert to numeric if needed
+    if (is.character(dt$VD4019)) {
+      dt[, VD4019 := as.numeric(VD4019)]
+    }
+    # z_massahabnominaltodos is the income VALUE itself
+    # When aggregated: sum(VD4019 * weight) = total income mass
+    dt[, z_massahabnominaltodos := fifelse(is.na(VD4019), 0, VD4019)]
+
+    # Count of people with income (comrendtodos)
+    dt[, z_comrendtodos := as.integer(!is.na(VD4019) & VD4019 > 0)]
+  }
+
+  # Effective income mass from all jobs (VD4020)
+  if ("VD4020" %in% names(dt)) {
+    if (is.character(dt$VD4020)) {
+      dt[, VD4020 := as.numeric(VD4020)]
+    }
+    dt[, z_massaefetnominaltodos := fifelse(is.na(VD4020), 0, VD4020)]
+  }
+
+  # ============================================================================
+  # Step 3: Aggregate by month using weight_monthly
+  # ============================================================================
+
+  if (verbose) message("  Aggregating by month...")
+
+  # Get z_ columns
+  z_cols <- grep("^z_", names(dt), value = TRUE)
+
+  if (length(z_cols) == 0) {
+    stop("No z_ indicator columns created. Check variable availability.")
+  }
+
+  # Aggregate: sum(indicator * weight_monthly) by month
+  result <- dt[, lapply(.SD, function(x) sum(x * weight_monthly, na.rm = TRUE)),
+               by = anomesexato, .SDcols = z_cols]
+
+  data.table::setorder(result, anomesexato)
+
+  # ============================================================================
+  # Step 4: Scale income series to match SIDRA units
+  # ============================================================================
+  # SIDRA reports income mass in MILLIONS of reais, but our z_ aggregation
+  # produces raw reais. We scale by 1/1000 here so that the standard
+  # scale_factor = 1000 in compute_series_starting_points() works correctly.
+  #
+  # After this scaling:
+  # - z_populacao is in raw (SIDRA in thousands, so z/1000 = SIDRA)
+  # - z_massahabnominaltodos is in thousands (SIDRA in millions, so z/1000 = SIDRA)
+  # Both use scale_factor = 1000 for y0 computation.
+
+  if (verbose) message("  Scaling income series to SIDRA units...")
+
+  income_mass_series <- c("z_massahabnominaltodos", "z_massaefetnominaltodos")
+  for (col in income_mass_series) {
+    if (col %in% names(result)) {
+      result[, (col) := get(col) / 1000]
+    }
+  }
+
+  # ============================================================================
+  # NOTE: Derived series (rates, per-capita income) are NOT computed here
+  # ============================================================================
+  # Rate series (taxadesocup, taxapartic, etc.) should NOT have starting points.
+  # Marcos' methodology: mensalize COMPONENT series (popdesocup, popnaforca),
+  # then DERIVE rates: m_taxadesocup = m_popdesocup / m_popnaforca * 100
+  #
+  # Per-capita income series (rendhabnominaltodos, rendefetnominaltodos) are
+  # available directly from SIDRA and are mensalized with their own y0 values.
+  # They are NOT computed as z_massa / z_comrend here.
+
+  # Count final z_ columns
+  z_final <- grep("^z_", names(result), value = TRUE)
+
+  if (verbose) {
+    message("  Created ", length(z_final), " z_ series for ",
+            nrow(result), " months (",
+            min(result$anomesexato), " to ", max(result$anomesexato), ")")
+  }
+
+  result
+}
+
+
+#' Compute Starting Points from Raw PNADC Microdata
+#'
+#' Complete workflow to compute y0 starting points from raw PNADC microdata.
+#' This is a convenience wrapper that combines period identification, weight
+#' calibration, z_ aggregation, and starting point computation.
+#'
+#' @param data Stacked PNADC microdata (multiple quarters). Must contain variables
+#'   for period identification (see \code{\link{pnadc_identify_periods}}).
+#' @param calibration_start Integer. Start of calibration period (YYYYMM).
+#'   Default NULL uses .PNADC_DATES$DEFAULT_CALIB_START (201301).
+#' @param calibration_end Integer. End of calibration period (YYYYMM).
+#'   Default NULL uses .PNADC_DATES$DEFAULT_CALIB_END (201912).
+#' @param verbose Print progress messages.
+#'
+#' @return data.table with columns:
+#'   \describe{
+#'     \item{series_name}{Character. Series name}
+#'     \item{mesnotrim}{Integer. Month position (1, 2, or 3)}
+#'     \item{y0}{Numeric. Starting point value}
+#'   }
+#'
+#' @details
+#' This function performs the complete workflow:
+#' \enumerate{
+#'   \item Build crosswalk via \code{pnadc_identify_periods()}
+#'   \item Calibrate weights via \code{pnadc_apply_periods()} using Marcos' methodology
+#'   \item Compute z_ aggregates via \code{compute_z_aggregates()}
+#'   \item Fetch SIDRA rolling quarters
+#'   \item Compute starting points via \code{compute_series_starting_points()}
+#' }
+#'
+#' @section Weight Calibration:
+#' Weights are calibrated following Marcos Hecksher's methodology:
+#' \itemize{
+#'   \item Month 2: Scaled to poptrim (quarterly V1028 sum from ALL observations)
+#'   \item Months 1,3: Scaled to SIDRA monthly population
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Load stacked PNADC data
+#' stacked <- fst::read_fst("pnadc_stacked.fst", as.data.table = TRUE)
+#'
+#' # Compute starting points
+#' y0 <- compute_starting_points_from_microdata(stacked)
+#'
+#' # Compare with bundled values
+#' bundled <- pnadc_series_starting_points
+#' comparison <- merge(y0, bundled, by = c("series_name", "mesnotrim"))
+#' }
+#'
+#' @seealso
+#' \code{\link{pnadc_apply_periods}} for the weight calibration step
+#' \code{\link{compute_z_aggregates}} for the z_ aggregation step
+#' \code{\link{compute_series_starting_points}} for the y0 computation
+#' \code{\link{pnadc_identify_periods}} for period identification
+#'
+#' @export
+compute_starting_points_from_microdata <- function(data,
+                                                    calibration_start = NULL,
+                                                    calibration_end = NULL,
+                                                    verbose = TRUE) {
+
+  # Resolve defaults from centralized constants
+  if (is.null(calibration_start)) {
+    calibration_start <- .PNADC_DATES$DEFAULT_CALIB_START
+  }
+  if (is.null(calibration_end)) {
+    calibration_end <- .PNADC_DATES$DEFAULT_CALIB_END
+  }
+
+  if (verbose) {
+    message("\n", paste(rep("=", 60), collapse = ""))
+    message("Computing Starting Points from Microdata")
+    message(paste(rep("=", 60), collapse = ""))
+    message("Calibration period: ", calibration_start, " to ", calibration_end)
+    message("")
+  }
+
+  # Step 1: Build crosswalk
+  if (verbose) message("Step 1: Building crosswalk...")
+  crosswalk <- pnadc_identify_periods(data, verbose = verbose)
+
+  # Step 2: Calibrate weights (Marcos' methodology: month 2 -> poptrim, months 1,3 -> SIDRA)
+  if (verbose) message("\nStep 2: Calibrating weights...")
+  calibrated <- pnadc_apply_periods(
+    data = data,
+    crosswalk = crosswalk,
+    weight_var = "V1028",
+    calibration_unit = "month",
+    verbose = verbose
+  )
+
+  # Step 3: Compute z_ aggregates using calibrated weights
+  if (verbose) message("\nStep 3: Computing z_ aggregates...")
+  z_aggregates <- compute_z_aggregates(calibrated, verbose = verbose)
+
+  # Step 4: Fetch SIDRA rolling quarters
+  # exclude_derived=TRUE skips rate series (they're computed from population ratios)
+  if (verbose) message("\nStep 4: Fetching SIDRA rolling quarters...")
+  rolling_quarters <- fetch_sidra_rolling_quarters(
+    verbose = verbose,
+    use_cache = TRUE,
+    exclude_derived = TRUE
+  )
+
+  # Step 5: Compute starting points
+  if (verbose) message("\nStep 5: Computing starting points...")
+  y0 <- compute_series_starting_points(
+    monthly_estimates = z_aggregates,
+    rolling_quarters = rolling_quarters,
+    calibration_start = calibration_start,
+    calibration_end = calibration_end,
+    verbose = verbose
+  )
+
+  if (verbose) {
+    message("\n", paste(rep("=", 60), collapse = ""))
+    message("Complete: ", length(unique(y0$series_name)), " series x 3 positions = ",
+            nrow(y0), " starting points")
+    message(paste(rep("=", 60), collapse = ""))
+  }
+
+  y0
 }

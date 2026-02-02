@@ -7,9 +7,10 @@
 compute_series_starting_points(
   monthly_estimates,
   rolling_quarters,
-  calibration_start = 201301L,
-  calibration_end = 201912L,
+  calibration_start = NULL,
+  calibration_end = NULL,
   scale_factor = 1000,
+  use_series_specific_periods = TRUE,
   verbose = TRUE
 )
 }
@@ -22,11 +23,18 @@ compute_series_starting_points(
 
 \item{rolling_quarters}{data.table from \code{fetch_sidra_rolling_quarters}}
 
-\item{calibration_start}{Integer. Start of calibration period (YYYYMM). Default 201301.}
+\item{calibration_start}{Integer. Start of calibration period (YYYYMM).
+Default NULL uses .PNADC_DATES$DEFAULT_CALIB_START (201301).
+Note: CNPJ series automatically use CNPJ_CALIB_START (201601) regardless.}
 
-\item{calibration_end}{Integer. End of calibration period (YYYYMM). Default 201912.}
+\item{calibration_end}{Integer. End of calibration period (YYYYMM).
+Default NULL uses .PNADC_DATES$DEFAULT_CALIB_END (201912).}
 
 \item{scale_factor}{Numeric. Scale factor for z_ values (usually 1000). Default 1000.}
+
+\item{use_series_specific_periods}{Logical. If TRUE (default), use series-specific
+calibration periods for CNPJ series (201601-201912) and cumsum starting dates
+(201510). Set to FALSE to use uniform calibration for all series.}
 
 \item{verbose}{Logical. Print progress? Default TRUE.}
 }
@@ -50,6 +58,17 @@ The starting points (y0) are computed by:
 \item Averaging e0 by mesnotrim over the calibration period
 }
 }
+\section{Series-Specific Handling}{
+
+When \code{use_series_specific_periods = TRUE}, the following series receive
+special handling to match Marcos Hecksher's methodology:
+\describe{
+\item{CNPJ series}{empregadorcomcnpj, empregadorsemcnpj, contapropriacomcnpj,
+contapropriasemcnpj use calibration period 201601-201912 and cumsum starts
+from 201510 (when V4019 became available)}
+}
+}
+
 \examples{
 \dontrun{
 # After calibrating microdata with pnadc_apply_periods():

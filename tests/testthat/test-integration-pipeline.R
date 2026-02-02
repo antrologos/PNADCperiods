@@ -40,14 +40,20 @@ test_that("full pipeline works end-to-end with monthly calibration", {
   expect_true("weight_monthly" %in% names(result))
   expect_true("determined_month" %in% names(result))
 
-  # 4. Verify: Weight sum preservation
-  weight_check <- result[determined_month == TRUE, .(
-    monthly_sum = sum(weight_monthly, na.rm = TRUE),
-    v1028_sum = sum(V1028, na.rm = TRUE)
-  ), by = .(Ano, Trimestre)]
+  # 4. Verify: Weights are valid (not sum preservation)
+  determined <- result[determined_month == TRUE]
+  expect_true(all(determined$weight_monthly > 0),
+              label = "Pipeline produces positive weights")
+  expect_false(any(is.na(determined$weight_monthly)),
+               label = "No NA weights for determined observations")
 
-  expect_equal(weight_check$monthly_sum, weight_check$v1028_sum, tolerance = 1e-6,
-               label = "End-to-end pipeline preserves weight sums")
+  # Verify month 2 matches poptrim (quarterly V1028 total from ALL observations)
+  poptrim <- data[, .(poptrim = sum(V1028, na.rm = TRUE)), by = .(Ano, Trimestre)]
+  month2 <- determined[ref_month_in_quarter == 2L,
+                       .(m2 = sum(weight_monthly)), by = .(Ano, Trimestre)]
+  merged <- merge(poptrim, month2, by = c("Ano", "Trimestre"))
+  expect_equal(merged$m2, merged$poptrim, tolerance = 0.01,
+               label = "Month 2 calibrated to poptrim")
 
   # 5. Verify: Determination rates are reasonable
   # With 4 quarters, expect >70% month determination
@@ -125,16 +131,12 @@ test_that("full pipeline with smoothing produces consistent results", {
     verbose = FALSE
   )
 
-  # 3. Verify: Still preserves total sums after smoothing
-  weight_check <- result[determined_month == TRUE, .(
-    monthly_sum = sum(weight_monthly, na.rm = TRUE),
-    v1028_sum = sum(V1028, na.rm = TRUE)
-  ), by = .(Ano, Trimestre)]
-
-  expect_equal(weight_check$monthly_sum, weight_check$v1028_sum, tolerance = 1e-6,
-               label = "Smoothed weights still preserve totals")
-
-  # 4. Context: Smoothing redistributes but doesn't change totals
+  # 3. Verify: Smoothed weights are valid
+  determined <- result[determined_month == TRUE]
+  expect_true(all(determined$weight_monthly > 0),
+              label = "Smoothed weights are positive")
+  expect_false(any(is.na(determined$weight_monthly)),
+               label = "No NA values after smoothing")
 })
 
 
@@ -176,14 +178,12 @@ test_that("pipeline with experimental strategies maintains invariants", {
     verbose = FALSE
   )
 
-  # 5. Verify: Weight sums still preserved
-  weight_check <- result[determined_month == TRUE, .(
-    monthly_sum = sum(weight_monthly, na.rm = TRUE),
-    v1028_sum = sum(V1028, na.rm = TRUE)
-  ), by = .(Ano, Trimestre)]
-
-  expect_equal(weight_check$monthly_sum, weight_check$v1028_sum, tolerance = 1e-6,
-               label = "Experimental strategies + calibration preserves weights")
+  # 5. Verify: Weights are valid (experimental strategies)
+  determined <- result[determined_month == TRUE]
+  expect_true(all(determined$weight_monthly > 0),
+              label = "Experimental pipeline produces positive weights")
+  expect_false(any(is.na(determined$weight_monthly)),
+               label = "No NA weights for determined observations")
 
   # 6. Verify: Experimental improved determination rate
   strict_rate <- crosswalk_strict[, mean(determined_month, na.rm = TRUE)]
@@ -224,14 +224,12 @@ test_that("pipeline works with multi-year data (year anchor)", {
     verbose = FALSE
   )
 
-  # 3. Verify: Yearly totals preserved
-  yearly_check <- result[determined_month == TRUE, .(
-    monthly_sum = sum(weight_monthly, na.rm = TRUE),
-    v1028_sum = sum(V1028, na.rm = TRUE)
-  ), by = .(Ano)]
-
-  expect_equal(yearly_check$monthly_sum, yearly_check$v1028_sum, tolerance = 1e-6,
-               label = "Year anchor preserves yearly totals")
+  # 3. Verify: Weights are valid
+  determined <- result[determined_month == TRUE]
+  expect_true(all(determined$weight_monthly > 0),
+              label = "Multi-year pipeline produces positive weights")
+  expect_false(any(is.na(determined$weight_monthly)),
+               label = "No NA weights for determined observations")
 
   # 4. Verify: High determination rate with 8 quarters
   det_rate <- result[, mean(determined_month, na.rm = TRUE)]

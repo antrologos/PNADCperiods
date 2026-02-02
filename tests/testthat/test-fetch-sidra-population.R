@@ -161,7 +161,7 @@ test_that("clear_sidra_cache clears the cache", {
   # 3. Verify: Cache environment should be empty
   cache_env <- PNADCperiods:::.sidra_cache
   expect_false(exists("population_data", envir = cache_env))
-  expect_false(exists("cache_timestamp", envir = cache_env))
+  expect_false(exists("population_time", envir = cache_env))
 
   # 4. Context: Clearing cache forces fresh API calls
 })

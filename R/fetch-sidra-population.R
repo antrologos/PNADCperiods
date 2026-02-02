@@ -6,34 +6,9 @@
 NULL
 
 # ============================================================================
-# CACHING INFRASTRUCTURE
+# NOTE: Caching infrastructure is in fetch-sidra-series.R (.sidra_cache)
+# This file uses the unified cache via .is_cache_valid(), .get_cache(), .set_cache()
 # ============================================================================
-
-# Package-level cache environment for SIDRA population data
-# This avoids repeated API calls within a session
-.sidra_population_cache <- new.env(parent = emptyenv())
-
-#' Check if SIDRA Population Cache is Valid
-#'
-#' Internal function to check if cached data exists and is not expired.
-#'
-#' @param max_age_hours Maximum cache age in hours before expiration. Default 24.
-#' @return Logical. TRUE if cache is valid, FALSE if expired or missing.
-#' @keywords internal
-#' @noRd
-.is_cache_valid <- function(max_age_hours = 24) {
-  if (!exists("population_data", envir = .sidra_population_cache)) {
-    return(FALSE)
-  }
-  if (!exists("cache_time", envir = .sidra_population_cache)) {
-    return(FALSE)
-  }
-
-  cache_time <- get("cache_time", envir = .sidra_population_cache)
-  age_hours <- as.numeric(difftime(Sys.time(), cache_time, units = "hours"))
-
-  age_hours < max_age_hours
-}
 
 #' Fetch Monthly Population from SIDRA
 #'
@@ -45,10 +20,11 @@ NULL
 #' @param end_yyyymm Integer. Last month to include (YYYYMM format).
 #'   If NULL, returns all available months.
 #' @param verbose Logical. Print progress messages? Default TRUE.
-#' @param use_cache Logical. If TRUE (default), uses cached data if available
-#'   and not expired. Set to FALSE to force a fresh download from SIDRA API.
+#' @param use_cache Logical. If TRUE, uses cached data if available and not
+#'   expired. Default FALSE (always fetch fresh data for consistency).
+#'   Set to TRUE for faster repeated calls during development.
 #' @param cache_max_age_hours Numeric. Maximum cache age in hours before
-#'   automatic expiration. Default 24 hours.
+#'   automatic expiration when use_cache=TRUE. Default 24 hours.
 #'
 #' @return A data.table with columns:
 #'   \itemize{
@@ -93,13 +69,13 @@ NULL
 fetch_monthly_population <- function(start_yyyymm = NULL,
                                       end_yyyymm = NULL,
                                       verbose = TRUE,
-                                      use_cache = TRUE,
+                                      use_cache = FALSE,
                                       cache_max_age_hours = 24) {
 
  # OPTIMIZATION: Check cache first to avoid repeated API calls
- if (use_cache && .is_cache_valid(cache_max_age_hours)) {
+ if (use_cache && .is_cache_valid("population", max_age_hours = cache_max_age_hours)) {
    if (verbose) message("  Using cached population data...")
-   dt <- data.table::copy(get("population_data", envir = .sidra_population_cache))
+   dt <- .get_cache("population")
 
    # Filter to requested date range if specified
    if (!is.null(start_yyyymm)) {
@@ -187,8 +163,7 @@ fetch_monthly_population <- function(start_yyyymm = NULL,
 
  # OPTIMIZATION: Store FULL unfiltered data in cache for future calls
  if (use_cache) {
-   assign("population_data", data.table::copy(dt), envir = .sidra_population_cache)
-   assign("cache_time", Sys.time(), envir = .sidra_population_cache)
+   .set_cache("population", dt)
  }
 
  # Apply date filters AFTER caching (cache stores full data, then we filter)

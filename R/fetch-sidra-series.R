@@ -8,12 +8,19 @@
 NULL
 
 # ============================================================================
-# CACHING INFRASTRUCTURE FOR SIDRA SERIES
+# UNIFIED CACHING INFRASTRUCTURE FOR SIDRA DATA
+# ============================================================================
+#
+# All SIDRA-fetched data (rolling quarters, population) is cached in a single
+# environment with namespaced keys:
+#   - rolling_quarters_data, rolling_quarters_time
+#   - population_data, population_time
+#
+# This simplifies cache management and ensures consistent behavior.
 # ============================================================================
 
-# Package-level cache environment for SIDRA series data
-# Separate from population cache to allow independent management
-.sidra_series_cache <- new.env(parent = emptyenv())
+# Unified package-level cache environment for ALL SIDRA data
+.sidra_cache <- new.env(parent = emptyenv())
 
 #' Clear All SIDRA Caches
 #'
@@ -32,38 +39,71 @@ NULL
 #'
 #' @export
 clear_sidra_cache <- function() {
-  had_series_cache <- FALSE
-  had_pop_cache <- FALSE
+  cache_names <- ls(envir = .sidra_cache)
+  had_cache <- length(cache_names) > 0
 
-  # Clear series cache
-  cache_names <- ls(envir = .sidra_series_cache)
-  if (length(cache_names) > 0) {
-    rm(list = cache_names, envir = .sidra_series_cache)
-    had_series_cache <- TRUE
+  if (had_cache) {
+    rm(list = cache_names, envir = .sidra_cache)
   }
 
-  # Clear population cache
-  pop_cache_names <- ls(envir = .sidra_population_cache)
-  if (length(pop_cache_names) > 0) {
-    rm(list = pop_cache_names, envir = .sidra_population_cache)
-    had_pop_cache <- TRUE
-  }
-
-  invisible(had_series_cache || had_pop_cache)
+  invisible(had_cache)
 }
 
-#' Check if SIDRA Series Cache Exists
+#' Check if SIDRA Cache Entry is Valid
 #'
-#' @param cache_name Name of the cached object to check
-#' @return Logical. TRUE if cache exists, FALSE otherwise.
+#' @param cache_name Name of the cached object (e.g., "rolling_quarters", "population")
+#' @param max_age_hours Maximum cache age in hours. NULL for no expiration (default).
+#' @return Logical. TRUE if cache exists and is not expired, FALSE otherwise.
 #' @keywords internal
 #' @noRd
-.is_series_cache_valid <- function(cache_name = "rolling_quarters") {
+.is_cache_valid <- function(cache_name, max_age_hours = NULL) {
   data_name <- paste0(cache_name, "_data")
   time_name <- paste0(cache_name, "_time")
 
-  exists(data_name, envir = .sidra_series_cache) &&
-    exists(time_name, envir = .sidra_series_cache)
+  if (!exists(data_name, envir = .sidra_cache) ||
+      !exists(time_name, envir = .sidra_cache)) {
+    return(FALSE)
+  }
+
+  # Check expiration if max_age_hours is specified
+
+if (!is.null(max_age_hours)) {
+    cache_time <- get(time_name, envir = .sidra_cache)
+    age_hours <- as.numeric(difftime(Sys.time(), cache_time, units = "hours"))
+    if (age_hours >= max_age_hours) {
+      return(FALSE)
+    }
+  }
+
+  TRUE
+}
+
+#' Get Cache Entry
+#'
+#' @param cache_name Name of the cached object
+#' @return The cached data, or NULL if not found.
+#' @keywords internal
+#' @noRd
+.get_cache <- function(cache_name) {
+  data_name <- paste0(cache_name, "_data")
+  if (exists(data_name, envir = .sidra_cache)) {
+    data.table::copy(get(data_name, envir = .sidra_cache))
+  } else {
+    NULL
+  }
+}
+
+#' Set Cache Entry
+#'
+#' @param cache_name Name of the cached object
+#' @param data Data to cache
+#' @keywords internal
+#' @noRd
+.set_cache <- function(cache_name, data) {
+  data_name <- paste0(cache_name, "_data")
+  time_name <- paste0(cache_name, "_time")
+  assign(data_name, data.table::copy(data), envir = .sidra_cache)
+  assign(time_name, Sys.time(), envir = .sidra_cache)
 }
 
 #' Get Cache Timestamp
@@ -72,10 +112,10 @@ clear_sidra_cache <- function() {
 #' @return POSIXct timestamp or NULL if not cached.
 #' @keywords internal
 #' @noRd
-.get_cache_time <- function(cache_name = "rolling_quarters") {
+.get_cache_time <- function(cache_name) {
   time_name <- paste0(cache_name, "_time")
-  if (exists(time_name, envir = .sidra_series_cache)) {
-    get(time_name, envir = .sidra_series_cache)
+  if (exists(time_name, envir = .sidra_cache)) {
+    get(time_name, envir = .sidra_cache)
   } else {
     NULL
   }
@@ -94,6 +134,10 @@ clear_sidra_cache <- function() {
 #' @param category Character vector of categories to filter by. Valid options:
 #'   "rate", "population", "employment", "sector", "income_nominal",
 #'   "income_real", "underutilization", "price_index". Use NULL for no filter.
+#' @param exclude_derived Logical. If TRUE, exclude series marked as derived
+#'   (is_derived = TRUE in metadata). Default FALSE for backward compatibility.
+#'   Derived series (rates) are computed from other series during mensalization,
+#'   so excluding them saves API calls when fetching for mensalization.
 #' @param use_cache Logical. Use cached data if available? Default FALSE.
 #'   When TRUE, shows the date when data was cached (may be outdated).
 #'   Use \code{\link{clear_sidra_cache}} to force fresh download.
@@ -147,6 +191,7 @@ clear_sidra_cache <- function() {
 #' @export
 fetch_sidra_rolling_quarters <- function(series = "all",
                                           category = NULL,
+                                          exclude_derived = FALSE,
                                           use_cache = FALSE,
                                           verbose = TRUE,
                                           retry_failed = TRUE,
@@ -155,6 +200,11 @@ fetch_sidra_rolling_quarters <- function(series = "all",
   # Get metadata for requested series
   meta <- get_sidra_series_metadata(series = series, category = category)
 
+  # Optionally exclude derived series (rates computed from other series)
+  if (exclude_derived && nrow(meta) > 0) {
+    meta <- meta[is_derived == FALSE]
+  }
+
   if (nrow(meta) == 0) {
     stop("No series found matching the specified criteria")
   }
@@ -162,8 +212,8 @@ fetch_sidra_rolling_quarters <- function(series = "all",
   series_names <- meta$series_name
 
   # Check cache for complete dataset
-  if (use_cache && .is_series_cache_valid("rolling_quarters")) {
-    cached_data <- get("rolling_quarters_data", envir = .sidra_series_cache)
+  if (use_cache && .is_cache_valid("rolling_quarters")) {
+    cached_data <- .get_cache("rolling_quarters")
 
     # Check if cached data contains all requested series
     cached_series <- setdiff(names(cached_data),
@@ -282,10 +332,7 @@ fetch_sidra_rolling_quarters <- function(series = "all",
   }
 
   # Always cache the result after fetching (use_cache only controls reading)
-  assign("rolling_quarters_data", data.table::copy(result),
-         envir = .sidra_series_cache)
-  assign("rolling_quarters_time", Sys.time(),
-         envir = .sidra_series_cache)
+  .set_cache("rolling_quarters", result)
 
   if (verbose) {
     n_success <- length(series_names) - length(failed_series)
@@ -361,69 +408,6 @@ fetch_sidra_rolling_quarters <- function(series = "all",
 
   # Rename value column to series name
   data.table::setnames(result, "value", series_name)
-
-  result
-}
-
-
-#' Fetch IPCA Index for Deflation
-#'
-#' Fetches the IPCA price index from SIDRA for deflating nominal income series.
-#' This is a convenience function that extracts just the IPCA series.
-#'
-#' @param use_cache Logical. Use cached data? Default TRUE.
-#' @param verbose Logical. Print progress? Default TRUE.
-#'
-#' @return A data.table with columns:
-#'   \describe{
-#'     \item{anomesexato}{Integer. YYYYMM exact month}
-#'     \item{ipca_index}{Numeric. IPCA index (base Dec 1993 = 100)}
-#'   }
-#'
-#' @keywords internal
-#' @noRd
-.fetch_ipca_index <- function(use_cache = TRUE, verbose = TRUE) {
-
-  # Check cache
-  if (use_cache && .is_series_cache_valid("ipca", 24)) {
-    return(data.table::copy(get("ipca_data", envir = .sidra_series_cache)))
-  }
-
-  if (!requireNamespace("sidrar", quietly = TRUE)) {
-    stop("Package 'sidrar' required. Install with: install.packages('sidrar')")
-  }
-
-  if (verbose) message("Fetching IPCA index from SIDRA...")
-
-  raw <- tryCatch({
-    suppressMessages(sidrar::get_sidra(
-      api = "/t/1737/n1/all/v/2266/p/all/d/v2266%2013"
-    ))
-  }, error = function(e) {
-    stop("Failed to fetch IPCA: ", conditionMessage(e))
-  })
-
-  dt <- data.table::as.data.table(raw)
-
-  # Find month code column
-  code_col <- grep("M.*s.*C.*digo", names(dt), value = TRUE, ignore.case = TRUE)
-  if (length(code_col) == 0) {
-    stop("Could not find month code column in IPCA response")
-  }
-
-  result <- dt[, .(
-    anomesexato = as.integer(get(code_col[1])),
-    ipca_index = as.numeric(Valor)
-  )]
-
-  result <- result[!is.na(anomesexato)]
-  data.table::setorder(result, anomesexato)
-
-  # Cache
-  if (use_cache) {
-    assign("ipca_data", data.table::copy(result), envir = .sidra_series_cache)
-    assign("ipca_time", Sys.time(), envir = .sidra_series_cache)
-  }
 
   result
 }

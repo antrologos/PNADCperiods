@@ -2,6 +2,8 @@
 
 export(clear_sidra_cache)
 export(compute_series_starting_points)
+export(compute_starting_points_from_microdata)
+export(compute_z_aggregates)
 export(fetch_monthly_population)
 export(fetch_sidra_rolling_quarters)
 export(get_sidra_series_metadata)
