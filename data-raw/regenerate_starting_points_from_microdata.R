@@ -30,11 +30,12 @@ devtools::load_all()
 # Configuration
 # ==============================================================================
 
-# Path to stacked microdata (same data used in test)
-MICRODATA_FILE <- "D:/Dropbox/Artigos/mensalizacao_pnad/output/test_stacked_pnadc_2012_2025.fst"
+# Path to stacked microdata (FULL population including all ages, not just 14+)
+# This is required for correct z_populacao computation
+MICRODATA_FILE <- "D:/Dropbox/Artigos/mensalizacao_pnad/data/processed/pnadc_full_microdata.fst"
 
 # Crosswalk file (pre-computed to save time)
-CROSSWALK_FILE <- "D:/Dropbox/Artigos/mensalizacao_pnad/output/test_crosswalk_2012_2025.rds"
+CROSSWALK_FILE <- "D:/Dropbox/Artigos/mensalizacao_pnad/data/processed/crosswalk_for_starting_points_full.rds"
 
 # Calibration period
 CALIBRATION_START <- 201301L

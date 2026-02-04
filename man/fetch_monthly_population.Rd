@@ -8,7 +8,7 @@ fetch_monthly_population(
   start_yyyymm = NULL,
   end_yyyymm = NULL,
   verbose = TRUE,
-  use_cache = TRUE,
+  use_cache = FALSE,
   cache_max_age_hours = 24
 )
 }
@@ -21,11 +21,12 @@ If NULL, returns all available months.}
 
 \item{verbose}{Logical. Print progress messages? Default TRUE.}
 
-\item{use_cache}{Logical. If TRUE (default), uses cached data if available
-and not expired. Set to FALSE to force a fresh download from SIDRA API.}
+\item{use_cache}{Logical. If TRUE, uses cached data if available and not
+expired. Default FALSE (always fetch fresh data for consistency).
+Set to TRUE for faster repeated calls during development.}
 
 \item{cache_max_age_hours}{Numeric. Maximum cache age in hours before
-automatic expiration. Default 24 hours.}
+automatic expiration when use_cache=TRUE. Default 24 hours.}
 }
 \value{
 A data.table with columns:

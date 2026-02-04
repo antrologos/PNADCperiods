@@ -6,6 +6,6 @@
 \description{
 This file contains metadata definitions for all 86 SIDRA series used in the
 mensalization process. It maps series names to their SIDRA API endpoints,
-table IDs, variable codes, and categorization.
+table IDs, variable codes, and hierarchical categorization.
 }
 \keyword{internal}

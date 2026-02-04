@@ -6,7 +6,9 @@
 \usage{
 fetch_sidra_rolling_quarters(
   series = "all",
-  category = NULL,
+  theme = NULL,
+  theme_category = NULL,
+  subcategory = NULL,
   exclude_derived = FALSE,
   use_cache = FALSE,
   verbose = TRUE,
@@ -19,9 +21,15 @@ fetch_sidra_rolling_quarters(
 for all available series. Use \code{get_sidra_series_metadata()$series_name}
 to see available names.}
 
-\item{category}{Character vector of categories to filter by. Valid options:
-"rate", "population", "employment", "sector", "income_nominal",
-"income_real", "underutilization", "price_index". Use NULL for no filter.}
+\item{theme}{Character vector of themes to filter by. Valid options:
+"labor_market", "earnings", "demographics", "social_protection", "prices".
+Use NULL for no filter.}
+
+\item{theme_category}{Character vector of theme categories to filter by.
+Use NULL for no filter.}
+
+\item{subcategory}{Character vector of subcategories to filter by.
+Use NULL for no filter.}
 
 \item{exclude_derived}{Logical. If TRUE, exclude series marked as derived
 (is_derived = TRUE in metadata). Default FALSE for backward compatibility.
@@ -75,8 +83,12 @@ with exponential backoff for failed requests.
 # Fetch all series (may take several minutes on first call)
 rq <- fetch_sidra_rolling_quarters()
 
-# Fetch only population series (faster)
-rq_pop <- fetch_sidra_rolling_quarters(category = "population")
+# Fetch only labor market series
+rq_labor <- fetch_sidra_rolling_quarters(theme = "labor_market")
+
+# Fetch only unemployment data
+rq_unemp <- fetch_sidra_rolling_quarters(theme = "labor_market",
+                                          theme_category = "unemployment")
 
 # Fetch specific series
 rq <- fetch_sidra_rolling_quarters(

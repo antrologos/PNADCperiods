@@ -131,9 +131,13 @@ if (!is.null(max_age_hours)) {
 #' @param series Character vector of series names to fetch, or "all" (default)
 #'   for all available series. Use \code{get_sidra_series_metadata()$series_name}
 #'   to see available names.
-#' @param category Character vector of categories to filter by. Valid options:
-#'   "rate", "population", "employment", "sector", "income_nominal",
-#'   "income_real", "underutilization", "price_index". Use NULL for no filter.
+#' @param theme Character vector of themes to filter by. Valid options:
+#'   "labor_market", "earnings", "demographics", "social_protection", "prices".
+#'   Use NULL for no filter.
+#' @param theme_category Character vector of theme categories to filter by.
+#'   Use NULL for no filter.
+#' @param subcategory Character vector of subcategories to filter by.
+#'   Use NULL for no filter.
 #' @param exclude_derived Logical. If TRUE, exclude series marked as derived
 #'   (is_derived = TRUE in metadata). Default FALSE for backward compatibility.
 #'   Derived series (rates) are computed from other series during mensalization,
@@ -174,8 +178,12 @@ if (!is.null(max_age_hours)) {
 #' # Fetch all series (may take several minutes on first call)
 #' rq <- fetch_sidra_rolling_quarters()
 #'
-#' # Fetch only population series (faster)
-#' rq_pop <- fetch_sidra_rolling_quarters(category = "population")
+#' # Fetch only labor market series
+#' rq_labor <- fetch_sidra_rolling_quarters(theme = "labor_market")
+#'
+#' # Fetch only unemployment data
+#' rq_unemp <- fetch_sidra_rolling_quarters(theme = "labor_market",
+#'                                           theme_category = "unemployment")
 #'
 #' # Fetch specific series
 #' rq <- fetch_sidra_rolling_quarters(
@@ -190,7 +198,9 @@ if (!is.null(max_age_hours)) {
 #'
 #' @export
 fetch_sidra_rolling_quarters <- function(series = "all",
-                                          category = NULL,
+                                          theme = NULL,
+                                          theme_category = NULL,
+                                          subcategory = NULL,
                                           exclude_derived = FALSE,
                                           use_cache = FALSE,
                                           verbose = TRUE,
@@ -198,7 +208,12 @@ fetch_sidra_rolling_quarters <- function(series = "all",
                                           max_retries = 3) {
 
   # Get metadata for requested series
-  meta <- get_sidra_series_metadata(series = series, category = category)
+  meta <- get_sidra_series_metadata(
+    series = series,
+    theme = theme,
+    theme_category = theme_category,
+    subcategory = subcategory
+  )
 
   # Optionally exclude derived series (rates computed from other series)
   if (exclude_derived && nrow(meta) > 0) {

@@ -123,7 +123,10 @@ mensalize_sidra_series <- function(rolling_quarters,
   # Filter out average income series - they are DERIVED from mensalized components
   # Marcos: m_rendhabnominaltodos = m_massahabnominaltodos / m_comrendtodos * 1000
   # Mensalizing ratios directly is mathematically WRONG
-  avg_income_series <- c("rendhabnominaltodos", "rendefetnominaltodos")
+  # Note: Both nominal and real (INPC-deflated) averages are derived
+  avg_income_series <- c("rendhabnominaltodos", "rendefetnominaltodos",
+                         "rendhabrealtodos", "rendefetrealtodos",
+                         "rendhabrealprinc", "rendefetrealprinc")
   all_series <- setdiff(all_series, avg_income_series)
 
   # Filter out residual series - they are COMPUTED from mensalized components
@@ -313,7 +316,16 @@ mensalize_sidra_series <- function(rolling_quarters,
 
   # Step 1: Calculate d3 = 3 × (RQ_t - RQ_{t-1})
   d3 <- 3 * (rq - data.table::shift(rq, 1L))
-  d3[1] <- NA_real_
+
+  # Set first observation of EACH mesnotrim position to NA
+
+  # This ensures each position's cumsum starts at 0, avoiding pre-PNADC contamination
+  # for the first few months (201201, 201202, 201203)
+  first_pos1 <- which(mesnotrim == 1)[1]
+  first_pos2 <- which(mesnotrim == 2)[1]
+  first_pos3 <- which(mesnotrim == 3)[1]
+  first_positions <- stats::na.omit(c(first_pos1, first_pos2, first_pos3))
+  d3[first_positions] <- NA_real_
 
   # Apply filter mask if provided (for split series)
   if (!is.null(filter_mask)) {
@@ -325,13 +337,61 @@ mensalize_sidra_series <- function(rolling_quarters,
   d3m2 <- ifelse(mesnotrim == 2, d3, NA_real_)
   d3m3 <- ifelse(mesnotrim == 3, d3, NA_real_)
 
-  # Step 3: Cumulative sum (ignoring NAs)
+  # Track where we have actual data vs NA from ORIGINAL rq (not d3)
+  # This is used to restore NA for series that start later (e.g., CNPJ from 201510)
+  rq_has_data <- !is.na(rq)
+  has_data1 <- ifelse(mesnotrim == 1, rq_has_data, FALSE)
+  has_data2 <- ifelse(mesnotrim == 2, rq_has_data, FALSE)
+  has_data3 <- ifelse(mesnotrim == 3, rq_has_data, FALSE)
+
+  # Step 3: Cumulative sum (treating NAs as 0 for accumulation)
   cum1 <- cumsum(ifelse(is.na(d3m1), 0, d3m1))
   cum2 <- cumsum(ifelse(is.na(d3m2), 0, d3m2))
   cum3 <- cumsum(ifelse(is.na(d3m3), 0, d3m3))
 
+  # For series that start later (e.g., CNPJ from 201510), we want NA before first data
+  # Find the first index where the series has ANY data
+  first_any_data <- which(rq_has_data)[1]
+
+  # If no data at all, all positions are invalid
+  if (is.na(first_any_data)) {
+    cum1[] <- NA_real_
+    cum2[] <- NA_real_
+    cum3[] <- NA_real_
+  } else {
+    # Series start window: first_any_data and 2 positions before (for the 3 mesnotrims)
+    # E.g., if first data is at 201512 (idx 48), then 201510 (idx 46) and 201511 (idx 47)
+    # should also be valid since they have y0 starting points
+    series_start <- max(1L, first_any_data - 2L)
+
+    # Mark all positions at or after series_start as valid for their respective mesnotrim
+    valid_range <- seq_len(n) >= series_start
+
+    # For core series with early data, also mark structural first positions
+    has_early_data <- any(rq_has_data[1:min(6, n)])
+    if (has_early_data) {
+      valid_range[first_pos1] <- TRUE
+      valid_range[first_pos2] <- TRUE
+      valid_range[first_pos3] <- TRUE
+    }
+
+    # Apply validity: positions in valid_range with matching mesnotrim get cum, others NA
+    first_valid1 <- valid_range & (mesnotrim == 1 | cummax(has_data1))
+    first_valid2 <- valid_range & (mesnotrim == 2 | cummax(has_data2))
+    first_valid3 <- valid_range & (mesnotrim == 3 | cummax(has_data3))
+
+    # Simpler approach: just mark positions at or after series_start as valid
+    first_valid1 <- valid_range | as.logical(cummax(has_data1))
+    first_valid2 <- valid_range | as.logical(cummax(has_data2))
+    first_valid3 <- valid_range | as.logical(cummax(has_data3))
+
+    cum1[!first_valid1] <- NA_real_
+    cum2[!first_valid2] <- NA_real_
+    cum3[!first_valid3] <- NA_real_
+  }
+
   # Step 4: Combine based on mesnotrim
-  cum <- numeric(n)
+  cum <- rep(NA_real_, n)
   cum[mesnotrim == 1] <- cum1[mesnotrim == 1]
   cum[mesnotrim == 2] <- cum2[mesnotrim == 2]
   cum[mesnotrim == 3] <- cum3[mesnotrim == 3]
@@ -352,14 +412,16 @@ mensalize_sidra_series <- function(rolling_quarters,
 .extract_y0_vector <- function(starting_points, target_series) {
   sp <- starting_points[get("series_name") == target_series]
 
+  # Return NA for series without calibrated starting points
+  # This ensures uncalibrated series show NA instead of 0
   if (nrow(sp) == 0) {
-    return(c(0, 0, 0))
+    return(c(NA_real_, NA_real_, NA_real_))
   }
 
-  y0 <- numeric(3)
+  y0 <- rep(NA_real_, 3)
   for (pos in 1:3) {
     val <- sp[mesnotrim == pos, y0]
-    y0[pos] <- if (length(val) > 0) val[1] else 0
+    y0[pos] <- if (length(val) > 0) val[1] else NA_real_
   }
 
   y0
@@ -735,7 +797,23 @@ mensalize_sidra_series <- function(rolling_quarters,
          denominator = "comrendtodos",
          multiplier = 1000,
          decimals = 0,
-         description = "Average effective income (nominal)")
+         description = "Average effective income (nominal)"),
+
+    # INPC-deflated average income series
+    # These use the mensalized real (INPC-deflated) mass series
+    list(name = "rendhabrealtodos",
+         numerator = "massahabrealtodos",
+         denominator = "comrendtodos",
+         multiplier = 1000,
+         decimals = 1,
+         description = "Average habitual income (INPC-deflated)"),
+
+    list(name = "rendefetrealtodos",
+         numerator = "massaefetrealtodos",
+         denominator = "comrendtodos",
+         multiplier = 1000,
+         decimals = 1,
+         description = "Average effective income (INPC-deflated)")
   ),
 
   # ==========================================================================
@@ -992,6 +1070,72 @@ compute_series_starting_points <- function(monthly_estimates,
 
   dt <- merge(rq, me, by = "anomesfinaltrimmovel", all.x = TRUE)
   data.table::setorder(dt, anomesfinaltrimmovel)
+
+  # ============================================================================
+  # INPC deflation for rhrp* series (hourly wage)
+  # ============================================================================
+  # SIDRA's rhrp* series are REAL (INPC-deflated to latest period)
+  # Our z_rhrp* values are NOMINAL (computed from microdata income/hours)
+  # We need to deflate z_rhrp* by INPC to match SIDRA's real values
+  # Formula: real = nominal * (latest_inpc / current_inpc)
+  # ============================================================================
+
+  rhrp_series <- grep("^z_rhrp", names(dt), value = TRUE)
+  if (length(rhrp_series) > 0 && "inpc100dez1993" %in% names(dt)) {
+    if (verbose) message("  Deflating ", length(rhrp_series), " rhrp series by INPC...")
+
+    latest_inpc <- dt[anomesfinaltrimmovel == max(anomesfinaltrimmovel), inpc100dez1993][1]
+
+    if (!is.na(latest_inpc) && latest_inpc > 0) {
+      for (z_col in rhrp_series) {
+        # Deflate: real = nominal * (latest_inpc / current_inpc)
+        dt[, (z_col) := get(z_col) * latest_inpc / inpc100dez1993]
+      }
+    } else {
+      warning("INPC values not available, rhrp* series will use nominal values")
+    }
+  }
+
+  # ============================================================================
+  # INPC deflation for real income series (rendhabrealtodos, massahabrealtodos)
+  # ============================================================================
+  # SIDRA's *real* series are INPC-deflated
+  # We need z_ values that match them (deflated nominal values)
+
+  # For rendhabrealtodos etc., we need to deflate the nominal income values
+  # These don't have z_ columns directly, but we have z_massahabnominaltodos
+  # and z_comrendtodos to compute them
+
+  # Compute real income mass from nominal
+  if ("z_massahabnominaltodos" %in% names(dt) && "inpc100dez1993" %in% names(dt)) {
+    latest_inpc <- dt[anomesfinaltrimmovel == max(anomesfinaltrimmovel), inpc100dez1993][1]
+
+    if (!is.na(latest_inpc) && latest_inpc > 0) {
+      if (verbose) message("  Computing INPC-deflated income series...")
+
+      # Real habitual income mass (INPC)
+      dt[, z_massahabrealtodos := z_massahabnominaltodos * latest_inpc / inpc100dez1993]
+    }
+  }
+
+  if ("z_massaefetnominaltodos" %in% names(dt) && "inpc100dez1993" %in% names(dt)) {
+    latest_inpc <- dt[anomesfinaltrimmovel == max(anomesfinaltrimmovel), inpc100dez1993][1]
+
+    if (!is.na(latest_inpc) && latest_inpc > 0) {
+      # Real effective income mass (INPC) - use lagged INPC like SIDRA
+      inpc_lagged <- data.table::shift(dt$inpc100dez1993, n = 1L, type = "lag")
+      dt[, z_massaefetrealtodos := z_massaefetnominaltodos * latest_inpc / inpc_lagged]
+    }
+  }
+
+  # Update series_names to include newly computed deflated z_ columns
+  # (rhrp* and real income series computed above)
+  all_z_cols <- grep("^z_", names(dt), value = TRUE)
+  series_names <- sub("^z_", "", all_z_cols)
+
+  if (verbose) {
+    message("  Total series to process: ", length(series_names))
+  }
 
   # Compute starting points for each series
   results <- list()
@@ -1328,6 +1472,115 @@ compute_z_aggregates <- function(calibrated_data, verbose = TRUE) {
     dt[, z_massaefetnominaltodos := fifelse(is.na(VD4020), 0, VD4020)]
   }
 
+  # ==========================================================================
+  # HOURS WORKED AND INCOME BY CATEGORY (for rhrp* hourly wage series)
+  # ==========================================================================
+  # rhrp = Rendimento habitual real por hora efetivamente trabalhada
+  # Formula: total_habitual_income / total_effective_hours (then INPC deflated)
+  # We need to mensalize numerator and denominator separately, then compute ratio
+  #
+  # Variables:
+  # - VD4016: Habitual income from main job (numerator)
+  # - VD4035: Effective hours worked per week - all jobs (denominator)
+  # ==========================================================================
+
+  # Convert hours and income variables to numeric
+  if ("VD4016" %in% names(dt)) {
+    if (is.character(dt$VD4016)) dt[, VD4016 := as.numeric(VD4016)]
+    dt[, VD4016 := fifelse(is.na(VD4016), 0, VD4016)]
+  }
+  if ("VD4017" %in% names(dt)) {
+    if (is.character(dt$VD4017)) dt[, VD4017 := as.numeric(VD4017)]
+    dt[, VD4017 := fifelse(is.na(VD4017), 0, VD4017)]
+  }
+  if ("VD4031" %in% names(dt)) {
+    if (is.character(dt$VD4031)) dt[, VD4031 := as.numeric(VD4031)]
+    dt[, VD4031 := fifelse(is.na(VD4031), 0, VD4031)]
+  }
+  if ("VD4035" %in% names(dt)) {
+    if (is.character(dt$VD4035)) dt[, VD4035 := as.numeric(VD4035)]
+    dt[, VD4035 := fifelse(is.na(VD4035), 0, VD4035)]
+  }
+
+  # Income and hours by employment type (VD4009) - for rhrp by position
+  if ("VD4009" %in% names(dt) && "VD4016" %in% names(dt) && "VD4035" %in% names(dt)) {
+    if (verbose) message("  Creating income/hours aggregates by employment type...")
+
+    # Total income from main job (VD4016) by employment type
+    dt[, z_income_hab_empregado := VD4016 * as.integer(VD4009 %in% 1:7)]
+    dt[, z_income_hab_empregpriv := VD4016 * as.integer(VD4009 %in% c(1L, 2L))]
+    dt[, z_income_hab_empregprivcomcart := VD4016 * as.integer(VD4009 == 1L)]
+    dt[, z_income_hab_empregprivsemcart := VD4016 * as.integer(VD4009 == 2L)]
+    dt[, z_income_hab_domestico := VD4016 * as.integer(VD4009 %in% c(3L, 4L))]
+    dt[, z_income_hab_domesticocomcart := VD4016 * as.integer(VD4009 == 3L)]
+    dt[, z_income_hab_domesticosemcart := VD4016 * as.integer(VD4009 == 4L)]
+    dt[, z_income_hab_empregpubl := VD4016 * as.integer(VD4009 %in% c(5L, 6L, 7L))]
+    dt[, z_income_hab_empregpublcomcart := VD4016 * as.integer(VD4009 == 5L)]
+    dt[, z_income_hab_empregpublsemcart := VD4016 * as.integer(VD4009 == 6L)]
+    dt[, z_income_hab_estatutmilitar := VD4016 * as.integer(VD4009 == 7L)]
+    dt[, z_income_hab_empregador := VD4016 * as.integer(VD4009 == 8L)]
+    dt[, z_income_hab_contapropria := VD4016 * as.integer(VD4009 == 9L)]
+
+    # CNPJ variants (only available from 201510)
+    if ("V4019" %in% names(dt)) {
+      dt[, z_income_hab_empregadorcomcnpj := VD4016 * as.integer(VD4009 %in% 8L & V4019 %in% 1L)]
+      dt[, z_income_hab_empregadorsemcnpj := VD4016 * as.integer(VD4009 %in% 8L & V4019 %in% 2L)]
+      dt[, z_income_hab_contapropriacomcnpj := VD4016 * as.integer(VD4009 %in% 9L & V4019 %in% 1L)]
+      dt[, z_income_hab_contapropriasemcnpj := VD4016 * as.integer(VD4009 %in% 9L & V4019 %in% 2L)]
+    }
+
+    # Effective hours worked (VD4035) by employment type
+    dt[, z_hours_efet_empregado := VD4035 * as.integer(VD4009 %in% 1:7)]
+    dt[, z_hours_efet_empregpriv := VD4035 * as.integer(VD4009 %in% c(1L, 2L))]
+    dt[, z_hours_efet_empregprivcomcart := VD4035 * as.integer(VD4009 == 1L)]
+    dt[, z_hours_efet_empregprivsemcart := VD4035 * as.integer(VD4009 == 2L)]
+    dt[, z_hours_efet_domestico := VD4035 * as.integer(VD4009 %in% c(3L, 4L))]
+    dt[, z_hours_efet_domesticocomcart := VD4035 * as.integer(VD4009 == 3L)]
+    dt[, z_hours_efet_domesticosemcart := VD4035 * as.integer(VD4009 == 4L)]
+    dt[, z_hours_efet_empregpubl := VD4035 * as.integer(VD4009 %in% c(5L, 6L, 7L))]
+    dt[, z_hours_efet_empregpublcomcart := VD4035 * as.integer(VD4009 == 5L)]
+    dt[, z_hours_efet_empregpublsemcart := VD4035 * as.integer(VD4009 == 6L)]
+    dt[, z_hours_efet_estatutmilitar := VD4035 * as.integer(VD4009 == 7L)]
+    dt[, z_hours_efet_empregador := VD4035 * as.integer(VD4009 == 8L)]
+    dt[, z_hours_efet_contapropria := VD4035 * as.integer(VD4009 == 9L)]
+
+    if ("V4019" %in% names(dt)) {
+      dt[, z_hours_efet_empregadorcomcnpj := VD4035 * as.integer(VD4009 %in% 8L & V4019 %in% 1L)]
+      dt[, z_hours_efet_empregadorsemcnpj := VD4035 * as.integer(VD4009 %in% 8L & V4019 %in% 2L)]
+      dt[, z_hours_efet_contapropriacomcnpj := VD4035 * as.integer(VD4009 %in% 9L & V4019 %in% 1L)]
+      dt[, z_hours_efet_contapropriasemcnpj := VD4035 * as.integer(VD4009 %in% 9L & V4019 %in% 2L)]
+    }
+  }
+
+  # Income and hours by sector (VD4010) - for rhrp by sector
+  if ("VD4010" %in% names(dt) && "VD4016" %in% names(dt) && "VD4035" %in% names(dt)) {
+    if (verbose) message("  Creating income/hours aggregates by sector...")
+
+    # Income by sector
+    dt[, z_income_hab_agropecuaria := VD4016 * as.integer(VD4010 == 1L)]
+    dt[, z_income_hab_industria := VD4016 * as.integer(VD4010 == 2L)]
+    dt[, z_income_hab_construcao := VD4016 * as.integer(VD4010 == 3L)]
+    dt[, z_income_hab_comercio := VD4016 * as.integer(VD4010 == 4L)]
+    dt[, z_income_hab_transporte := VD4016 * as.integer(VD4010 == 5L)]
+    dt[, z_income_hab_alojaliment := VD4016 * as.integer(VD4010 == 6L)]
+    dt[, z_income_hab_infcomfinimobadm := VD4016 * as.integer(VD4010 == 7L)]
+    dt[, z_income_hab_adminpublica := VD4016 * as.integer(VD4010 %in% c(8L, 9L))]
+    dt[, z_income_hab_outroservico := VD4016 * as.integer(VD4010 == 10L)]
+    dt[, z_income_hab_servicodomestico := VD4016 * as.integer(VD4010 == 11L)]
+
+    # Hours by sector
+    dt[, z_hours_efet_agropecuaria := VD4035 * as.integer(VD4010 == 1L)]
+    dt[, z_hours_efet_industria := VD4035 * as.integer(VD4010 == 2L)]
+    dt[, z_hours_efet_construcao := VD4035 * as.integer(VD4010 == 3L)]
+    dt[, z_hours_efet_comercio := VD4035 * as.integer(VD4010 == 4L)]
+    dt[, z_hours_efet_transporte := VD4035 * as.integer(VD4010 == 5L)]
+    dt[, z_hours_efet_alojaliment := VD4035 * as.integer(VD4010 == 6L)]
+    dt[, z_hours_efet_infcomfinimobadm := VD4035 * as.integer(VD4010 == 7L)]
+    dt[, z_hours_efet_adminpublica := VD4035 * as.integer(VD4010 %in% c(8L, 9L))]
+    dt[, z_hours_efet_outroservico := VD4035 * as.integer(VD4010 == 10L)]
+    dt[, z_hours_efet_servicodomestico := VD4035 * as.integer(VD4010 == 11L)]
+  }
+
   # ============================================================================
   # Step 3: Aggregate by month using weight_monthly
   # ============================================================================
@@ -1361,10 +1614,90 @@ compute_z_aggregates <- function(calibrated_data, verbose = TRUE) {
 
   if (verbose) message("  Scaling income series to SIDRA units...")
 
+  # Scale income mass series (raw reais -> thousands, so /1000 gives SIDRA millions)
   income_mass_series <- c("z_massahabnominaltodos", "z_massaefetnominaltodos")
   for (col in income_mass_series) {
     if (col %in% names(result)) {
       result[, (col) := get(col) / 1000]
+    }
+  }
+
+  # Scale income by category series (for rhrp computation)
+  # These are also in raw reais, need same scaling
+  income_by_cat_series <- grep("^z_income_hab_", names(result), value = TRUE)
+  for (col in income_by_cat_series) {
+    result[, (col) := get(col) / 1000]
+  }
+
+  # Note: z_hours_efet_* series stay in raw hours (no scaling needed)
+
+  # ============================================================================
+  # Step 5: Compute rhrp (hourly wage) series from income/hours
+  # ============================================================================
+  # rhrp = rendimento habitual por hora efetivamente trabalhada
+  # Formula: rhrp = (total_income / total_hours) * conversion_factor
+  # Conversion: income is monthly, hours are weekly -> divide by 4.33 (weeks/month)
+  # The z_income_hab_* are in thousands (scaled above), z_hours_efet_* are raw
+  # Result: rhrp in reais per hour
+  #
+  # Note: These z_rhrp_* values are NOMINAL. SIDRA's rhrp series are REAL
+  # (INPC-deflated). The y0 computation will need to deflate by INPC.
+  # ============================================================================
+
+  if (verbose) message("  Computing hourly wage (rhrp) series...")
+
+  # Helper to compute rhrp safely (avoid division by zero)
+  compute_rhrp <- function(income_col, hours_col) {
+    if (income_col %in% names(result) && hours_col %in% names(result)) {
+      income <- result[[income_col]]
+      hours <- result[[hours_col]]
+      # Convert: income (thousands/month) / hours (hours/week) / 4.33 (weeks/month)
+      # The 1000 factor converts back from thousands
+      rhrp <- fifelse(hours > 0, income * 1000 / (hours * 4.33), NA_real_)
+      return(rhrp)
+    }
+    return(NULL)
+  }
+
+  # rhrp by employment type
+  employment_types <- c("empregado", "empregpriv", "empregprivcomcart", "empregprivsemcart",
+                        "domestico", "domesticocomcart", "domesticosemcart",
+                        "empregpubl", "empregpublcomcart", "empregpublsemcart", "estatutmilitar",
+                        "empregador", "contapropria")
+
+  for (et in employment_types) {
+    income_col <- paste0("z_income_hab_", et)
+    hours_col <- paste0("z_hours_efet_", et)
+    rhrp <- compute_rhrp(income_col, hours_col)
+    if (!is.null(rhrp)) {
+      result[, paste0("z_rhrp", et) := rhrp]
+    }
+  }
+
+  # rhrp by employment type (CNPJ variants)
+  cnpj_types <- c("empregadorcomcnpj", "empregadorsemcnpj",
+                  "contapropriacomcnpj", "contapropriasemcnpj")
+
+  for (et in cnpj_types) {
+    income_col <- paste0("z_income_hab_", et)
+    hours_col <- paste0("z_hours_efet_", et)
+    rhrp <- compute_rhrp(income_col, hours_col)
+    if (!is.null(rhrp)) {
+      result[, paste0("z_rhrp", et) := rhrp]
+    }
+  }
+
+  # rhrp by sector
+  sectors <- c("agropecuaria", "industria", "construcao", "comercio", "transporte",
+               "alojaliment", "infcomfinimobadm", "adminpublica", "outroservico",
+               "servicodomestico")
+
+  for (sec in sectors) {
+    income_col <- paste0("z_income_hab_", sec)
+    hours_col <- paste0("z_hours_efet_", sec)
+    rhrp <- compute_rhrp(income_col, hours_col)
+    if (!is.null(rhrp)) {
+      result[, paste0("z_rhrp", sec) := rhrp]
     }
   }
 

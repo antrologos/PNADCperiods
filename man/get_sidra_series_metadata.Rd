@@ -4,15 +4,30 @@
 \alias{get_sidra_series_metadata}
 \title{Get SIDRA Series Metadata}
 \usage{
-get_sidra_series_metadata(series = "all", category = NULL)
+get_sidra_series_metadata(
+  series = "all",
+  theme = NULL,
+  theme_category = NULL,
+  subcategory = NULL,
+  lang = "pt"
+)
 }
 \arguments{
 \item{series}{Character vector of series names to retrieve, or "all" (default)
 for all series.}
 
-\item{category}{Character vector of categories to filter by. Valid categories:
-"rate", "population", "employment", "sector", "income_nominal", "income_real",
-"underutilization", "price_index". Use NULL (default) for no filtering.}
+\item{theme}{Character vector of themes to filter by. Valid themes:
+"labor_market", "earnings", "demographics", "social_protection", "prices".
+Use NULL (default) for no filtering.}
+
+\item{theme_category}{Character vector of theme categories to filter by.
+Use NULL (default) for no filtering.}
+
+\item{subcategory}{Character vector of subcategories to filter by.
+Use NULL (default) for no filtering.}
+
+\item{lang}{Character. Language for descriptions: "pt" (Portuguese, default)
+or "en" (English). When "en", the \code{description} column contains English text.}
 }
 \value{
 A data.table with columns:
@@ -21,9 +36,15 @@ A data.table with columns:
 \item{api_path}{Character. SIDRA API path for get_sidra()}
 \item{table_id}{Integer. SIDRA table number}
 \item{variable_id}{Integer. SIDRA variable code}
-\item{category}{Character. Series category}
+\item{theme}{Character. Top-level theme}
+\item{theme_category}{Character. Middle-level category within theme}
+\item{subcategory}{Character. Optional subcategory for filtering}
 \item{description_pt}{Character. Portuguese description}
-\item{unit}{Character. Unit of measurement ("thousands", "rate", "currency")}
+\item{description_en}{Character. English description}
+\item{description}{Character. Description in the requested language}
+\item{unit}{Character. Unit of measurement}
+\item{unit_label_pt}{Character. Unit label in Portuguese}
+\item{unit_label_en}{Character. Unit label in English}
 \item{is_derived}{Logical. TRUE if computed from other series}
 \item{requires_deflation}{Logical. TRUE if needs IPCA deflation}
 }
@@ -37,11 +58,16 @@ available from IBGE's SIDRA API.
 # Get all series metadata
 meta <- get_sidra_series_metadata()
 
-# Get only population series
-pop_meta <- get_sidra_series_metadata(category = "population")
+# Get only labor market series
+labor <- get_sidra_series_metadata(theme = "labor_market")
 
-# Get specific series
-meta <- get_sidra_series_metadata(series = c("taxadesocup", "popocup"))
+# Get unemployment rates
+unemp <- get_sidra_series_metadata(theme = "labor_market",
+                                    theme_category = "unemployment")
+
+# Get specific series with English descriptions
+meta <- get_sidra_series_metadata(series = c("taxadesocup", "popocup"),
+                                   lang = "en")
 }
 
 }

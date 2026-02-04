@@ -237,10 +237,13 @@ utils::globalVariables(c(
   # ============================================================================
   # SIDRA Series Mensalization Variables
   # ============================================================================
-  # Metadata columns
+  # Metadata columns (hierarchical structure)
   "series_name", "api_path", "table_id", "variable_id",
-  "classification_id", "classification_value", "category",
-  "description_pt", "unit", "is_derived", "requires_deflation",
+  "classification_id", "classification_value",
+  "theme", "theme_category", "subcategory",
+  "description_pt", "description_en", "description",
+  "unit", "unit_label_pt", "unit_label_en",
+  "is_derived", "requires_deflation",
   # Mensalization algorithm variables (from Stata methodology)
   "mesnotrim", "anomesfinaltrimmovel", "anomesexato",
   "d3", "cum", "cum1", "cum2", "cum3",
