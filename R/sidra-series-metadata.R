@@ -155,9 +155,9 @@ get_sidra_series_metadata <- function(series = "all",
       "Unemployed population",
       "Population not in labor force"
     ),
-    unit = "millions",
-    unit_label_pt = "milhoes",
-    unit_label_en = "millions",
+    unit = "thousands",
+    unit_label_pt = "mil pessoas",
+    unit_label_en = "thousands",
     is_derived = FALSE,
     requires_deflation = FALSE
   )
@@ -261,9 +261,9 @@ get_sidra_series_metadata <- function(series = "all",
       "Extended labor force",
       "Discouraged workers"
     ),
-    unit = "millions",
-    unit_label_pt = "milhoes",
-    unit_label_en = "millions",
+    unit = "thousands",
+    unit_label_pt = "mil pessoas",
+    unit_label_en = "thousands",
     is_derived = FALSE,
     requires_deflation = FALSE
   )
@@ -314,9 +314,9 @@ get_sidra_series_metadata <- function(series = "all",
       "Public sector employees without formal contract",
       "Military and statutory civil servants"
     ),
-    unit = "millions",
-    unit_label_pt = "milhoes",
-    unit_label_en = "millions",
+    unit = "thousands",
+    unit_label_pt = "mil pessoas",
+    unit_label_en = "thousands",
     is_derived = FALSE,
     requires_deflation = FALSE
   )
@@ -349,9 +349,9 @@ get_sidra_series_metadata <- function(series = "all",
       "Domestic workers with formal contract",
       "Domestic workers without formal contract"
     ),
-    unit = "millions",
-    unit_label_pt = "milhoes",
-    unit_label_en = "millions",
+    unit = "thousands",
+    unit_label_pt = "mil pessoas",
+    unit_label_en = "thousands",
     is_derived = FALSE,
     requires_deflation = FALSE
   )
@@ -384,9 +384,9 @@ get_sidra_series_metadata <- function(series = "all",
       "Employers with business registration (CNPJ)",
       "Employers without business registration"
     ),
-    unit = "millions",
-    unit_label_pt = "milhoes",
-    unit_label_en = "millions",
+    unit = "thousands",
+    unit_label_pt = "mil pessoas",
+    unit_label_en = "thousands",
     is_derived = FALSE,
     requires_deflation = FALSE
   )
@@ -419,9 +419,9 @@ get_sidra_series_metadata <- function(series = "all",
       "Self-employed with business registration (CNPJ)",
       "Self-employed without business registration"
     ),
-    unit = "millions",
-    unit_label_pt = "milhoes",
-    unit_label_en = "millions",
+    unit = "thousands",
+    unit_label_pt = "mil pessoas",
+    unit_label_en = "thousands",
     is_derived = FALSE,
     requires_deflation = FALSE
   )
@@ -442,9 +442,9 @@ get_sidra_series_metadata <- function(series = "all",
     subcategory = "family_workers",
     description_pt = "Trabalhador familiar auxiliar",
     description_en = "Unpaid family workers",
-    unit = "millions",
-    unit_label_pt = "milhoes",
-    unit_label_en = "millions",
+    unit = "thousands",
+    unit_label_pt = "mil pessoas",
+    unit_label_en = "thousands",
     is_derived = FALSE,
     requires_deflation = FALSE
   )
@@ -504,9 +504,9 @@ get_sidra_series_metadata <- function(series = "all",
       "Employed in other services",
       "Employed in domestic services"
     ),
-    unit = "millions",
-    unit_label_pt = "milhoes",
-    unit_label_en = "millions",
+    unit = "thousands",
+    unit_label_pt = "mil pessoas",
+    unit_label_en = "thousands",
     is_derived = FALSE,
     requires_deflation = FALSE
   )
@@ -813,9 +813,9 @@ get_sidra_series_metadata <- function(series = "all",
     subcategory = NA_character_,
     description_pt = "Populacao total residente",
     description_en = "Total resident population",
-    unit = "millions",
-    unit_label_pt = "milhoes",
-    unit_label_en = "millions",
+    unit = "thousands",
+    unit_label_pt = "mil pessoas",
+    unit_label_en = "thousands",
     is_derived = FALSE,
     requires_deflation = FALSE
   )
@@ -836,9 +836,9 @@ get_sidra_series_metadata <- function(series = "all",
     subcategory = NA_character_,
     description_pt = "Populacao de 14 anos ou mais de idade",
     description_en = "Working age population (14 years and older)",
-    unit = "millions",
-    unit_label_pt = "milhoes",
-    unit_label_en = "millions",
+    unit = "thousands",
+    unit_label_pt = "mil pessoas",
+    unit_label_en = "thousands",
     is_derived = FALSE,
     requires_deflation = FALSE
   )
@@ -859,9 +859,9 @@ get_sidra_series_metadata <- function(series = "all",
     subcategory = NA_character_,
     description_pt = "Contribuintes para a previdencia",
     description_en = "Social security contributors",
-    unit = "millions",
-    unit_label_pt = "milhoes",
-    unit_label_en = "millions",
+    unit = "thousands",
+    unit_label_pt = "mil pessoas",
+    unit_label_en = "thousands",
     is_derived = FALSE,
     requires_deflation = FALSE
   )
