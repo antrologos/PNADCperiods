@@ -52,12 +52,10 @@ IBGE's PNADC uses a rotating panel design where the same households appear in bo
 library(PNADCperiods)
 library(data.table)
 library(fst)
-library(readxl)      # Read deflator Excel files
+library(readxl)      # Read IBGE deflator Excel files
 library(deflateBR)   # INPC deflator
-library(survey)      # Survey analysis
 library(ggplot2)
 library(scales)
-library(patchwork)   # Combine plots
 ```
 
 You also need:
@@ -72,7 +70,7 @@ You also need:
 
 ### Step 1: Create Mensalization Crosswalk
 
-Load stacked quarterly PNADC data and run the mensalization algorithm:
+Load stacked quarterly PNADC data and run the mensalization algorithm. See the [Download and Prepare Data](download-and-prepare.html) vignette for details on obtaining and formatting PNADC microdata.
 
 ```{r create-crosswalk}
 # Define paths
@@ -220,9 +218,6 @@ Use IBGE's pre-calculated household per capita income variable:
 # Filter to household members only
 d <- d[v2005 <= 14 | v2005 == 16]
 
-# Create household ID
-d[, id_dom := paste(UPA, V1008, V1014, sep = "_")]
-
 # Use IBGE's pre-calculated per capita household income
 d[, hhinc_pc_nominal := fifelse(is.na(vd5008), 0, vd5008)]
 ```
@@ -280,7 +275,8 @@ d[, poverty_line := poverty_line_830_brl_monthly_2025]
 
 > **Why USD 8.30/day?** This is the World Bank's upper-middle income poverty
 > threshold, appropriate for Brazil. We use the 2021 PPP conversion factor
-> (2.45 BRL per USD) which is the most recent available.
+> (2.45 BRL per USD) because 2021 is the World Bank's reference year for
+> the current poverty lines.
 
 ---
 
@@ -346,9 +342,76 @@ monthly_poverty[, period := as.Date(paste0(
 <details>
 <summary>Show plotting code</summary>
 
-![Monthly Poverty Measures: Brazil, 2015-2024](figures/annual-poverty-analysis/fig-fgt-monthly-series.png){width=100%}
+```{r fgt-plot}
+# Prepare data for plotting
+fgt_data <- melt(
+  monthly_poverty[, .(period,
+                      `PPP 8.30/day` = poverty_rate)],
+  id.vars = "period",
+  variable.name = "poverty_line",
+  value.name = "rate"
+)
+
+fgt_gap_data <- melt(
+  monthly_poverty[, .(period,
+                      `PPP 8.30/day` = poverty_gap)],
+  id.vars = "period",
+  variable.name = "poverty_line",
+  value.name = "gap"
+)
+
+# Panel A: Headcount ratio (FGT-0)
+p1 <- ggplot(fgt_data, aes(x = period, y = rate, color = poverty_line)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1) +
+  scale_y_continuous(labels = percent_format(accuracy = 1),
+                     limits = c(0, NA)) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  scale_color_manual(values = c("PPP 8.30/day" = "#b2182b")) +
+  labs(title = "A. Poverty Headcount (FGT-0)",
+       subtitle = "Share of population below poverty line",
+       x = NULL, y = "Poverty Rate",
+       color = "Poverty Line") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom",
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold"))
+
+# Panel B: Poverty gap (FGT-1)
+p2 <- ggplot(fgt_gap_data, aes(x = period, y = gap, color = poverty_line)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1) +
+  scale_y_continuous(labels = percent_format(accuracy = 0.1),
+                     limits = c(0, NA)) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  scale_color_manual(values = c("PPP 8.30/day" = "#ef8a62")) +
+  labs(title = "B. Relative Poverty Gap (FGT-1)",
+       subtitle = "Average shortfall as share of poverty line",
+       x = NULL, y = "Relative Poverty Gap",
+       color = "Poverty Line") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom",
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold"))
+
+# Combine panels
+library(patchwork)
+fig_fgt <- p1 / p2 +
+  plot_annotation(
+    title = "Monthly Poverty Measures: Brazil, 2015-2024",
+    caption = "Source: PNADC/IBGE. Annual data with monthly reference periods from PNADCperiods.",
+    theme = theme(
+      plot.title = element_text(face = "bold", size = 14),
+      plot.subtitle = element_text(size = 11),
+      plot.caption = element_text(size = 9, hjust = 0)
+    )
+  )
+fig_fgt
+```
 
 </details>
+
+![Monthly Poverty Measures: Brazil, 2015-2024](figures/annual-poverty-analysis/fig-fgt-monthly-series.png){width=100%}
 
 The figure reveals several key dynamics:
 
@@ -358,41 +421,7 @@ The figure reveals several key dynamics:
 
 3. **Post-Auxilio adjustment (2021)**: As emergency aid was reduced, poverty rates partially rebounded.
 
-### Example 2: Survey Design (Brief)
-
-For proper inference, use complex survey design with monthly weights:
-
-```{r example-survey-design}
-# Survey design with monthly weights (March 2020 example)
-design <- svydesign(
-  ids = ~UPA, strata = ~estrato, weights = ~peso,
-  data = d_monthly[ref_month_yyyymm == 202003], nest = TRUE
-)
-
-# Poverty rate with confidence interval
-svymean(~I(hhinc_pc < poverty_line), design, na.rm = TRUE)
-```
-
-For detailed guidance on variance estimation with monthly weights, see the [Complex Survey Design](complex-survey-design.html) vignette.
-
-### Example 3: Post-hoc Smoothing
-
-The raw monthly series may show quarterly artifacts from IBGE's rotating panel design. If artifacts persist after weight calibration (which applies smoothing by default), you can apply additional post-hoc smoothing:
-
-```{r example-smoothing}
-# Three-month centered rolling average (using data.table::frollmean)
-monthly_poverty[, poverty_rate_smoothed :=
-                  frollmean(poverty_rate, 3, align = "center")]
-```
-
-<details>
-<summary>Show plotting code</summary>
-
-![Raw vs Smoothed Monthly Poverty Rate](figures/annual-poverty-analysis/fig-smoothing-comparison.png){width=100%}
-
-</details>
-
-**Caution**: Smoothing removes noise but may also mask real month-to-month dynamics. Use smoothing for trend visualization, but report raw estimates for specific months of interest.
+For proper inference with confidence intervals, use complex survey design with monthly weights---see the [Complex Survey Design](complex-survey-design.html) vignette.
 
 ---
 

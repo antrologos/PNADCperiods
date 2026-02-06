@@ -121,12 +121,10 @@ frequency</li>
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/PNADCperiods/">PNADCperiods</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="http://www.fstpackage.org" class="external-link">fst</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://readxl.tidyverse.org" class="external-link">readxl</a></span><span class="op">)</span>      <span class="co"># Read deflator Excel files</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://readxl.tidyverse.org" class="external-link">readxl</a></span><span class="op">)</span>      <span class="co"># Read IBGE deflator Excel files</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/meirelesff/deflatebr/" class="external-link">deflateBR</a></span><span class="op">)</span>   <span class="co"># INPC deflator</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="http://r-survey.r-forge.r-project.org/survey/" class="external-link">survey</a></span><span class="op">)</span>      <span class="co"># Survey analysis</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://scales.r-lib.org" class="external-link">scales</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://patchwork.data-imaginist.com" class="external-link">patchwork</a></span><span class="op">)</span>   <span class="co"># Combine plots</span></span></code></pre></div>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://scales.r-lib.org" class="external-link">scales</a></span><span class="op">)</span></span></code></pre></div>
 <p>You also need:</p>
 <ul>
 <li>
@@ -148,7 +146,9 @@ format with income supplement variables</li>
 <h3 id="step-1-create-mensalization-crosswalk">Step 1: Create Mensalization Crosswalk<a class="anchor" aria-label="anchor" href="#step-1-create-mensalization-crosswalk"></a>
 </h3>
 <p>Load stacked quarterly PNADC data and run the mensalization
-algorithm:</p>
+algorithm. See the <a href="download-and-prepare.html">Download and
+Prepare Data</a> vignette for details on obtaining and formatting PNADC
+microdata.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Define paths</span></span>
 <span><span class="va">pnad_quarterly_dir</span> <span class="op">&lt;-</span> <span class="st">"path/to/quarterly/data"</span></span>
@@ -300,9 +300,6 @@ population totals while preserving yearly totals.</p>
 <code class="sourceCode R"><span><span class="co"># Filter to household members only</span></span>
 <span><span class="va">d</span> <span class="op">&lt;-</span> <span class="va">d</span><span class="op">[</span><span class="va">v2005</span> <span class="op">&lt;=</span> <span class="fl">14</span> <span class="op">|</span> <span class="va">v2005</span> <span class="op">==</span> <span class="fl">16</span><span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Create household ID</span></span>
-<span><span class="va">d</span><span class="op">[</span>, <span class="va">id_dom</span> <span class="op">:=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">UPA</span>, <span class="va">V1008</span>, <span class="va">V1014</span>, sep <span class="op">=</span> <span class="st">"_"</span><span class="op">)</span><span class="op">]</span></span>
-<span></span>
 <span><span class="co"># Use IBGE's pre-calculated per capita household income</span></span>
 <span><span class="va">d</span><span class="op">[</span>, <span class="va">hhinc_pc_nominal</span> <span class="op">:=</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fifelse.html" class="external-link">fifelse</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">vd5008</span><span class="op">)</span>, <span class="fl">0</span>, <span class="va">vd5008</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
 </div>
@@ -357,8 +354,8 @@ population totals while preserving yearly totals.</p>
 <blockquote>
 <p><strong>Why USD 8.30/day?</strong> This is the World Bank’s
 upper-middle income poverty threshold, appropriate for Brazil. We use
-the 2021 PPP conversion factor (2.45 BRL per USD) which is the most
-recent available.</p>
+the 2021 PPP conversion factor (2.45 BRL per USD) because 2021 is the
+World Bank’s reference year for the current poverty lines.</p>
 </blockquote>
 <hr>
 </div>
@@ -423,11 +420,76 @@ poverty indices:</p>
 <span><span class="op">)</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
 <details><summary>
 Show plotting code
-</summary><div class="float">
+</summary><div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Prepare data for plotting</span></span>
+<span><span class="va">fgt_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/melt.data.table.html" class="external-link">melt</a></span><span class="op">(</span></span>
+<span>  <span class="va">monthly_poverty</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span><span class="va">period</span>,</span>
+<span>                      `PPP 8.30/day` <span class="op">=</span> <span class="va">poverty_rate</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  id.vars <span class="op">=</span> <span class="st">"period"</span>,</span>
+<span>  variable.name <span class="op">=</span> <span class="st">"poverty_line"</span>,</span>
+<span>  value.name <span class="op">=</span> <span class="st">"rate"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">fgt_gap_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/melt.data.table.html" class="external-link">melt</a></span><span class="op">(</span></span>
+<span>  <span class="va">monthly_poverty</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span><span class="va">period</span>,</span>
+<span>                      `PPP 8.30/day` <span class="op">=</span> <span class="va">poverty_gap</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  id.vars <span class="op">=</span> <span class="st">"period"</span>,</span>
+<span>  variable.name <span class="op">=</span> <span class="st">"poverty_line"</span>,</span>
+<span>  value.name <span class="op">=</span> <span class="st">"gap"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Panel A: Headcount ratio (FGT-0)</span></span>
+<span><span class="va">p1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">fgt_data</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">period</span>, y <span class="op">=</span> <span class="va">rate</span>, color <span class="op">=</span> <span class="va">poverty_line</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_path.html" class="external-link">geom_line</a></span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_y_continuous</a></span><span class="op">(</span>labels <span class="op">=</span> <span class="fu"><a href="https://scales.r-lib.org/reference/percent_format.html" class="external-link">percent_format</a></span><span class="op">(</span>accuracy <span class="op">=</span> <span class="fl">1</span><span class="op">)</span>,</span>
+<span>                     limits <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="cn">NA</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_date.html" class="external-link">scale_x_date</a></span><span class="op">(</span>date_breaks <span class="op">=</span> <span class="st">"1 year"</span>, date_labels <span class="op">=</span> <span class="st">"%Y"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_manual.html" class="external-link">scale_color_manual</a></span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"PPP 8.30/day"</span> <span class="op">=</span> <span class="st">"#b2182b"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="st">"A. Poverty Headcount (FGT-0)"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Share of population below poverty line"</span>,</span>
+<span>       x <span class="op">=</span> <span class="cn">NULL</span>, y <span class="op">=</span> <span class="st">"Poverty Rate"</span>,</span>
+<span>       color <span class="op">=</span> <span class="st">"Poverty Line"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span>base_size <span class="op">=</span> <span class="fl">11</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>legend.position <span class="op">=</span> <span class="st">"bottom"</span>,</span>
+<span>        panel.grid.minor <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_blank</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>        plot.title <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>face <span class="op">=</span> <span class="st">"bold"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Panel B: Poverty gap (FGT-1)</span></span>
+<span><span class="va">p2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">fgt_gap_data</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">period</span>, y <span class="op">=</span> <span class="va">gap</span>, color <span class="op">=</span> <span class="va">poverty_line</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_path.html" class="external-link">geom_line</a></span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_y_continuous</a></span><span class="op">(</span>labels <span class="op">=</span> <span class="fu"><a href="https://scales.r-lib.org/reference/percent_format.html" class="external-link">percent_format</a></span><span class="op">(</span>accuracy <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>,</span>
+<span>                     limits <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="cn">NA</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_date.html" class="external-link">scale_x_date</a></span><span class="op">(</span>date_breaks <span class="op">=</span> <span class="st">"1 year"</span>, date_labels <span class="op">=</span> <span class="st">"%Y"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_manual.html" class="external-link">scale_color_manual</a></span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"PPP 8.30/day"</span> <span class="op">=</span> <span class="st">"#ef8a62"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="st">"B. Relative Poverty Gap (FGT-1)"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Average shortfall as share of poverty line"</span>,</span>
+<span>       x <span class="op">=</span> <span class="cn">NULL</span>, y <span class="op">=</span> <span class="st">"Relative Poverty Gap"</span>,</span>
+<span>       color <span class="op">=</span> <span class="st">"Poverty Line"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span>base_size <span class="op">=</span> <span class="fl">11</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>legend.position <span class="op">=</span> <span class="st">"bottom"</span>,</span>
+<span>        panel.grid.minor <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_blank</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>        plot.title <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>face <span class="op">=</span> <span class="st">"bold"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Combine panels</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://patchwork.data-imaginist.com" class="external-link">patchwork</a></span><span class="op">)</span></span>
+<span><span class="va">fig_fgt</span> <span class="op">&lt;-</span> <span class="va">p1</span> <span class="op">/</span> <span class="va">p2</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://patchwork.data-imaginist.com/reference/plot_annotation.html" class="external-link">plot_annotation</a></span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Monthly Poverty Measures: Brazil, 2015-2024"</span>,</span>
+<span>    caption <span class="op">=</span> <span class="st">"Source: PNADC/IBGE. Annual data with monthly reference periods from PNADCperiods."</span>,</span>
+<span>    theme <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span></span>
+<span>      plot.title <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>face <span class="op">=</span> <span class="st">"bold"</span>, size <span class="op">=</span> <span class="fl">14</span><span class="op">)</span>,</span>
+<span>      plot.subtitle <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">11</span><span class="op">)</span>,</span>
+<span>      plot.caption <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">9</span>, hjust <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
+<span>    <span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="va">fig_fgt</span></span></code></pre></div>
+</details><div class="float">
 <img src="figures/annual-poverty-analysis/fig-fgt-monthly-series.png" style="width:100.0%" alt="Monthly Poverty Measures: Brazil, 2015-2024"><div class="figcaption">Monthly Poverty Measures: Brazil,
 2015-2024</div>
 </div>
-</details><p>The figure reveals several key dynamics:</p>
+<p>The figure reveals several key dynamics:</p>
 <ol style="list-style-type: decimal">
 <li><p><strong>COVID-19 spike (March-April 2020)</strong>: The poverty
 rate shows a sharp increase in early 2020.</p></li>
@@ -437,44 +499,9 @@ levels.</p></li>
 <li><p><strong>Post-Auxilio adjustment (2021)</strong>: As emergency aid
 was reduced, poverty rates partially rebounded.</p></li>
 </ol>
-</div>
-<div class="section level3">
-<h3 id="example-2-survey-design-brief">Example 2: Survey Design (Brief)<a class="anchor" aria-label="anchor" href="#example-2-survey-design-brief"></a>
-</h3>
-<p>For proper inference, use complex survey design with monthly
-weights:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Survey design with monthly weights (March 2020 example)</span></span>
-<span><span class="va">design</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/survey/man/svydesign.html" class="external-link">svydesign</a></span><span class="op">(</span></span>
-<span>  ids <span class="op">=</span> <span class="op">~</span><span class="va">UPA</span>, strata <span class="op">=</span> <span class="op">~</span><span class="va">estrato</span>, weights <span class="op">=</span> <span class="op">~</span><span class="va">peso</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">d_monthly</span><span class="op">[</span><span class="va">ref_month_yyyymm</span> <span class="op">==</span> <span class="fl">202003</span><span class="op">]</span>, nest <span class="op">=</span> <span class="cn">TRUE</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Poverty rate with confidence interval</span></span>
-<span><span class="fu"><a href="https://rdrr.io/pkg/survey/man/surveysummary.html" class="external-link">svymean</a></span><span class="op">(</span><span class="op">~</span><span class="fu"><a href="https://rdrr.io/r/base/AsIs.html" class="external-link">I</a></span><span class="op">(</span><span class="va">hhinc_pc</span> <span class="op">&lt;</span> <span class="va">poverty_line</span><span class="op">)</span>, <span class="va">design</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
-<p>For detailed guidance on variance estimation with monthly weights,
-see the <a href="complex-survey-design.html">Complex Survey Design</a>
+<p>For proper inference with confidence intervals, use complex survey
+design with monthly weights—see the <a href="complex-survey-design.html">Complex Survey Design</a>
 vignette.</p>
-</div>
-<div class="section level3">
-<h3 id="example-3-post-hoc-smoothing">Example 3: Post-hoc Smoothing<a class="anchor" aria-label="anchor" href="#example-3-post-hoc-smoothing"></a>
-</h3>
-<p>The raw monthly series may show quarterly artifacts from IBGE’s
-rotating panel design. If artifacts persist after weight calibration
-(which applies smoothing by default), you can apply additional post-hoc
-smoothing:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Three-month centered rolling average (using data.table::frollmean)</span></span>
-<span><span class="va">monthly_poverty</span><span class="op">[</span>, <span class="va">poverty_rate_smoothed</span> <span class="op">:=</span></span>
-<span>                  <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/froll.html" class="external-link">frollmean</a></span><span class="op">(</span><span class="va">poverty_rate</span>, <span class="fl">3</span>, align <span class="op">=</span> <span class="st">"center"</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
-<details><summary>
-Show plotting code
-</summary><div class="float">
-<img src="figures/annual-poverty-analysis/fig-smoothing-comparison.png" style="width:100.0%" alt="Raw vs Smoothed Monthly Poverty Rate"><div class="figcaption">Raw vs Smoothed Monthly Poverty Rate</div>
-</div>
-</details><p><strong>Caution</strong>: Smoothing removes noise but may also mask
-real month-to-month dynamics. Use smoothing for trend visualization, but
-report raw estimates for specific months of interest.</p>
 <hr>
 </div>
 </div>
