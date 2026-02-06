@@ -72,20 +72,13 @@
 
     
     
-<!--
-MAINTAINER NOTE:
-This vignette uses eval=FALSE for all code chunks.
-Pre-computed outputs are shown as text blocks.
--->
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
-<p>This vignette provides a complete, step-by-step workflow for
-downloading Brazil’s quarterly PNADC (Pesquisa Nacional por Amostra de
-Domicilios Continua) survey data and preparing it for mensalization. By
-the end, you will have monthly reference months identified for each
-survey observation and optionally computed monthly survey weights.</p>
-<p>The workflow covers three main tasks:</p>
+<p>This vignette provides a complete workflow for downloading Brazil’s
+quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua)
+microdata and preparing it for mensalization. The workflow covers three
+steps:</p>
 <ol style="list-style-type: decimal">
 <li>
 <strong>Downloading</strong> quarterly PNADC microdata from IBGE
@@ -100,6 +93,7 @@ using the <code>PNADcIBGE</code> package</li>
 <p>If you already have PNADC data and want to learn the package API
 first, see <a href="getting-started.html">Get Started</a>. For algorithm
 details, see <a href="how-it-works.html">How PNADCperiods Works</a>.</p>
+<hr>
 </div>
 <div class="section level2">
 <h2 id="prerequisites">Prerequisites<a class="anchor" aria-label="anchor" href="#prerequisites"></a>
@@ -109,15 +103,14 @@ details, see <a href="how-it-works.html">How PNADCperiods Works</a>.</p>
 </h3>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Install packages if needed</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"PNADcIBGE"</span>, <span class="st">"tidyverse"</span>, <span class="st">"fst"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"PNADcIBGE"</span>, <span class="st">"fst"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Install PNADCperiods from GitHub</span></span>
-<span><span class="co"># install.packages("remotes")</span></span>
 <span><span class="co"># remotes::install_github("antrologos/PNADCperiods")</span></span>
 <span></span>
 <span><span class="co"># Load packages</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">PNADcIBGE</span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org" class="external-link">tidyverse</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="http://www.fstpackage.org" class="external-link">fst</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/PNADCperiods/">PNADCperiods</a></span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -138,6 +131,7 @@ internet speed), ~5 minutes for processing</li>
 <strong>Internet</strong>: Required for downloading data and for
 SIDRA API access (weight calibration)</li>
 </ul>
+<hr>
 </div>
 </div>
 <div class="section level2">
@@ -150,80 +144,60 @@ quarterly release contains approximately 500,000 observations.</p>
 <p><strong>Why stack multiple quarters?</strong> The mensalization
 algorithm identifies reference months by tracking households across
 their panel interviews. With a single quarter, the determination rate is
-only ~70%. By stacking multiple quarters, the algorithm can leverage the
+only ~70%. By stacking multiple quarters, the algorithm leverages the
 rotating panel structure to achieve <strong>over 97%
 determination</strong>.</p>
 <table class="table">
-<colgroup>
-<col width="32%">
-<col width="16%">
-<col width="23%">
-<col width="14%">
-<col width="14%">
-</colgroup>
 <thead><tr class="header">
 <th>Quarters Stacked</th>
 <th>Month %</th>
 <th>Fortnight %</th>
 <th>Week %</th>
-<th>Source</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
 <td>1 (single quarter)</td>
-<td>70%</td>
-<td>7%</td>
-<td>2%</td>
-<td>Test data (2019-Q1)</td>
+<td>~70%</td>
+<td>~7%</td>
+<td>~2%</td>
 </tr>
 <tr class="even">
 <td>8 (2 years)</td>
-<td>94%</td>
-<td>9%</td>
-<td>3%</td>
-<td>2019-2020 benchmark</td>
+<td>~94%</td>
+<td>~9%</td>
+<td>~3%</td>
 </tr>
 <tr class="odd">
 <td>20 (5 years)</td>
-<td>95%</td>
-<td>8%</td>
-<td>3%</td>
-<td>2020-2024 example</td>
+<td>~95%</td>
+<td>~8%</td>
+<td>~3%</td>
 </tr>
 <tr class="even">
 <td>55+ (full history)</td>
-<td><strong>97%</strong></td>
-<td><strong>9%</strong></td>
-<td><strong>3%</strong></td>
-<td>2012-2025 complete data</td>
+<td><strong>~97%</strong></td>
+<td><strong>~9%</strong></td>
+<td><strong>~3%</strong></td>
 </tr>
 </tbody>
 </table>
-<p><strong>Note:</strong> Determination rates vary by time period due to
-data quality. The 2020-2024 period shows slightly lower rates due to
-COVID-19 collection disruptions in 2020.</p>
 <p>For most applications, we recommend stacking at least 2 years (8
-quarters) of data. For a detailed explanation of how determination rates
-improve with stacking, including a figure computed from real data, see
-the <a href="how-it-works.html#why-stacked-data-matters">How
-PNADCperiods Works</a> vignette.</p>
+quarters) of data.</p>
+<hr>
 </div>
 <div class="section level2">
 <h2 id="step-1-set-up-your-environment">Step 1: Set Up Your Environment<a class="anchor" aria-label="anchor" href="#step-1-set-up-your-environment"></a>
 </h2>
-<p>First, create a directory to store the downloaded data:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Set your data directory (adjust path as needed)</span></span>
 <span><span class="va">data_dir</span> <span class="op">&lt;-</span> <span class="st">"path/to/your/pnadc_data/"</span></span>
-<span></span>
-<span><span class="co"># Create directory if it doesn't exist</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/files2.html" class="external-link">dir.create</a></span><span class="op">(</span><span class="va">data_dir</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span>, showWarnings <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="step-2-define-which-quarters-to-download">Step 2: Define Which Quarters to Download<a class="anchor" aria-label="anchor" href="#step-2-define-which-quarters-to-download"></a>
 </h2>
-<p>Create a grid of year-quarter combinations to download. This example
-uses 2020-2024, which provides a good balance between data size and
+<p>Create a grid of year-quarter combinations. This example uses
+2020-2024, which provides a good balance between data size and
 determination rate:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Define quarters to download (2020-2024 example)</span></span>
@@ -231,27 +205,20 @@ determination rate:</p>
 <span>  year <span class="op">=</span> <span class="fl">2020</span><span class="op">:</span><span class="fl">2024</span>,</span>
 <span>  quarter <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co"># Note: If downloading more recent years, filter out quarters not yet available:</span></span>
-<span><span class="co"># editions &lt;- editions |&gt; filter(!(year == 2025 &amp; quarter &gt; 3))</span></span>
-<span></span>
-<span><span class="co"># View the grid</span></span>
-<span><span class="va">editions</span></span></code></pre></div>
-<p>This creates a grid of 20 quarters. If extending to more recent
-years, adjust the filter for the latest available quarter.</p>
+<span><span class="co"># If downloading recent years, filter out quarters not yet available:</span></span>
+<span><span class="co"># editions &lt;- editions[!(editions$year == 2025 &amp; editions$quarter &gt; 3), ]</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="step-3-download-the-data">Step 3: Download the Data<a class="anchor" aria-label="anchor" href="#step-3-download-the-data"></a>
 </h2>
 <p>The download loop fetches each quarter from IBGE and saves it in FST
-format for fast loading later:</p>
+format for fast loading:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Download and save each quarter</span></span>
-<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">editions</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">editions</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">year_i</span> <span class="op">&lt;-</span> <span class="va">editions</span><span class="op">$</span><span class="va">year</span><span class="op">[</span><span class="va">i</span><span class="op">]</span></span>
 <span>  <span class="va">quarter_i</span> <span class="op">&lt;-</span> <span class="va">editions</span><span class="op">$</span><span class="va">quarter</span><span class="op">[</span><span class="va">i</span><span class="op">]</span></span>
 <span></span>
 <span>  <span class="va">filename</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"pnadc_"</span>, <span class="va">year_i</span>, <span class="st">"-"</span>, <span class="va">quarter_i</span>, <span class="st">"q.fst"</span><span class="op">)</span></span>
-<span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Downloading:"</span>, <span class="va">year_i</span>, <span class="st">"Q"</span>, <span class="va">quarter_i</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span></span>
 <span>  <span class="co"># Download from IBGE</span></span>
@@ -273,7 +240,6 @@ format for fast loading later:</p>
 <span>                           full.names <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/files.html" class="external-link">file.remove</a></span><span class="op">(</span><span class="va">temp_files</span><span class="op">)</span></span>
 <span></span>
-<span>  <span class="co"># Free memory</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/rm.html" class="external-link">rm</a></span><span class="op">(</span><span class="va">pnadc_quarter</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/gc.html" class="external-link">gc</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
@@ -283,19 +249,18 @@ when downloading. The mensalization algorithm requires numeric codes for
 the birthday variables (V2008, V20081, V20082). Using labeled factors
 will cause errors.</p>
 </blockquote>
-<p>This loop will take 2-3 hours depending on your internet connection.
-Each quarter is approximately 300-400 MB when saved as FST.</p>
+<hr>
 </div>
 <div class="section level2">
 <h2 id="step-4-stack-the-quarterly-files">Step 4: Stack the Quarterly Files<a class="anchor" aria-label="anchor" href="#step-4-stack-the-quarterly-files"></a>
 </h2>
-<p>Now stack all the quarterly files into a single dataset. To save
-memory, we only load the columns needed for mensalization:</p>
+<p>Stack all quarterly files into a single dataset. To save memory, only
+load the columns needed for mensalization:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Columns needed for mensalization</span></span>
 <span><span class="va">cols_needed</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>  <span class="co"># Time and identifiers</span></span>
-<span>  <span class="st">"Ano"</span>, <span class="st">"Trimestre"</span>, <span class="st">"UPA"</span>, <span class="st">"V1008"</span>, <span class="st">"V1014"</span>, <span class="st">"V2003"</span>,</span>
+<span>  <span class="st">"Ano"</span>, <span class="st">"Trimestre"</span>, <span class="st">"UPA"</span>, <span class="st">"V1008"</span>, <span class="st">"V1014"</span>,</span>
 <span>  <span class="co"># Birthday variables (for reference period algorithm)</span></span>
 <span>  <span class="st">"V2008"</span>, <span class="st">"V20081"</span>, <span class="st">"V20082"</span>, <span class="st">"V2009"</span>,</span>
 <span>  <span class="co"># Weight and stratification (for weight calibration)</span></span>
@@ -303,46 +268,31 @@ memory, we only load the columns needed for mensalization:</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Stack all quarters</span></span>
-<span><span class="va">pnadc_stacked</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
+<span><span class="va">files</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span><span class="va">data_dir</span>, pattern <span class="op">=</span> <span class="st">"pnadc_.*\\.fst$"</span>, full.names <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">editions</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">year_i</span> <span class="op">&lt;-</span> <span class="va">editions</span><span class="op">$</span><span class="va">year</span><span class="op">[</span><span class="va">i</span><span class="op">]</span></span>
-<span>  <span class="va">quarter_i</span> <span class="op">&lt;-</span> <span class="va">editions</span><span class="op">$</span><span class="va">quarter</span><span class="op">[</span><span class="va">i</span><span class="op">]</span></span>
-<span></span>
-<span>  <span class="va">filename</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"pnadc_"</span>, <span class="va">year_i</span>, <span class="st">"-"</span>, <span class="va">quarter_i</span>, <span class="st">"q.fst"</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Loading:"</span>, <span class="va">filename</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span></span>
-<span>  <span class="co"># Read only the columns we need (saves memory)</span></span>
-<span>  <span class="va">quarter_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="http://www.fstpackage.org/reference/write_fst.html" class="external-link">read_fst</a></span><span class="op">(</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">data_dir</span>, <span class="va">filename</span><span class="op">)</span>,</span>
-<span>    columns <span class="op">=</span> <span class="va">cols_needed</span></span>
-<span>  <span class="op">)</span></span>
-<span></span>
-<span>  <span class="va">pnadc_stacked</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span><span class="va">pnadc_stacked</span>, <span class="va">quarter_data</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/rm.html" class="external-link">rm</a></span><span class="op">(</span><span class="va">quarter_data</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/gc.html" class="external-link">gc</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
+<span><span class="va">pnadc_stacked</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/rbindlist.html" class="external-link">rbindlist</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">files</span>, <span class="kw">function</span><span class="op">(</span><span class="va">f</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Loading:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/basename.html" class="external-link">basename</a></span><span class="op">(</span><span class="va">f</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="http://www.fstpackage.org/reference/write_fst.html" class="external-link">read_fst</a></span><span class="op">(</span><span class="va">f</span>, columns <span class="op">=</span> <span class="va">cols_needed</span>, as.data.table <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Total observations:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">pnadc_stacked</span><span class="op">)</span>, big.mark <span class="op">=</span> <span class="st">","</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
-<p>Output (from real PNADC 2020-2024 data):</p>
-<pre><code>Loading: pnadc_2020-1q.fst
-Loading: pnadc_2020-2q.fst
-...
-Loading: pnadc_2024-4q.fst
-Total observations: 8,868,247</code></pre>
+<hr>
 </div>
 <div class="section level2">
 <h2 id="step-5-apply-mensalization">Step 5: Apply Mensalization<a class="anchor" aria-label="anchor" href="#step-5-apply-mensalization"></a>
 </h2>
-<p>Now apply the period identification algorithm and optionally compute
-calibrated weights:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<p>Build the crosswalk (identify reference periods) and calibrate
+weights:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Step 1: Build crosswalk (identify reference periods)</span></span>
 <span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc_stacked</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Check the determination rate</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Determination rate:"</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.1f%%"</span>, <span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">crosswalk</span>, <span class="st">"determination_rates"</span><span class="op">)</span><span class="op">$</span><span class="va">month</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co"># Check determination rates</span></span>
+<span><span class="va">crosswalk</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
+<span>  month_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_month</span><span class="op">)</span>,</span>
+<span>  fortnight_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_fortnight</span><span class="op">)</span>,</span>
+<span>  week_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_week</span><span class="op">)</span></span>
+<span><span class="op">)</span><span class="op">]</span></span>
 <span></span>
 <span><span class="co"># Step 2: Apply crosswalk and calibrate weights</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span></span>
@@ -354,142 +304,81 @@ calibrated weights:</p>
 <span>  calibration_unit <span class="op">=</span> <span class="st">"month"</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>Output (from real PNADC 2020-2024 data):</p>
-<pre><code>Building reference period crosswalk (nested identification)...
-
-Phase 1: Identifying MONTHS (all observations)...
-  Step 1.1: Preprocessing data...
-  Step 1.2: Computing valid interview Saturdays...
-  Step 1.3: Calculating birthdays and adjusting for leap years...
-  Step 1.4: Applying birthday constraints...
-  Step 1.5: Converting to month positions...
-  Step 1.6: Aggregating at UPA-panel level (cross-quarter)...
-  Step 1.7: Detecting exception cases...
-  Step 1.7b: Applying exception rules...
-  Step 1.8: Determining reference months...
-  -&gt; Month determination: 94.6% (8,386,003 of 8,868,247 observations)
-
-Phase 2: Identifying FORTNIGHTS (within determined months)...
-  Processing 8,386,003 observations with determined months...
-  Step 2.1: Calculate fortnight bounds WITHIN the determined month...
-  Step 2.2: Aggregating at household level (within quarter)...
-  Step 2.3: Determining reference fortnights...
-  -&gt; Fortnight determination: 8.4% (748,904 of 8,868,247 observations)
-
-Phase 3: Identifying WEEKS (within determined fortnights)...
-  Processing 748,904 observations with determined fortnights...
-  Step 3.2: Aggregating at household level (within quarter)...
-  Step 3.4: Determining reference weeks...
-  -&gt; Week determination: 3.0% (269,288 of 8,868,247 observations)
-
-Phase 4: Building crosswalk...
-
-========================================
-Crosswalk complete (nested identification):
-========================================</code></pre>
-<p>The determination rate tells you what percentage of observations have
-their reference period identified. With 20 quarters stacked (2020-2024),
-we achieve 94.6% for months, 8.4% for fortnights, and 3.0% for
-weeks.</p>
+<p>The verbose output shows progress and determination rates for each
+phase (month, fortnight, week). With 20 quarters stacked (2020-2024),
+expect ~95% month determination.</p>
+<hr>
 </div>
 <div class="section level2">
 <h2 id="step-6-explore-the-results">Step 6: Explore the Results<a class="anchor" aria-label="anchor" href="#step-6-explore-the-results"></a>
 </h2>
-<p>The result is a data.table with several new columns:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># View the result structure</span></span>
-<span><span class="fu"><a href="https://pillar.r-lib.org/reference/glimpse.html" class="external-link">glimpse</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
+<p>The result contains all original columns plus reference period
+indicators and calibrated weights:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Key new columns</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"ref_|determined_|weight_"</span>, <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span><span class="op">)</span><span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Summary of reference month distribution</span></span>
-<span><span class="va">result</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/count.html" class="external-link">count</a></span><span class="op">(</span><span class="va">ref_month_in_quarter</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>pct <span class="op">=</span> <span class="va">n</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span></span></code></pre></div>
-<p>Output (from real PNADC 2020-2024 data):</p>
-<pre><code>   ref_month_in_quarter       N   pct
-1:                    1 2870178  32.4
-2:                    2 2725932  30.7
-3:                    3 2789893  31.5
-4:                   NA  482244   5.4</code></pre>
-<p>The distribution is approximately equal across months 1, 2, and 3
-(each around 31-32%), with 5.4% having <code>NA</code> for indeterminate
-cases. The 94.6% determination rate for this 2020-2024 subset is
-slightly lower than the 97.0% achieved with full 2012-2025 data due
-to:</p>
-<ul>
-<li>
-<strong>Boundary effects</strong>: The first and last 4 quarters in
-any dataset have incomplete panel coverage</li>
-<li>
-<strong>COVID-19 impact</strong>: 2020 data shows degraded
-determination rates due to IBGE collection disruptions</li>
-<li>
-<strong>Panel accumulation</strong>: More years of data = more panel
-cycles = higher cross-quarter determination</li>
-</ul>
-<p>The output columns include:</p>
+<span><span class="co"># Distribution of reference months within quarters</span></span>
+<span><span class="va">result</span><span class="op">[</span>, <span class="va">.N</span>, by <span class="op">=</span> <span class="va">ref_month_in_quarter</span><span class="op">]</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">ref_month_in_quarter</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
+<p>Key output columns:</p>
 <table class="table">
+<colgroup>
+<col width="38%">
+<col width="61%">
+</colgroup>
 <thead><tr class="header">
 <th>Column</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td><code>ref_month</code></td>
-<td>Reference month as Date (first day of month)</td>
+<td><code>ref_month_in_quarter</code></td>
+<td>Position within quarter (1, 2, or 3; NA if indeterminate)</td>
 </tr>
 <tr class="even">
-<td><code>ref_month_in_quarter</code></td>
-<td>Position within quarter (1, 2, or 3)</td>
+<td><code>ref_month_yyyymm</code></td>
+<td>Reference month as YYYYMM integer (e.g., 202301)</td>
 </tr>
 <tr class="odd">
-<td><code>ref_month_yyyymm</code></td>
-<td>Reference month as YYYYMM integer</td>
+<td><code>determined_month</code></td>
+<td>Logical flag (TRUE if month was determined)</td>
 </tr>
 <tr class="even">
 <td><code>weight_monthly</code></td>
-<td>Monthly survey weight (if <code>calibrate = TRUE</code>)</td>
+<td>Calibrated monthly weight (if <code>calibrate = TRUE</code>)</td>
 </tr>
 </tbody>
 </table>
-<p>Observations with <code>ref_month_in_quarter = NA</code> have
-indeterminate reference months and should be excluded from monthly
-analyses.</p>
+<p>The distribution is approximately equal across months 1, 2, and 3
+(each around 31-32%), with the remaining observations having
+<code>NA</code> for indeterminate cases.</p>
+<hr>
 </div>
 <div class="section level2">
 <h2 id="step-7-save-and-use-the-results">Step 7: Save and Use the Results<a class="anchor" aria-label="anchor" href="#step-7-save-and-use-the-results"></a>
 </h2>
 <p>Save the mensalized data for future use:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Save the mensalized crosswalk</span></span>
-<span><span class="fu"><a href="http://www.fstpackage.org/reference/write_fst.html" class="external-link">write_fst</a></span><span class="op">(</span><span class="va">result</span>, <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">data_dir</span>, <span class="st">"pnadc_mensalized.fst"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>To use the results in analysis, join the mensalization crosswalk with
-your full PNADC data:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Load a quarterly file with all variables</span></span>
-<span><span class="va">full_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="http://www.fstpackage.org/reference/write_fst.html" class="external-link">read_fst</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">data_dir</span>, <span class="st">"pnadc_2023-1q.fst"</span><span class="op">)</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="http://www.fstpackage.org/reference/write_fst.html" class="external-link">write_fst</a></span><span class="op">(</span><span class="va">result</span>, <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">data_dir</span>, <span class="st">"pnadc_mensalized.fst"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>To compute monthly estimates, filter to determined observations and
+aggregate by <code>ref_month_yyyymm</code>:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Monthly unemployment rate</span></span>
+<span><span class="va">monthly_unemployment</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">[</span><span class="va">determined_month</span> <span class="op">==</span> <span class="cn">TRUE</span>, <span class="fu">.</span><span class="op">(</span></span>
+<span>  unemployment_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">(</span><span class="va">VD4002</span> <span class="op">==</span> <span class="fl">2</span><span class="op">)</span> <span class="op">*</span> <span class="va">weight_monthly</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">/</span></span>
+<span>                      <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">(</span><span class="va">VD4001</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="op">*</span> <span class="va">weight_monthly</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="op">)</span>, by <span class="op">=</span> <span class="va">ref_month_yyyymm</span><span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Join with mensalization results (crosswalk is at household-quarter level)</span></span>
-<span><span class="va">analysis_data</span> <span class="op">&lt;-</span> <span class="va">full_data</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span></span>
-<span>    <span class="va">result</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">Ano</span>, <span class="va">Trimestre</span>, <span class="va">UPA</span>, <span class="va">V1008</span>, <span class="va">V1014</span>,</span>
-<span>                     <span class="va">ref_month</span>, <span class="va">ref_month_in_quarter</span>, <span class="va">weight_monthly</span><span class="op">)</span>,</span>
-<span>    by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Ano"</span>, <span class="st">"Trimestre"</span>, <span class="st">"UPA"</span>, <span class="st">"V1008"</span>, <span class="st">"V1014"</span><span class="op">)</span></span>
-<span>  <span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Now you can aggregate by month using weight_monthly</span></span>
-<span><span class="va">monthly_unemployment</span> <span class="op">&lt;-</span> <span class="va">analysis_data</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_month_in_quarter</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">ref_month</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarize</a></span><span class="op">(</span></span>
-<span>    unemployment_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">(</span><span class="va">VD4002</span> <span class="op">==</span> <span class="fl">2</span><span class="op">)</span> <span class="op">*</span> <span class="va">weight_monthly</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">/</span></span>
-<span>                        <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">(</span><span class="va">VD4001</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="op">*</span> <span class="va">weight_monthly</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span>  <span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Monthly population</span></span>
+<span><span class="va">monthly_pop</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">[</span><span class="va">determined_month</span> <span class="op">==</span> <span class="cn">TRUE</span>, <span class="fu">.</span><span class="op">(</span></span>
+<span>  population <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">weight_monthly</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="op">)</span>, by <span class="op">=</span> <span class="va">ref_month_yyyymm</span><span class="op">]</span></span></code></pre></div>
+<p>For more analysis examples, see <a href="applied-examples.html">Applied Examples</a>.</p>
+<hr>
 </div>
 <div class="section level2">
 <h2 id="memory-and-performance-tips">Memory and Performance Tips<a class="anchor" aria-label="anchor" href="#memory-and-performance-tips"></a>
 </h2>
-<p>Working with PNADC microdata can be memory-intensive. Here are some
-tips:</p>
 <ol style="list-style-type: decimal">
 <li><p><strong>Selective column loading</strong>: Only load the columns
 you need with <code>read_fst(..., columns = ...)</code>. This
@@ -527,6 +416,7 @@ minutes.</p></li>
 </tr>
 </tbody>
 </table>
+<hr>
 </div>
 </div>
 <div class="section level2">
@@ -534,24 +424,23 @@ minutes.</p></li>
 </h2>
 <p>For the best determination rate and longitudinal analysis, download
 all available quarters:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Download all available data (2012-present)</span></span>
 <span><span class="va">editions_full</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid</a></span><span class="op">(</span></span>
 <span>  year <span class="op">=</span> <span class="fl">2012</span><span class="op">:</span><span class="fl">2025</span>,</span>
 <span>  quarter <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span></span>
-<span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="op">(</span><span class="va">year</span> <span class="op">==</span> <span class="fl">2025</span> <span class="op">&amp;</span> <span class="va">quarter</span> <span class="op">&gt;</span> <span class="fl">3</span><span class="op">)</span><span class="op">)</span>  <span class="co"># Adjust for latest available</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">editions_full</span> <span class="op">&lt;-</span> <span class="va">editions_full</span><span class="op">[</span><span class="op">!</span><span class="op">(</span><span class="va">editions_full</span><span class="op">$</span><span class="va">year</span> <span class="op">==</span> <span class="fl">2025</span> <span class="op">&amp;</span></span>
+<span>                                   <span class="va">editions_full</span><span class="op">$</span><span class="va">quarter</span> <span class="op">&gt;</span> <span class="fl">3</span><span class="op">)</span>, <span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Use the same download and stacking loops as above</span></span></code></pre></div>
+<span><span class="co"># Use the same download and stacking workflow as above</span></span></code></pre></div>
 <p>The full history provides approximately 29 million observations and
-achieves the highest possible determination rate.</p>
+achieves the highest possible determination rate (~97% month).</p>
+<hr>
 </div>
 <div class="section level2">
 <h2 id="troubleshooting">Troubleshooting<a class="anchor" aria-label="anchor" href="#troubleshooting"></a>
 </h2>
-<div class="section level3">
-<h3 id="common-issues">Common Issues<a class="anchor" aria-label="anchor" href="#common-issues"></a>
-</h3>
 <ol style="list-style-type: decimal">
 <li><p><strong>“Column not found” errors</strong>: Ensure you used
 <code>labels = FALSE</code> when downloading. The algorithm requires
@@ -562,17 +451,16 @@ automatically, but you may need to restart interrupted
 downloads.</p></li>
 <li><p><strong>Memory errors</strong>: Try processing fewer quarters at
 a time, or use a machine with more RAM.</p></li>
-<li><p><strong>SIDRA API errors</strong>: The weight calibration
-requires internet access to the SIDRA API. If it fails, try again later
-or use <code>calibrate = FALSE</code> for just reference period
-identification without weight calibration.</p></li>
+<li><p><strong>SIDRA API errors</strong>: Weight calibration requires
+internet access to the SIDRA API. If it fails, try again later or use
+<code>calibrate = FALSE</code> for reference period identification
+without weight calibration.</p></li>
 </ol>
-</div>
+<hr>
 </div>
 <div class="section level2">
 <h2 id="next-steps">Next Steps<a class="anchor" aria-label="anchor" href="#next-steps"></a>
 </h2>
-<p>Now that you have mensalized PNADC data, you can:</p>
 <ul>
 <li>Follow the usage patterns in <a href="getting-started.html">Get
 Started</a> with your real data</li>
@@ -582,8 +470,6 @@ Examples</a>
 <li>Learn about the algorithm in <a href="how-it-works.html">How
 PNADCperiods Works</a>
 </li>
-<li>Visit the <a href="https://antrologos.github.io/PNADCperiods/">package website</a>
-for more resources</li>
 </ul>
 <blockquote>
 <p><strong>Working with annual PNADC data?</strong> Annual data
@@ -593,7 +479,6 @@ Poverty Analysis with Annual PNADC Data</a> for details on using
 <code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code> with
 <code>anchor = "year"</code>.</p>
 </blockquote>
-<p>For questions or issues, please open an issue on <a href="https://github.com/antrologos/PNADCperiods/issues" class="external-link">GitHub</a>.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

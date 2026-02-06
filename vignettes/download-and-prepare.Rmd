@@ -7,12 +7,6 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-<!--
-MAINTAINER NOTE:
-This vignette uses eval=FALSE for all code chunks.
-Pre-computed outputs are shown as text blocks.
--->
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   eval = FALSE,
@@ -25,9 +19,7 @@ knitr::opts_chunk$set(
 
 ## Introduction
 
-This vignette provides a complete, step-by-step workflow for downloading Brazil's quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) survey data and preparing it for mensalization. By the end, you will have monthly reference months identified for each survey observation and optionally computed monthly survey weights.
-
-The workflow covers three main tasks:
+This vignette provides a complete workflow for downloading Brazil's quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios Continua) microdata and preparing it for mensalization. The workflow covers three steps:
 
 1. **Downloading** quarterly PNADC microdata from IBGE using the `PNADcIBGE` package
 2. **Stacking** multiple quarters into a single dataset (critical for high determination rates)
@@ -35,21 +27,22 @@ The workflow covers three main tasks:
 
 If you already have PNADC data and want to learn the package API first, see [Get Started](getting-started.html). For algorithm details, see [How PNADCperiods Works](how-it-works.html).
 
+---
+
 ## Prerequisites
 
 ### Required Packages
 
 ```{r packages}
 # Install packages if needed
-install.packages(c("PNADcIBGE", "tidyverse", "fst"))
+install.packages(c("PNADcIBGE", "fst"))
 
 # Install PNADCperiods from GitHub
-# install.packages("remotes")
 # remotes::install_github("antrologos/PNADCperiods")
 
 # Load packages
 library(PNADcIBGE)
-library(tidyverse)
+library(data.table)
 library(fst)
 library(PNADCperiods)
 ```
@@ -61,38 +54,36 @@ library(PNADCperiods)
 - **Time**: 2-3 hours for downloading (depends on internet speed), ~5 minutes for processing
 - **Internet**: Required for downloading data and for SIDRA API access (weight calibration)
 
+---
+
 ## Understanding PNADC Data
 
 PNADC is Brazil's primary household survey for labor market statistics, conducted by IBGE. The survey uses a rotating panel design where each household is interviewed five times over 15 months. Each quarterly release contains approximately 500,000 observations.
 
-**Why stack multiple quarters?** The mensalization algorithm identifies reference months by tracking households across their panel interviews. With a single quarter, the determination rate is only ~70%. By stacking multiple quarters, the algorithm can leverage the rotating panel structure to achieve **over 97% determination**.
+**Why stack multiple quarters?** The mensalization algorithm identifies reference months by tracking households across their panel interviews. With a single quarter, the determination rate is only ~70%. By stacking multiple quarters, the algorithm leverages the rotating panel structure to achieve **over 97% determination**.
 
-| Quarters Stacked | Month % | Fortnight % | Week % | Source |
-|------------------|---------|-------------|--------|--------|
-| 1 (single quarter) | 70% | 7% | 2% | Test data (2019-Q1) |
-| 8 (2 years) | 94% | 9% | 3% | 2019-2020 benchmark |
-| 20 (5 years) | 95% | 8% | 3% | 2020-2024 example |
-| 55+ (full history) | **97%** | **9%** | **3%** | 2012-2025 complete data |
+| Quarters Stacked | Month % | Fortnight % | Week % |
+|------------------|---------|-------------|--------|
+| 1 (single quarter) | ~70% | ~7% | ~2% |
+| 8 (2 years) | ~94% | ~9% | ~3% |
+| 20 (5 years) | ~95% | ~8% | ~3% |
+| 55+ (full history) | **~97%** | **~9%** | **~3%** |
 
-**Note:** Determination rates vary by time period due to data quality. The 2020-2024 period shows slightly lower rates due to COVID-19 collection disruptions in 2020.
+For most applications, we recommend stacking at least 2 years (8 quarters) of data.
 
-For most applications, we recommend stacking at least 2 years (8 quarters) of data. For a detailed explanation of how determination rates improve with stacking, including a figure computed from real data, see the [How PNADCperiods Works](how-it-works.html#why-stacked-data-matters) vignette.
+---
 
 ## Step 1: Set Up Your Environment
-
-First, create a directory to store the downloaded data:
 
 ```{r setup-dir}
 # Set your data directory (adjust path as needed)
 data_dir <- "path/to/your/pnadc_data/"
-
-# Create directory if it doesn't exist
 dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
 ```
 
 ## Step 2: Define Which Quarters to Download
 
-Create a grid of year-quarter combinations to download. This example uses 2020-2024, which provides a good balance between data size and determination rate:
+Create a grid of year-quarter combinations. This example uses 2020-2024, which provides a good balance between data size and determination rate:
 
 ```{r editions}
 # Define quarters to download (2020-2024 example)
@@ -100,27 +91,20 @@ editions <- expand.grid(
   year = 2020:2024,
   quarter = 1:4
 )
-# Note: If downloading more recent years, filter out quarters not yet available:
-# editions <- editions |> filter(!(year == 2025 & quarter > 3))
-
-# View the grid
-editions
+# If downloading recent years, filter out quarters not yet available:
+# editions <- editions[!(editions$year == 2025 & editions$quarter > 3), ]
 ```
-
-This creates a grid of 20 quarters. If extending to more recent years, adjust the filter for the latest available quarter.
 
 ## Step 3: Download the Data
 
-The download loop fetches each quarter from IBGE and saves it in FST format for fast loading later:
+The download loop fetches each quarter from IBGE and saves it in FST format for fast loading:
 
 ```{r download-loop}
-# Download and save each quarter
 for (i in 1:nrow(editions)) {
   year_i <- editions$year[i]
   quarter_i <- editions$quarter[i]
 
   filename <- paste0("pnadc_", year_i, "-", quarter_i, "q.fst")
-
   cat("Downloading:", year_i, "Q", quarter_i, "\n")
 
   # Download from IBGE
@@ -142,7 +126,6 @@ for (i in 1:nrow(editions)) {
                            full.names = TRUE)
   file.remove(temp_files)
 
-  # Free memory
   rm(pnadc_quarter)
   gc()
 }
@@ -150,17 +133,17 @@ for (i in 1:nrow(editions)) {
 
 > **Important**: Always use `labels = FALSE` when downloading. The mensalization algorithm requires numeric codes for the birthday variables (V2008, V20081, V20082). Using labeled factors will cause errors.
 
-This loop will take 2-3 hours depending on your internet connection. Each quarter is approximately 300-400 MB when saved as FST.
+---
 
 ## Step 4: Stack the Quarterly Files
 
-Now stack all the quarterly files into a single dataset. To save memory, we only load the columns needed for mensalization:
+Stack all quarterly files into a single dataset. To save memory, only load the columns needed for mensalization:
 
 ```{r stack-data}
 # Columns needed for mensalization
 cols_needed <- c(
   # Time and identifiers
-  "Ano", "Trimestre", "UPA", "V1008", "V1014", "V2003",
+  "Ano", "Trimestre", "UPA", "V1008", "V1014",
   # Birthday variables (for reference period algorithm)
   "V2008", "V20081", "V20082", "V2009",
   # Weight and stratification (for weight calibration)
@@ -168,49 +151,32 @@ cols_needed <- c(
 )
 
 # Stack all quarters
-pnadc_stacked <- NULL
+files <- list.files(data_dir, pattern = "pnadc_.*\\.fst$", full.names = TRUE)
 
-for (i in 1:nrow(editions)) {
-  year_i <- editions$year[i]
-  quarter_i <- editions$quarter[i]
-
-  filename <- paste0("pnadc_", year_i, "-", quarter_i, "q.fst")
-  cat("Loading:", filename, "\n")
-
-  # Read only the columns we need (saves memory)
-  quarter_data <- read_fst(
-    file.path(data_dir, filename),
-    columns = cols_needed
-  )
-
-  pnadc_stacked <- bind_rows(pnadc_stacked, quarter_data)
-  rm(quarter_data)
-  gc()
-}
+pnadc_stacked <- rbindlist(lapply(files, function(f) {
+  cat("Loading:", basename(f), "\n")
+  read_fst(f, columns = cols_needed, as.data.table = TRUE)
+}))
 
 cat("Total observations:", format(nrow(pnadc_stacked), big.mark = ","), "\n")
 ```
 
-Output (from real PNADC 2020-2024 data):
-```
-Loading: pnadc_2020-1q.fst
-Loading: pnadc_2020-2q.fst
-...
-Loading: pnadc_2024-4q.fst
-Total observations: 8,868,247
-```
+---
 
 ## Step 5: Apply Mensalization
 
-Now apply the period identification algorithm and optionally compute calibrated weights:
+Build the crosswalk (identify reference periods) and calibrate weights:
 
 ```{r mensalize}
 # Step 1: Build crosswalk (identify reference periods)
 crosswalk <- pnadc_identify_periods(pnadc_stacked, verbose = TRUE)
 
-# Check the determination rate
-cat("Determination rate:",
-    sprintf("%.1f%%", attr(crosswalk, "determination_rates")$month * 100), "\n")
+# Check determination rates
+crosswalk[, .(
+  month_rate = mean(determined_month),
+  fortnight_rate = mean(determined_fortnight),
+  week_rate = mean(determined_week)
+)]
 
 # Step 2: Apply crosswalk and calibrate weights
 result <- pnadc_apply_periods(
@@ -224,120 +190,63 @@ result <- pnadc_apply_periods(
 )
 ```
 
-Output (from real PNADC 2020-2024 data):
-```
-Building reference period crosswalk (nested identification)...
+The verbose output shows progress and determination rates for each phase (month, fortnight, week). With 20 quarters stacked (2020-2024), expect ~95% month determination.
 
-Phase 1: Identifying MONTHS (all observations)...
-  Step 1.1: Preprocessing data...
-  Step 1.2: Computing valid interview Saturdays...
-  Step 1.3: Calculating birthdays and adjusting for leap years...
-  Step 1.4: Applying birthday constraints...
-  Step 1.5: Converting to month positions...
-  Step 1.6: Aggregating at UPA-panel level (cross-quarter)...
-  Step 1.7: Detecting exception cases...
-  Step 1.7b: Applying exception rules...
-  Step 1.8: Determining reference months...
-  -> Month determination: 94.6% (8,386,003 of 8,868,247 observations)
-
-Phase 2: Identifying FORTNIGHTS (within determined months)...
-  Processing 8,386,003 observations with determined months...
-  Step 2.1: Calculate fortnight bounds WITHIN the determined month...
-  Step 2.2: Aggregating at household level (within quarter)...
-  Step 2.3: Determining reference fortnights...
-  -> Fortnight determination: 8.4% (748,904 of 8,868,247 observations)
-
-Phase 3: Identifying WEEKS (within determined fortnights)...
-  Processing 748,904 observations with determined fortnights...
-  Step 3.2: Aggregating at household level (within quarter)...
-  Step 3.4: Determining reference weeks...
-  -> Week determination: 3.0% (269,288 of 8,868,247 observations)
-
-Phase 4: Building crosswalk...
-
-========================================
-Crosswalk complete (nested identification):
-========================================
-```
-
-The determination rate tells you what percentage of observations have their reference period identified. With 20 quarters stacked (2020-2024), we achieve 94.6% for months, 8.4% for fortnights, and 3.0% for weeks.
+---
 
 ## Step 6: Explore the Results
 
-The result is a data.table with several new columns:
+The result contains all original columns plus reference period indicators and calibrated weights:
 
 ```{r explore}
-# View the result structure
-glimpse(result)
+# Key new columns
+names(result)[grep("ref_|determined_|weight_", names(result))]
 
-# Summary of reference month distribution
-result |>
-  count(ref_month_in_quarter) |>
-  mutate(pct = n / sum(n) * 100)
+# Distribution of reference months within quarters
+result[, .N, by = ref_month_in_quarter][order(ref_month_in_quarter)]
 ```
 
-Output (from real PNADC 2020-2024 data):
-```
-   ref_month_in_quarter       N   pct
-1:                    1 2870178  32.4
-2:                    2 2725932  30.7
-3:                    3 2789893  31.5
-4:                   NA  482244   5.4
-```
-
-The distribution is approximately equal across months 1, 2, and 3 (each around 31-32%), with 5.4% having `NA` for indeterminate cases. The 94.6% determination rate for this 2020-2024 subset is slightly lower than the 97.0% achieved with full 2012-2025 data due to:
-
-- **Boundary effects**: The first and last 4 quarters in any dataset have incomplete panel coverage
-- **COVID-19 impact**: 2020 data shows degraded determination rates due to IBGE collection disruptions
-- **Panel accumulation**: More years of data = more panel cycles = higher cross-quarter determination
-
-The output columns include:
+Key output columns:
 
 | Column | Description |
 |--------|-------------|
-| `ref_month` | Reference month as Date (first day of month) |
-| `ref_month_in_quarter` | Position within quarter (1, 2, or 3) |
-| `ref_month_yyyymm` | Reference month as YYYYMM integer |
-| `weight_monthly` | Monthly survey weight (if `calibrate = TRUE`) |
+| `ref_month_in_quarter` | Position within quarter (1, 2, or 3; NA if indeterminate) |
+| `ref_month_yyyymm` | Reference month as YYYYMM integer (e.g., 202301) |
+| `determined_month` | Logical flag (TRUE if month was determined) |
+| `weight_monthly` | Calibrated monthly weight (if `calibrate = TRUE`) |
 
-Observations with `ref_month_in_quarter = NA` have indeterminate reference months and should be excluded from monthly analyses.
+The distribution is approximately equal across months 1, 2, and 3 (each around 31-32%), with the remaining observations having `NA` for indeterminate cases.
+
+---
 
 ## Step 7: Save and Use the Results
 
 Save the mensalized data for future use:
 
 ```{r save}
-# Save the mensalized crosswalk
 write_fst(result, file.path(data_dir, "pnadc_mensalized.fst"))
 ```
 
-To use the results in analysis, join the mensalization crosswalk with your full PNADC data:
+To compute monthly estimates, filter to determined observations and aggregate by `ref_month_yyyymm`:
 
-```{r join}
-# Load a quarterly file with all variables
-full_data <- read_fst(file.path(data_dir, "pnadc_2023-1q.fst"))
+```{r monthly-analysis}
+# Monthly unemployment rate
+monthly_unemployment <- result[determined_month == TRUE, .(
+  unemployment_rate = sum((VD4002 == 2) * weight_monthly, na.rm = TRUE) /
+                      sum((VD4001 == 1) * weight_monthly, na.rm = TRUE)
+), by = ref_month_yyyymm]
 
-# Join with mensalization results (crosswalk is at household-quarter level)
-analysis_data <- full_data |>
-  left_join(
-    result |> select(Ano, Trimestre, UPA, V1008, V1014,
-                     ref_month, ref_month_in_quarter, weight_monthly),
-    by = c("Ano", "Trimestre", "UPA", "V1008", "V1014")
-  )
-
-# Now you can aggregate by month using weight_monthly
-monthly_unemployment <- analysis_data |>
-  filter(!is.na(ref_month_in_quarter)) |>
-  group_by(ref_month) |>
-  summarize(
-    unemployment_rate = sum((VD4002 == 2) * weight_monthly, na.rm = TRUE) /
-                        sum((VD4001 == 1) * weight_monthly, na.rm = TRUE)
-  )
+# Monthly population
+monthly_pop <- result[determined_month == TRUE, .(
+  population = sum(weight_monthly, na.rm = TRUE)
+), by = ref_month_yyyymm]
 ```
 
-## Memory and Performance Tips
+For more analysis examples, see [Applied Examples](applied-examples.html).
 
-Working with PNADC microdata can be memory-intensive. Here are some tips:
+---
+
+## Memory and Performance Tips
 
 1. **Selective column loading**: Only load the columns you need with `read_fst(..., columns = ...)`. This dramatically reduces memory usage.
 
@@ -354,6 +263,8 @@ Working with PNADC microdata can be memory-intensive. Here are some tips:
 | 2020-2024 | 20 | ~8.9M | ~5 GB |
 | 2012-2025 | 55 | ~29M | ~15 GB |
 
+---
+
 ## Extending to Full History
 
 For the best determination rate and longitudinal analysis, download all available quarters:
@@ -363,17 +274,18 @@ For the best determination rate and longitudinal analysis, download all availabl
 editions_full <- expand.grid(
   year = 2012:2025,
   quarter = 1:4
-) |>
-  filter(!(year == 2025 & quarter > 3))  # Adjust for latest available
+)
+editions_full <- editions_full[!(editions_full$year == 2025 &
+                                   editions_full$quarter > 3), ]
 
-# Use the same download and stacking loops as above
+# Use the same download and stacking workflow as above
 ```
 
-The full history provides approximately 29 million observations and achieves the highest possible determination rate.
+The full history provides approximately 29 million observations and achieves the highest possible determination rate (~97% month).
+
+---
 
 ## Troubleshooting
-
-### Common Issues
 
 1. **"Column not found" errors**: Ensure you used `labels = FALSE` when downloading. The algorithm requires numeric codes.
 
@@ -381,17 +293,14 @@ The full history provides approximately 29 million observations and achieves the
 
 3. **Memory errors**: Try processing fewer quarters at a time, or use a machine with more RAM.
 
-4. **SIDRA API errors**: The weight calibration requires internet access to the SIDRA API. If it fails, try again later or use `calibrate = FALSE` for just reference period identification without weight calibration.
+4. **SIDRA API errors**: Weight calibration requires internet access to the SIDRA API. If it fails, try again later or use `calibrate = FALSE` for reference period identification without weight calibration.
+
+---
 
 ## Next Steps
-
-Now that you have mensalized PNADC data, you can:
 
 - Follow the usage patterns in [Get Started](getting-started.html) with your real data
 - See analysis examples in [Applied Examples](applied-examples.html)
 - Learn about the algorithm in [How PNADCperiods Works](how-it-works.html)
-- Visit the [package website](https://antrologos.github.io/PNADCperiods/) for more resources
 
 > **Working with annual PNADC data?** Annual data (visit-specific microdata with comprehensive income variables) requires a different workflow. See [Monthly Poverty Analysis with Annual PNADC Data](annual-poverty-analysis.html) for details on using `pnadc_apply_periods()` with `anchor = "year"`.
-
-For questions or issues, please open an issue on [GitHub](https://github.com/antrologos/PNADCperiods/issues).
