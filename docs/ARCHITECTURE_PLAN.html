@@ -20,6 +20,7 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="articles/download-and-prepare.html">Download and Prepare Data</a></li>
+    <li><a class="dropdown-item" href="articles/sidra-mensalization.html">SIDRA Mensalization Guide</a></li>
     <li><a class="dropdown-item" href="articles/applied-examples.html">Applied Examples</a></li>
     <li><a class="dropdown-item" href="articles/annual-poverty-analysis.html">Annual Poverty Analysis</a></li>
     <li><a class="dropdown-item" href="articles/complex-survey-design.html">Complex Survey Design</a></li>
@@ -75,6 +76,25 @@
 <td>Fetch population from SIDRA API (table 6022)</td>
 </tr><tr><td><code><a href="reference/validate_pnadc.html">validate_pnadc()</a></code></td>
 <td>Input validation with detailed error reporting</td>
+</tr><tr><td><code><a href="reference/clear_sidra_cache.html">clear_sidra_cache()</a></code></td>
+<td>Clear all cached SIDRA data</td>
+</tr></tbody></table></div>
+<div class="section level3">
+<h3 id="sidra-series-mensalization">SIDRA Series Mensalization<a class="anchor" aria-label="anchor" href="#sidra-series-mensalization"></a></h3>
+<table class="table"><colgroup><col width="52%"><col width="47%"></colgroup><thead><tr><th>Function</th>
+<th>Purpose</th>
+</tr></thead><tbody><tr><td><code><a href="reference/get_sidra_series_metadata.html">get_sidra_series_metadata()</a></code></td>
+<td>List 86+ available PNADC rolling quarter series</td>
+</tr><tr><td><code><a href="reference/fetch_sidra_rolling_quarters.html">fetch_sidra_rolling_quarters()</a></code></td>
+<td>Download rolling quarterly data from SIDRA API</td>
+</tr><tr><td><code><a href="reference/mensalize_sidra_series.html">mensalize_sidra_series()</a></code></td>
+<td>Convert rolling quarters to exact monthly estimates</td>
+</tr><tr><td><code><a href="reference/compute_starting_points_from_microdata.html">compute_starting_points_from_microdata()</a></code></td>
+<td>Compute y0 starting points from PNADC microdata</td>
+</tr><tr><td><code><a href="reference/compute_series_starting_points.html">compute_series_starting_points()</a></code></td>
+<td>Compute y0 from pre-aggregated z values</td>
+</tr><tr><td><code><a href="reference/compute_z_aggregates.html">compute_z_aggregates()</a></code></td>
+<td>Compute weighted aggregates by period</td>
 </tr></tbody></table></div>
 </div>
 <div class="section level2">
@@ -121,30 +141,21 @@
 </tr><tr><td><code>V1014</code></td>
 <td>integer</td>
 <td>Panel group (1-8)</td>
-</tr><tr><td><code>ref_month_start</code></td>
-<td>Date</td>
-<td>Sunday of first IBGE week of the month</td>
-</tr><tr><td><code>ref_month_end</code></td>
-<td>Date</td>
-<td>Saturday of last IBGE week of the month</td>
 </tr><tr><td><code>ref_month_in_quarter</code></td>
 <td>integer</td>
 <td>Position in quarter (1, 2, 3) or NA</td>
+</tr><tr><td><code>ref_month_in_year</code></td>
+<td>integer</td>
+<td>Position in year (1-12) or NA</td>
 </tr><tr><td><code>ref_month_yyyymm</code></td>
 <td>integer</td>
 <td>YYYYMM format (e.g., 202301)</td>
-</tr><tr><td><code>ref_month_weeks</code></td>
-<td>integer</td>
-<td>Number of IBGE weeks in month (always 4)</td>
 </tr><tr><td><code>determined_month</code></td>
 <td>logical</td>
 <td>TRUE if month was determined</td>
-</tr><tr><td><code>ref_fortnight_start</code></td>
-<td>Date</td>
-<td>Sunday of first IBGE week of the fortnight</td>
-</tr><tr><td><code>ref_fortnight_end</code></td>
-<td>Date</td>
-<td>Saturday of last IBGE week of the fortnight</td>
+</tr><tr><td><code>ref_fortnight_in_month</code></td>
+<td>integer</td>
+<td>Position in month (1 or 2) or NA</td>
 </tr><tr><td><code>ref_fortnight_in_quarter</code></td>
 <td>integer</td>
 <td>Position in quarter (1-6) or NA</td>
@@ -154,12 +165,9 @@
 </tr><tr><td><code>determined_fortnight</code></td>
 <td>logical</td>
 <td>TRUE if fortnight was determined</td>
-</tr><tr><td><code>ref_week_start</code></td>
-<td>Date</td>
-<td>Sunday of the IBGE week</td>
-</tr><tr><td><code>ref_week_end</code></td>
-<td>Date</td>
-<td>Saturday of the IBGE week</td>
+</tr><tr><td><code>ref_week_in_month</code></td>
+<td>integer</td>
+<td>Position in month (1-4) or NA</td>
 </tr><tr><td><code>ref_week_in_quarter</code></td>
 <td>integer</td>
 <td>Position in quarter (1-12) or NA</td>
@@ -170,9 +178,11 @@
 <td>logical</td>
 <td>TRUE if week was determined</td>
 </tr></tbody></table><p><strong>Join keys:</strong> <code>Ano</code>, <code>Trimestre</code>, <code>UPA</code>, <code>V1008</code>, <code>V1014</code></p>
+<p>When <code>store_date_bounds = TRUE</code>, additional columns include date bounds and debugging variables (see function documentation).</p>
 </div>
 <div class="section level2">
 <h2 id="determination-rates">Determination Rates<a class="anchor" aria-label="anchor" href="#determination-rates"></a></h2>
+<p><strong>Strict algorithm (full series 2012-2025):</strong></p>
 <table class="table"><colgroup><col width="36%"><col width="27%"><col width="36%"></colgroup><thead><tr><th>Period</th>
 <th>Rate</th>
 <th>Reason</th>
@@ -180,23 +190,26 @@
 <td>~97%</td>
 <td>Aggregates at UPA-V1014 level across ALL quarters (panel design)</td>
 </tr><tr><td>Fortnight</td>
-<td>~7%</td>
+<td>~9%</td>
 <td>Nested under month; household-level within quarter only</td>
 </tr><tr><td>Week</td>
-<td>~1.5%</td>
+<td>~3%</td>
 <td>Nested under fortnight; household-level within quarter only</td>
-</tr></tbody></table><p><strong>Key insight:</strong> Only month identification benefits from stacking data across quarters. Fortnights and weeks are determined solely from birthday constraints within a single quarter, AND require their parent period to be determined first.</p>
+</tr></tbody></table><p>With smaller datasets, rates may differ (e.g., 8 quarters 2019-2020: ~94% month).</p>
+<p><strong>Experimental strategies (probabilistic + UPA aggregation) improve upon these rates.</strong></p>
+<p><strong>Key insight:</strong> Only month identification benefits from stacking data across quarters. Fortnights and weeks are determined solely from birthday constraints within a single quarter, AND require their parent period to be determined first.</p>
 </div>
 <div class="section level2">
 <h2 id="file-structure">File Structure<a class="anchor" aria-label="anchor" href="#file-structure"></a></h2>
 <pre><code>R/
 ├── pnadc-identify-periods.R         # pnadc_identify_periods() - nested 4-phase algorithm
 ├── pnadc-apply-periods.R            # pnadc_apply_periods() - adaptive calibration + smoothing
-├── experimental-period-identification.R  # pnadc_experimental_periods()
-├── identify-reference-month.R       # Core month algorithm with dynamic exceptions (internal)
-├── identify-reference-fortnight.R   # Core fortnight algorithm (internal)
-├── identify-reference-week.R        # Core week algorithm + technical stop handling (internal)
-├── fetch-sidra-population.R         # fetch_monthly_population() - SIDRA API
+├── pnadc-experimental-periods.R     # pnadc_experimental_periods() - probabilistic/UPA strategies
+├── fetch-sidra-population.R         # fetch_monthly_population() - SIDRA population API
+├── fetch-sidra-series.R             # fetch_sidra_rolling_quarters() + unified SIDRA cache
+├── mensalize-sidra-series.R         # mensalize_sidra_series() - rolling quarters → monthly
+├── sidra-series-metadata.R          # get_sidra_series_metadata() - 86+ series definitions
+├── data-starting-points.R           # compute_*() functions + pnadc_series_starting_points dataset
 ├── utils-dates.R                    # Fast IBGE date utilities (lookup tables, week/fortnight functions)
 ├── utils-validation.R               # validate_pnadc() + internal helpers
 └── PNADCperiods-package.R           # Package docs + globalVariables</code></pre>
@@ -269,24 +282,29 @@
 </ul></div>
 <div class="section level3">
 <h3 id="output-columns">Output Columns<a class="anchor" aria-label="anchor" href="#output-columns"></a></h3>
-<p>When <code>include_derived = TRUE</code> (default), output is directly compatible with <code><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code>:</p>
+<p>Output is directly compatible with <code><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code>:</p>
 <table class="table"><colgroup><col width="38%"><col width="61%"></colgroup><thead><tr><th>Column</th>
 <th>Description</th>
 </tr></thead><tbody><tr><td>
-<code>ref_month_exp</code>, <code>ref_fortnight_exp</code>, <code>ref_week_exp</code>
+<code>ref_month_in_quarter</code>, <code>ref_fortnight_in_month</code>, <code>ref_week_in_month</code>
 </td>
-<td>Experimental positions (1-3, 1-6, 1-12)</td>
+<td>Combined strict + experimental positions</td>
 </tr><tr><td>
-<code>ref_month_exp_confidence</code>, etc.</td>
-<td>Confidence scores (0-1)</td>
-</tr><tr><td><code>probabilistic_assignment</code></td>
-<td>TRUE if any period assigned experimentally</td>
+<code>ref_month_yyyymm</code>, <code>ref_fortnight_yyyyff</code>, <code>ref_week_yyyyww</code>
+</td>
+<td>YYYYMM/FF/WW codes</td>
 </tr><tr><td>
 <code>determined_month</code>, <code>determined_fortnight</code>, <code>determined_week</code>
 </td>
-<td>Combined strict + experimental flags</td>
-</tr><tr><td>All derived columns from strict crosswalk</td>
-<td>IBGE boundaries, YYYYMM/FF/WW codes</td>
+<td>TRUE if assigned (strict or experimental)</td>
+</tr><tr><td><code>determined_probable_month/fortnight/week</code></td>
+<td>TRUE if assigned by probabilistic strategy</td>
+</tr><tr><td><code>probabilistic_assignment</code></td>
+<td>TRUE if any period assigned experimentally</td>
+</tr><tr><td>
+<code>week_1_start</code> … <code>week_4_end</code>
+</td>
+<td>IBGE week boundaries for assigned month</td>
 </tr></tbody></table></div>
 </div>
 <div class="section level2">
@@ -363,15 +381,52 @@
 </li>
 </ol></div>
 <div class="section level2">
+<h2 id="sidra-series-mensalization-1">SIDRA Series Mensalization<a class="anchor" aria-label="anchor" href="#sidra-series-mensalization-1"></a></h2>
+<p>The package provides functions to convert IBGE’s rolling quarterly (trimestre móvel) aggregate series to exact monthly estimates.</p>
+<div class="section level3">
+<h3 id="mathematical-foundation">Mathematical Foundation<a class="anchor" aria-label="anchor" href="#mathematical-foundation"></a></h3>
+<p>Rolling quarters are 3-month moving averages. The relationship:</p>
+<pre><code>RQ_t - RQ_{t-1} = (Month_t - Month_{t-3}) / 3</code></pre>
+<p>This allows recovery of exact monthly values given starting points.</p>
+</div>
+<div class="section level3">
+<h3 id="algorithm-steps">Algorithm Steps<a class="anchor" aria-label="anchor" href="#algorithm-steps"></a></h3>
+<ol style="list-style-type: decimal"><li>Fetch rolling quarters from SIDRA API</li>
+<li>Calculate <code>d3 = 3 × (RQ_t - RQ_{t-1})</code>
+</li>
+<li>Separate d3 by month position in quarter (mesnotrim 1, 2, 3)</li>
+<li>Cumulate separately: <code>cum1</code>, <code>cum2</code>, <code>cum3</code>
+</li>
+<li>Apply starting points: <code>y = y0 + cum</code>
+</li>
+<li>Final adjustment for rolling quarter consistency</li>
+</ol></div>
+<div class="section level3">
+<h3 id="starting-points">Starting Points<a class="anchor" aria-label="anchor" href="#starting-points"></a></h3>
+<ul><li>Pre-computed for 53 series from 2013-2019 microdata</li>
+<li>Bundled in <code>pnadc_series_starting_points</code> dataset</li>
+<li>Users can compute custom starting points via <code><a href="reference/compute_starting_points_from_microdata.html">compute_starting_points_from_microdata()</a></code>
+</li>
+</ul></div>
+<div class="section level3">
+<h3 id="available-series">Available Series<a class="anchor" aria-label="anchor" href="#available-series"></a></h3>
+<p>86+ series across themes: - <strong>labor_market</strong>: Employment, unemployment, participation rates - <strong>earnings</strong>: Wages, income by category - <strong>demographics</strong>: Population components - <strong>social_protection</strong>: Pension coverage - <strong>prices</strong>: Deflated series</p>
+</div>
+<div class="section level3">
+<h3 id="caching">Caching<a class="anchor" aria-label="anchor" href="#caching"></a></h3>
+<p>Unified cache infrastructure with optional expiration: - Rolling quarters and population data cached in <code>.sidra_cache</code> environment - <code><a href="reference/clear_sidra_cache.html">clear_sidra_cache()</a></code> to force fresh download</p>
+</div>
+</div>
+<div class="section level2">
 <h2 id="dependencies">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies"></a></h2>
-<p><strong>Required:</strong> - <code>data.table</code> (&gt;= 1.14.0) - Core data manipulation - <code>checkmate</code> (&gt;= 2.0.0) - Input validation - <code>sidrar</code> (&gt;= 0.2.9) - SIDRA API access for population data</p>
+<p><strong>Required:</strong> - <code>data.table</code> (&gt;= 1.14.0) - Core data manipulation - <code>checkmate</code> (&gt;= 2.0.0) - Input validation - <code>sidrar</code> (&gt;= 0.2.9) - SIDRA API access for population and series data - <code>lubridate</code> (&gt;= 1.9.4) - Date/time utilities</p>
 <p><strong>Suggested:</strong> - <code>dplyr</code> - Alternative data manipulation - <code>haven</code> - Read SAS/SPSS/Stata files - <code>testthat</code> (&gt;= 3.0.0) - Testing - <code>knitr</code>, <code>rmarkdown</code> - Vignettes - <code>pkgdown</code> - Website - <code>ggplot2</code>, <code>scales</code> - Visualization</p>
 </div>
 <div class="section level2">
 <h2 id="workflow-examples">Workflow Examples<a class="anchor" aria-label="anchor" href="#workflow-examples"></a></h2>
 <div class="section level3">
 <h3 id="standard-monthly-analysis">Standard Monthly Analysis<a class="anchor" aria-label="anchor" href="#standard-monthly-analysis"></a></h3>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Build crosswalk from stacked multi-year data (maximizes determination rate)</span></span>
 <span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc_stacked</span><span class="op">)</span></span>
 <span></span>
@@ -382,31 +437,29 @@
 </div>
 <div class="section level3">
 <h3 id="annual-data">Annual Data<a class="anchor" aria-label="anchor" href="#annual-data"></a></h3>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc_annual</span>, <span class="va">crosswalk</span>,</span>
 <span>                              weight_var <span class="op">=</span> <span class="st">"V1032"</span>,</span>
 <span>                              anchor <span class="op">=</span> <span class="st">"year"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="crosswalk-only-no-calibration">Crosswalk Only (No Calibration)<a class="anchor" aria-label="anchor" href="#crosswalk-only-no-calibration"></a></h3>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span><span class="va">pnadc_2023</span>, <span class="va">crosswalk</span>,</span>
 <span>                              calibrate <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="experimental-period-assignment">Experimental Period Assignment<a class="anchor" aria-label="anchor" href="#experimental-period-assignment"></a></h3>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Build standard crosswalk</span></span>
-<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc_data</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Build standard crosswalk (with date bounds for probabilistic strategy)</span></span>
+<span><span class="va">crosswalk</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_identify_periods.html">pnadc_identify_periods</a></span><span class="op">(</span><span class="va">pnadc_data</span>, store_date_bounds <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Apply experimental strategies for additional assignments</span></span>
 <span><span class="va">crosswalk_exp</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pnadc_experimental_periods.html">pnadc_experimental_periods</a></span><span class="op">(</span></span>
 <span>  <span class="va">crosswalk</span>,</span>
-<span>  <span class="va">pnadc_data</span>,</span>
 <span>  strategy <span class="op">=</span> <span class="st">"both"</span>,  <span class="co"># probabilistic + UPA aggregation</span></span>
 <span>  confidence_threshold <span class="op">=</span> <span class="fl">0.9</span>,</span>
-<span>  upa_proportion_threshold <span class="op">=</span> <span class="fl">0.5</span>,</span>
-<span>  include_derived <span class="op">=</span> <span class="cn">TRUE</span>  <span class="co"># Output compatible with pnadc_apply_periods()</span></span>
+<span>  upa_proportion_threshold <span class="op">=</span> <span class="fl">0.5</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Use directly with calibration</span></span>
@@ -416,6 +469,18 @@
 <span></span>
 <span><span class="co"># Filter to strict-only if needed</span></span>
 <span><span class="va">strict_only</span> <span class="op">&lt;-</span> <span class="va">crosswalk_exp</span><span class="op">[</span><span class="va">probabilistic_assignment</span> <span class="op">==</span> <span class="cn">FALSE</span> <span class="op">|</span> <span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">probabilistic_assignment</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="sidra-series-mensalization-2">SIDRA Series Mensalization<a class="anchor" aria-label="anchor" href="#sidra-series-mensalization-2"></a></h3>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Fetch rolling quarterly data from SIDRA</span></span>
+<span><span class="va">rolling</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fetch_sidra_rolling_quarters.html">fetch_sidra_rolling_quarters</a></span><span class="op">(</span>theme <span class="op">=</span> <span class="st">"labor_market"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Convert to exact monthly estimates</span></span>
+<span><span class="va">monthly</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/mensalize_sidra_series.html">mensalize_sidra_series</a></span><span class="op">(</span><span class="va">rolling</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># View available series</span></span>
+<span><span class="fu"><a href="reference/get_sidra_series_metadata.html">get_sidra_series_metadata</a></span><span class="op">(</span>theme <span class="op">=</span> <span class="st">"labor_market"</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">

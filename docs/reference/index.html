@@ -20,6 +20,7 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/download-and-prepare.html">Download and Prepare Data</a></li>
+    <li><a class="dropdown-item" href="../articles/sidra-mensalization.html">SIDRA Mensalization Guide</a></li>
     <li><a class="dropdown-item" href="../articles/applied-examples.html">Applied Examples</a></li>
     <li><a class="dropdown-item" href="../articles/annual-poverty-analysis.html">Annual Poverty Analysis</a></li>
     <li><a class="dropdown-item" href="../articles/complex-survey-design.html">Complex Survey Design</a></li>
@@ -71,6 +72,59 @@
         </dt>
         <dd>PNADCperiods: Identify Reference Periods in Brazil's PNADC Survey Data</dd>
       </dl></div><div class="section level2">
+      <h2 id="sidra-mensalization">SIDRA Mensalization<a class="anchor" aria-label="anchor" href="#sidra-mensalization"></a></h2>
+
+      <div class="section-desc"><p>Convert IBGE rolling quarter series to exact monthly estimates</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="fetch_sidra_rolling_quarters.html">fetch_sidra_rolling_quarters()</a></code>
+
+        </dt>
+        <dd>Fetch Rolling Quarter Series from SIDRA</dd>
+      </dl><dl><dt>
+
+          <code><a href="mensalize_sidra_series.html">mensalize_sidra_series()</a></code>
+
+        </dt>
+        <dd>Convert Rolling Quarters to Exact Monthly Series</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_sidra_series_metadata.html">get_sidra_series_metadata()</a></code>
+
+        </dt>
+        <dd>Get SIDRA Series Metadata</dd>
+      </dl><dl><dt>
+
+          <code><a href="compute_series_starting_points.html">compute_series_starting_points()</a></code>
+
+        </dt>
+        <dd>Compute Starting Points from Microdata</dd>
+      </dl><dl><dt>
+
+          <code><a href="compute_starting_points_from_microdata.html">compute_starting_points_from_microdata()</a></code>
+
+        </dt>
+        <dd>Compute Starting Points from Raw PNADC Microdata</dd>
+      </dl><dl><dt>
+
+          <code><a href="compute_z_aggregates.html">compute_z_aggregates()</a></code>
+
+        </dt>
+        <dd>Compute z_ Aggregates Using Stata-Compatible Methodology</dd>
+      </dl><dl><dt>
+
+          <code><a href="pnadc_series_starting_points.html">pnadc_series_starting_points</a></code>
+
+        </dt>
+        <dd>Starting Points for SIDRA Series Mensalization</dd>
+      </dl></div><div class="section level2">
       <h2 id="data-fetching">Data Fetching<a class="anchor" aria-label="anchor" href="#data-fetching"></a></h2>
 
       <div class="section-desc"><p>Functions for fetching external data</p></div>
@@ -92,7 +146,7 @@
           <code><a href="clear_sidra_cache.html">clear_sidra_cache()</a></code>
 
         </dt>
-        <dd>Clear SIDRA Population Cache</dd>
+        <dd>Clear All SIDRA Caches</dd>
       </dl></div><div class="section level2">
       <h2 id="utilities">Utilities<a class="anchor" aria-label="anchor" href="#utilities"></a></h2>
 

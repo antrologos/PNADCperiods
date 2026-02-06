@@ -5,6 +5,6 @@
 \title{Mensalize SIDRA Rolling Quarter Series}
 \description{
 Functions to convert IBGE's rolling quarterly (trimestre movel) series into
-exact monthly estimates using the methodology from Hecksher (2024).
+exact monthly estimates.
 }
 \keyword{internal}

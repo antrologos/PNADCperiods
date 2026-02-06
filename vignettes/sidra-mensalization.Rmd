@@ -54,9 +54,7 @@ monthly but publishes indicators as **rolling (moving) quarters**. Each publishe
 This design has statistical advantages (smaller standard errors), but creates
 serious problems for time series analysis.
 
-```{r fig1, echo=FALSE, out.width="100%", fig.cap="Rolling quarters overlap: each 'quarter' shares 2 months with its neighbors"}
-knitr::include_graphics("figures/sidra-mensalization/fig1_rolling_schematic.png")
-```
+![Rolling quarters overlap: each 'quarter' shares 2 months with its neighbors](figures/sidra-mensalization/fig1_rolling_schematic.png){width=100%}
 
 ### Problems for Researchers
 
@@ -212,9 +210,7 @@ The mensalization process follows a simple pipeline:
 SIDRA API → Rolling Quarters → Mensalization → Monthly Estimates
 ```
 
-```{r fig2, echo=FALSE, out.width="100%", fig.cap="Data flow from SIDRA to monthly estimates"}
-knitr::include_graphics("figures/sidra-mensalization/fig2_data_flow.png")
-```
+![Data flow from SIDRA to monthly estimates](figures/sidra-mensalization/fig2_data_flow.png){width=100%}
 
 ### Step 1: Fetching Rolling Quarter Data
 
@@ -395,9 +391,7 @@ starting from a calibrated "starting point" $y_0$:
 
 $$y_t = y_0 + \sum_{s \in \text{same position}, s \leq t} d3_s$$
 
-```{r fig3, echo=FALSE, out.width="100%", fig.cap="Mensalization process: rolling quarters (blue) vs monthly estimates (red)"}
-knitr::include_graphics("figures/sidra-mensalization/fig3_mensalization_process.png")
-```
+![Mensalization process: rolling quarters (blue) vs monthly estimates (red)](figures/sidra-mensalization/fig3_mensalization_process.png){width=100%}
 
 ### The Role of Starting Points (y0)
 
@@ -634,15 +628,11 @@ cat("Peak unemployment:", peak_month$m_taxadesocup, "% in",
     format(peak_month$date, "%B %Y"), "\n")
 ```
 
-```{r fig4, echo=FALSE, out.width="100%", fig.cap="Monthly vs rolling quarter unemployment rate (2019-2023)"}
-knitr::include_graphics("figures/sidra-mensalization/fig4_monthly_vs_quarterly.png")
-```
+![Monthly vs rolling quarter unemployment rate (2019-2023)](figures/sidra-mensalization/fig4_monthly_vs_quarterly.png){width=100%}
 
 ### What Monthly Data Reveals
 
-```{r fig5, echo=FALSE, out.width="100%", fig.cap="COVID-19 impact on Brazilian unemployment"}
-knitr::include_graphics("figures/sidra-mensalization/fig5_covid_case_study.png")
-```
+![COVID-19 impact on Brazilian unemployment](figures/sidra-mensalization/fig5_covid_case_study.png){width=100%}
 
 **Key findings from monthly estimates:**
 

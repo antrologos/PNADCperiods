@@ -26,6 +26,7 @@ allowing for analyzing the survey data at sub-quarterly temporal granularity."><
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/download-and-prepare.html">Download and Prepare Data</a></li>
+    <li><a class="dropdown-item" href="../articles/sidra-mensalization.html">SIDRA Mensalization Guide</a></li>
     <li><a class="dropdown-item" href="../articles/applied-examples.html">Applied Examples</a></li>
     <li><a class="dropdown-item" href="../articles/annual-poverty-analysis.html">Annual Poverty Analysis</a></li>
     <li><a class="dropdown-item" href="../articles/complex-survey-design.html">Complex Survey Design</a></li>
@@ -59,7 +60,7 @@ allowing for analyzing the survey data at sub-quarterly temporal granularity.</p
 
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The package offers three main capabilities:</p><ol><li><p><strong>Reference period identification</strong>: Determines which temporal
+    <p>The package offers four main capabilities:</p><ol><li><p><strong>Reference period identification</strong>: Determines which temporal
 period (month, fortnight, or week) within each quarter each survey
 observation refers to, using IBGE's "Parada Técnica" rules and
 respondent birthdates. The identification is <strong>nested by construction</strong>:
@@ -70,14 +71,16 @@ for sub-quarterly estimates using adaptive hierarchical rake weighting
 <li><p><strong>Experimental strategies</strong>: Probabilistic assignment and UPA
 aggregation to boost fortnight/week determination rates for sensitivity
 analysis</p></li>
-</ol><p><strong>Determination rates (strict):</strong></p><ul><li><p>Monthly: ~97\<!-- % (with stacked multi-quarter data) --></p></li>
-<li><p>Fortnight: ~6-8\<!-- % --></p></li>
-<li><p>Week: ~1.5\<!-- % --></p></li>
-</ul><p><strong>With experimental strategies:</strong></p><ul><li><p>Fortnight: up to ~60\<!-- % (via UPA aggregation leveraging 100\\% homogeneity) --></p></li>
-<li><p>Week: up to ~15\<!-- % --></p></li>
-</ul><p>The package is highly optimized for large datasets: approximately 2.5 minutes to
-process 28.4 million rows (~177,000 rows/sec). Uses pre-computed lookup tables
-for 20x faster date creation.</p>
+<li><p><strong>SIDRA series mensalization</strong>: Converts IBGE's rolling quarterly
+(trimestre móvel) aggregate series to exact monthly estimates</p></li>
+</ol><p><strong>Determination rates (strict, full series 2012-2025):</strong></p><ul><li><p>Monthly: ~97\<!-- %, ~98\\% with annual anchor --></p></li>
+<li><p>Fortnight: ~9\<!-- % --></p></li>
+<li><p>Week: ~3\<!-- % --></p></li>
+</ul><p>With smaller datasets, rates may differ (e.g., 8 quarters: ~94\<!-- % monthly). -->
+Experimental strategies (probabilistic + UPA aggregation) further improve
+these determination rates.</p>
+<p>The package is highly optimized for large datasets (~450,000 rows/sec).
+Uses pre-computed lookup tables for 20x faster date creation.</p>
 <p><strong>Note:</strong> Strict fortnight and week determination rates are inherently low
 because they cannot leverage cross-quarter aggregation like months can. Only
 birthday constraints within a single quarter are available to narrow the
@@ -88,6 +91,12 @@ month, fortnight, and week reference periods with IBGE calendar-based dates</p><
 PNADC dataset and optionally calibrates weights</p></li>
 <li><p><code><a href="pnadc_experimental_periods.html">pnadc_experimental_periods</a></code>: Applies experimental strategies
 (probabilistic, UPA aggregation) for improved fortnight/week determination</p></li>
+<li><p><code><a href="get_sidra_series_metadata.html">get_sidra_series_metadata</a></code>: Lists 86+ available PNADC
+rolling quarter series from SIDRA</p></li>
+<li><p><code><a href="fetch_sidra_rolling_quarters.html">fetch_sidra_rolling_quarters</a></code>: Downloads rolling quarterly
+data from IBGE SIDRA API</p></li>
+<li><p><code><a href="mensalize_sidra_series.html">mensalize_sidra_series</a></code>: Converts rolling quarters to exact
+monthly estimates</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

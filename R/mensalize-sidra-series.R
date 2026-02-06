@@ -1,7 +1,7 @@
 #' Mensalize SIDRA Rolling Quarter Series
 #'
 #' Functions to convert IBGE's rolling quarterly (trimestre movel) series into
-#' exact monthly estimates using the methodology from Hecksher (2024).
+#' exact monthly estimates.
 #'
 #' @name mensalize-sidra-series
 #' @keywords internal
@@ -80,10 +80,6 @@ NULL
 #' @seealso
 #' \code{\link{fetch_sidra_rolling_quarters}} to obtain input data
 #' \code{\link{compute_series_starting_points}} for custom calibration
-#'
-#' @references
-#' Hecksher, Marcos (2024). "Mensalizacao da PNADC: Metodologia e Resultados."
-#' Apresentacao MEGE-UCAM, abril 2024.
 #'
 #' @export
 mensalize_sidra_series <- function(rolling_quarters,

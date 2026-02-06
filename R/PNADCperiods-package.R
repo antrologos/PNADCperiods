@@ -5,7 +5,7 @@
 #' survey, PNADC (Pesquisa Nacional por Amostra de Domicilios Continua - IBGE),
 #' allowing for analyzing the survey data at sub-quarterly temporal granularity.
 #'
-#' The package offers three main capabilities:
+#' The package offers four main capabilities:
 #' \enumerate{
 #'   \item \strong{Reference period identification}: Determines which temporal
 #'     period (month, fortnight, or week) within each quarter each survey
@@ -18,24 +18,23 @@
 #'   \item \strong{Experimental strategies}: Probabilistic assignment and UPA
 #'     aggregation to boost fortnight/week determination rates for sensitivity
 #'     analysis
+#'   \item \strong{SIDRA series mensalization}: Converts IBGE's rolling quarterly
+#'     (trimestre móvel) aggregate series to exact monthly estimates
 #' }
 #'
-#' \strong{Determination rates (strict):}
+#' \strong{Determination rates (strict, full series 2012-2025):}
 #' \itemize{
-#'   \item Monthly: ~97\% (with stacked multi-quarter data)
-#'   \item Fortnight: ~6-8\%
-#'   \item Week: ~1.5\%
+#'   \item Monthly: ~97\%, ~98\% with annual anchor
+#'   \item Fortnight: ~9\%
+#'   \item Week: ~3\%
 #' }
 #'
-#' \strong{With experimental strategies:}
-#' \itemize{
-#'   \item Fortnight: up to ~60\% (via UPA aggregation leveraging 100\% homogeneity)
-#'   \item Week: up to ~15\%
-#' }
+#' With smaller datasets, rates may differ (e.g., 8 quarters: ~94\% monthly).
+#' Experimental strategies (probabilistic + UPA aggregation) further improve
+#' these determination rates.
 #'
-#' The package is highly optimized for large datasets: approximately 2.5 minutes to
-#' process 28.4 million rows (~177,000 rows/sec). Uses pre-computed lookup tables
-#' for 20x faster date creation.
+#' The package is highly optimized for large datasets (~450,000 rows/sec).
+#' Uses pre-computed lookup tables for 20x faster date creation.
 #'
 #' \strong{Note:} Strict fortnight and week determination rates are inherently low
 #' because they cannot leverage cross-quarter aggregation like months can. Only
@@ -50,6 +49,12 @@
 #'     PNADC dataset and optionally calibrates weights
 #'   \item \code{\link{pnadc_experimental_periods}}: Applies experimental strategies
 #'     (probabilistic, UPA aggregation) for improved fortnight/week determination
+#'   \item \code{\link{get_sidra_series_metadata}}: Lists 86+ available PNADC
+#'     rolling quarter series from SIDRA
+#'   \item \code{\link{fetch_sidra_rolling_quarters}}: Downloads rolling quarterly
+#'     data from IBGE SIDRA API
+#'   \item \code{\link{mensalize_sidra_series}}: Converts rolling quarters to exact
+#'     monthly estimates
 #' }
 #'
 #' @references

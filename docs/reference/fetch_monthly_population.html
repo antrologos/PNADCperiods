@@ -22,6 +22,7 @@ transforms from moving-quarter to exact monthly values."></head><body>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/download-and-prepare.html">Download and Prepare Data</a></li>
+    <li><a class="dropdown-item" href="../articles/sidra-mensalization.html">SIDRA Mensalization Guide</a></li>
     <li><a class="dropdown-item" href="../articles/applied-examples.html">Applied Examples</a></li>
     <li><a class="dropdown-item" href="../articles/annual-poverty-analysis.html">Annual Poverty Analysis</a></li>
     <li><a class="dropdown-item" href="../articles/complex-survey-design.html">Complex Survey Design</a></li>
@@ -56,7 +57,7 @@ transforms from moving-quarter to exact monthly values.</p>
 <span>  start_yyyymm <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  end_yyyymm <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  use_cache <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  use_cache <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  cache_max_age_hours <span class="op">=</span> <span class="fl">24</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -80,13 +81,14 @@ If NULL, returns all available months.</p></dd>
 
 
 <dt id="arg-use-cache">use_cache<a class="anchor" aria-label="anchor" href="#arg-use-cache"></a></dt>
-<dd><p>Logical. If TRUE (default), uses cached data if available
-and not expired. Set to FALSE to force a fresh download from SIDRA API.</p></dd>
+<dd><p>Logical. If TRUE, uses cached data if available and not
+expired. Default FALSE (always fetch fresh data for consistency).
+Set to TRUE for faster repeated calls during development.</p></dd>
 
 
 <dt id="arg-cache-max-age-hours">cache_max_age_hours<a class="anchor" aria-label="anchor" href="#arg-cache-max-age-hours"></a></dt>
 <dd><p>Numeric. Maximum cache age in hours before
-automatic expiration. Default 24 hours.</p></dd>
+automatic expiration when use_cache=TRUE. Default 24 hours.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -103,9 +105,8 @@ population for February 2012.</p>
 <p>This function:</p><ol><li><p>Fetches raw moving-quarter data from SIDRA</p></li>
 <li><p>Transforms to exact monthly values by aligning with middle months</p></li>
 <li><p>Extrapolates boundary months (first and last) using quadratic regression</p></li>
-</ol><p>The extrapolation follows the methodology in Hecksher (2024), using quadratic
-regression on population differences to estimate the first month (Jan 2012)
-and the most recent month.</p>
+</ol><p>The extrapolation uses quadratic regression on population differences to
+estimate the first month (Jan 2012) and the most recent month.</p>
     </div>
     <div class="section level2">
     <h2 id="dependencies">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies"></a></h2>

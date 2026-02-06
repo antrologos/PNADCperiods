@@ -21,7 +21,7 @@ devtools::install_github("antrologos/PNADCperiods")
 - **Microdata mensalization**: Identify reference months, fortnights, and weeks in PNADC microdata
 - **SIDRA mensalization**: Convert 86+ rolling quarterly IBGE series to exact monthly values
 - **Weight calibration**: Hierarchical raking to IBGE population totals
-- **97% monthly determination** with full data stacking (2012-2025)
+- **~97% monthly determination** with full data stacking; experimental strategies improve fortnight/week rates further
 
 ## Basic Usage
 
@@ -34,7 +34,7 @@ library(PNADCperiods)
 crosswalk <- pnadc_identify_periods(pnadc_stacked)
 
 # Apply to data with weight calibration
-result <- pnadc_apply_periods(pnadc, crosswalk, weight_var = "V1028")
+result <- pnadc_apply_periods(pnadc, crosswalk, weight_var = "V1028", anchor = "quarter")
 ```
 
 ### SIDRA Series Mensalization
@@ -75,18 +75,17 @@ monthly <- mensalize_sidra_series(rolling)
 - [Applied Examples](https://antrologos.github.io/PNADCperiods/articles/applied-examples.html)
 - [Full Reference](https://antrologos.github.io/PNADCperiods/reference/index.html)
 
-## Citation
+## Credits
+
+Original PNADC data is collected by the Brazilian Institute of Geography and Statistics (IBGE). The {PNADCperiods} package is developed by a team at the [Center for the Study of Wealth and Social Stratification (Ceres - IESP/UERJ)](https://ceres-iesp.uerj.br/) and at the Institute for Applied Economic Research (Ipea), Brazil.
+
+**Citation:**
+
+> Barbosa, Rogerio J; Hecksher, Marcos. (2026). PNADCperiods: Identify Reference Periods in Brazil's PNADC Survey Data. R package version v0.1.0. https://github.com/antrologos/PNADCperiods
 
 ```r
 citation("PNADCperiods")
 ```
-
-> Hecksher, M. & Barbosa, R. (2024). PNADCperiods: Identify Reference Periods in Brazil's PNADC Survey Data. R package. https://github.com/antrologos/PNADCperiods
-
-## Authors
-
-- **Marcos Hecksher** - Methodology ([ORCID](https://orcid.org/0000-0003-2992-1252))
-- **Rogerio Barbosa** - R package ([ORCID](https://orcid.org/0000-0002-6796-4547))
 
 ## Getting Help
 

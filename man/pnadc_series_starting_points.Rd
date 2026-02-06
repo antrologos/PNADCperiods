@@ -27,9 +27,9 @@ These starting points were computed from PNADC microdata using the full
 R package pipeline, ensuring consistency with
 \code{\link{compute_starting_points_from_microdata}}:
 \enumerate{
-\item Weight calibration via \code{\link{pnadc_apply_periods}} with Marcos'
-methodology: month 2 scaled to poptrim (quarterly V1028 sum from ALL
-observations), months 1 and 3 scaled to SIDRA monthly population
+\item Weight calibration via \code{\link{pnadc_apply_periods}}: month 2
+scaled to poptrim (quarterly V1028 sum from ALL observations), months 1
+and 3 scaled to SIDRA monthly population
 \item z_ aggregates computed via \code{\link{compute_z_aggregates}} using
 calibrated \code{weight_monthly}
 \item Starting points computed via \code{\link{compute_series_starting_points}}
@@ -76,10 +76,6 @@ head(pnadc_series_starting_points)
 unique(pnadc_series_starting_points$series_name)
 }
 
-}
-\references{
-Hecksher, Marcos (2024). "Mensalizacao da PNADC: Metodologia e Resultados."
-Apresentacao MEGE-UCAM, abril 2024.
 }
 \seealso{
 \code{\link{mensalize_sidra_series}} which uses this data by default

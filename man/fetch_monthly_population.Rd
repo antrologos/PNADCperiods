@@ -52,9 +52,8 @@ This function:
 \item Extrapolates boundary months (first and last) using quadratic regression
 }
 
-The extrapolation follows the methodology in Hecksher (2024), using quadratic
-regression on population differences to estimate the first month (Jan 2012)
-and the most recent month.
+The extrapolation uses quadratic regression on population differences to
+estimate the first month (Jan 2012) and the most recent month.
 }
 \section{Dependencies}{
 

@@ -193,7 +193,6 @@ if (!is.null(max_age_hours)) {
 #'
 #' @seealso
 #' \code{\link{get_sidra_series_metadata}} for available series names and metadata
-#' \code{\link{get_sidra_series_metadata}} for series details
 #' \code{\link{mensalize_sidra_series}} to convert to exact months
 #'
 #' @export

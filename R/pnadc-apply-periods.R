@@ -10,7 +10,8 @@
 #' chosen temporal granularity (month, fortnight, or week).
 #'
 #' @param data A data.frame or data.table with PNADC microdata. Must contain
-#'   join keys \code{UPA} and \code{V1014} to merge with the crosswalk.
+#'   join keys \code{Ano}, \code{Trimestre}, \code{UPA}, \code{V1008}, and
+#'   \code{V1014} to merge with the crosswalk.
 #' @param crosswalk A data.table crosswalk from \code{\link{pnadc_identify_periods}}.
 #' @param weight_var Character. Name of the survey weight column. Must be specified:
 #'   \itemize{
@@ -45,14 +46,12 @@
 #'   those with undetermined reference periods. If FALSE, drop undetermined rows.
 #' @param verbose Logical. If TRUE (default), print progress messages.
 #'
-#' @return A data.table with the input data plus:
+#' @return A data.table with the input data plus crosswalk columns:
 #'   \describe{
-#'     \item{ref_month_start, ref_month_end}{IBGE month boundaries (Sunday/Saturday)}
-#'     \item{ref_fortnight_start, ref_fortnight_end}{IBGE fortnight boundaries (Sunday/Saturday)}
-#'     \item{ref_week_start, ref_week_end}{IBGE week boundaries (Sunday/Saturday)}
-#'     \item{ref_month_in_quarter, ref_fortnight_in_quarter, ref_week_in_quarter}{Position within quarter (1-3, 1-6, 1-12)}
+#'     \item{ref_month_in_quarter, ref_month_in_year}{Month position (1-3 in quarter, 1-12 in year)}
+#'     \item{ref_fortnight_in_month, ref_fortnight_in_quarter}{Fortnight position (1-2 in month, 1-6 in quarter)}
+#'     \item{ref_week_in_month, ref_week_in_quarter}{Week position (1-4 in month, 1-12 in quarter)}
 #'     \item{ref_month_yyyymm, ref_fortnight_yyyyff, ref_week_yyyyww}{Integer period codes}
-#'     \item{ref_month_weeks}{Number of IBGE reference weeks in month (always 4)}
 #'     \item{determined_month, determined_fortnight, determined_week}{Logical determination flags}
 #'     \item{weight_monthly, weight_fortnight, or weight_weekly}{Calibrated weights (if calibrate=TRUE)}
 #'   }

@@ -94,10 +94,6 @@ monthly[, .(anomesexato, m_popocup, m_popdesocup)]
 }
 
 }
-\references{
-Hecksher, Marcos (2024). "Mensalizacao da PNADC: Metodologia e Resultados."
-Apresentacao MEGE-UCAM, abril 2024.
-}
 \seealso{
 \code{\link{fetch_sidra_rolling_quarters}} to obtain input data
 \code{\link{compute_series_starting_points}} for custom calibration

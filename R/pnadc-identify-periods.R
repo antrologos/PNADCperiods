@@ -113,9 +113,9 @@
 #'
 #' The crosswalk contains three levels of temporal granularity:
 #' \itemize{
-#'   \item \strong{Month}: 3 per quarter, ~97% determination rate (aggregates across quarters)
-#'   \item \strong{Fortnight (quinzena)}: 6 per quarter, ~2-8% determination rate (within-quarter only)
-#'   \item \strong{Week}: 12 per quarter, ~1-2% determination rate (within-quarter only)
+#'   \item \strong{Month}: 3 per quarter, ~97\% determination rate with full series (aggregates across quarters)
+#'   \item \strong{Fortnight (quinzena)}: 6 per quarter, ~9\% determination rate (within-quarter only)
+#'   \item \strong{Week}: 12 per quarter, ~3\% determination rate (within-quarter only)
 #' }
 #'
 #' ## Cross-Quarter Aggregation (Important!)
@@ -127,12 +127,12 @@
 #'
 #' ## Fortnight Definition
 #'
-#' Fortnights are numbered 1-6 per quarter (2 per month):
+#' Fortnights are numbered 1-6 per quarter (2 per month), based on the IBGE
+#' reference week calendar (not calendar days). Each IBGE "month" consists of
+#' exactly 4 reference weeks (28 days), starting on a Sunday:
 #' \itemize{
-#'   \item Fortnight 01: Jan 1-15
-#'   \item Fortnight 02: Jan 16-31
-#'   \item Fortnight 03: Feb 1-15
-#'   \item ... and so on
+#'   \item Fortnight 1 in month: IBGE weeks 1-2 (days 1-14 of the IBGE month)
+#'   \item Fortnight 2 in month: IBGE weeks 3-4 (days 15-28 of the IBGE month)
 #' }
 #'
 #' @examples

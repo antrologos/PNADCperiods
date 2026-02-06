@@ -14,11 +14,11 @@ Description: Identifies reference periods (months, fortnights, and weeks) in
     rules combined with respondent birthdates to determine which temporal period
     each survey observation refers to. Period identification follows a nested
     hierarchy enforced by construction: fortnights require months, weeks require
-    fortnights. Achieves ~97% monthly determination rate when using stacked
-    multi-quarter data. Strict fortnight and week rates are lower (~6% and ~1.5%
-    respectively) as they cannot leverage cross-quarter panel aggregation.
-    Experimental strategies (probabilistic assignment and UPA aggregation) can
-    boost fortnight rates to ~27% and week rates to ~2%. The package provides
+    fortnights. Achieves ~97% monthly determination rate with the full series
+    (2012-2025). Strict fortnight and week rates are ~9% and ~3% respectively,
+    as they cannot leverage cross-quarter panel aggregation.
+    Experimental strategies (probabilistic assignment and UPA aggregation)
+    further improve these determination rates. The package provides
     adaptive hierarchical weight calibration (4/2/1 cell levels for month/
     fortnight/week) with period-specific smoothing to produce survey weights
     calibrated to IBGE SIDRA population totals.

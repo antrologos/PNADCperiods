@@ -17,6 +17,8 @@ navbar:
       menu:
       - text: Download and Prepare Data
         href: articles/download-and-prepare.html
+      - text: SIDRA Mensalization Guide
+        href: articles/sidra-mensalization.html
       - text: Applied Examples
         href: articles/applied-examples.html
       - text: Annual Poverty Analysis
@@ -44,6 +46,10 @@ articles:
   - complex-survey-design
   - how-it-works
 
+- title: SIDRA Mensalization
+  contents:
+  - sidra-mensalization
+
 - title: Benchmarks
   contents:
   - determination-rates-benchmark
@@ -55,6 +61,17 @@ reference:
   - pnadc_identify_periods
   - pnadc_apply_periods
   - PNADCperiods-package
+
+- title: SIDRA Mensalization
+  desc: Convert IBGE rolling quarter series to exact monthly estimates
+  contents:
+  - fetch_sidra_rolling_quarters
+  - mensalize_sidra_series
+  - get_sidra_series_metadata
+  - compute_series_starting_points
+  - compute_starting_points_from_microdata
+  - compute_z_aggregates
+  - pnadc_series_starting_points
 
 - title: Data Fetching
   desc: Functions for fetching external data

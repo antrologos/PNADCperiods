@@ -28,6 +28,18 @@ This document describes the implemented architecture of the PNADCperiods package
 |----------|---------|
 | `fetch_monthly_population()` | Fetch population from SIDRA API (table 6022) |
 | `validate_pnadc()` | Input validation with detailed error reporting |
+| `clear_sidra_cache()` | Clear all cached SIDRA data |
+
+### SIDRA Series Mensalization
+
+| Function | Purpose |
+|----------|---------|
+| `get_sidra_series_metadata()` | List 86+ available PNADC rolling quarter series |
+| `fetch_sidra_rolling_quarters()` | Download rolling quarterly data from SIDRA API |
+| `mensalize_sidra_series()` | Convert rolling quarters to exact monthly estimates |
+| `compute_starting_points_from_microdata()` | Compute y0 starting points from PNADC microdata |
+| `compute_series_starting_points()` | Compute y0 from pre-aggregated z values |
+| `compute_z_aggregates()` | Compute weighted aggregates by period |
 
 ## Nested Identification Strategy
 
@@ -58,32 +70,36 @@ The crosswalk is a `data.table` at household-quarter level:
 | `UPA` | integer | Primary sampling unit |
 | `V1008` | integer | Household sequence |
 | `V1014` | integer | Panel group (1-8) |
-| `ref_month_start` | Date | Sunday of first IBGE week of the month |
-| `ref_month_end` | Date | Saturday of last IBGE week of the month |
 | `ref_month_in_quarter` | integer | Position in quarter (1, 2, 3) or NA |
+| `ref_month_in_year` | integer | Position in year (1-12) or NA |
 | `ref_month_yyyymm` | integer | YYYYMM format (e.g., 202301) |
-| `ref_month_weeks` | integer | Number of IBGE weeks in month (always 4) |
 | `determined_month` | logical | TRUE if month was determined |
-| `ref_fortnight_start` | Date | Sunday of first IBGE week of the fortnight |
-| `ref_fortnight_end` | Date | Saturday of last IBGE week of the fortnight |
+| `ref_fortnight_in_month` | integer | Position in month (1 or 2) or NA |
 | `ref_fortnight_in_quarter` | integer | Position in quarter (1-6) or NA |
 | `ref_fortnight_yyyyff` | integer | YYYYFF format (1-24 per year) |
 | `determined_fortnight` | logical | TRUE if fortnight was determined |
-| `ref_week_start` | Date | Sunday of the IBGE week |
-| `ref_week_end` | Date | Saturday of the IBGE week |
+| `ref_week_in_month` | integer | Position in month (1-4) or NA |
 | `ref_week_in_quarter` | integer | Position in quarter (1-12) or NA |
 | `ref_week_yyyyww` | integer | IBGE YYYYWW format |
 | `determined_week` | logical | TRUE if week was determined |
 
 **Join keys:** `Ano`, `Trimestre`, `UPA`, `V1008`, `V1014`
 
+When `store_date_bounds = TRUE`, additional columns include date bounds and debugging variables (see function documentation).
+
 ## Determination Rates
+
+**Strict algorithm (full series 2012-2025):**
 
 | Period | Rate | Reason |
 |--------|------|--------|
 | Month | ~97% | Aggregates at UPA-V1014 level across ALL quarters (panel design) |
-| Fortnight | ~7% | Nested under month; household-level within quarter only |
-| Week | ~1.5% | Nested under fortnight; household-level within quarter only |
+| Fortnight | ~9% | Nested under month; household-level within quarter only |
+| Week | ~3% | Nested under fortnight; household-level within quarter only |
+
+With smaller datasets, rates may differ (e.g., 8 quarters 2019-2020: ~94% month).
+
+**Experimental strategies (probabilistic + UPA aggregation) improve upon these rates.**
 
 **Key insight:** Only month identification benefits from stacking data across quarters. Fortnights and weeks are determined solely from birthday constraints within a single quarter, AND require their parent period to be determined first.
 
@@ -93,11 +109,12 @@ The crosswalk is a `data.table` at household-quarter level:
 R/
 ├── pnadc-identify-periods.R         # pnadc_identify_periods() - nested 4-phase algorithm
 ├── pnadc-apply-periods.R            # pnadc_apply_periods() - adaptive calibration + smoothing
-├── experimental-period-identification.R  # pnadc_experimental_periods()
-├── identify-reference-month.R       # Core month algorithm with dynamic exceptions (internal)
-├── identify-reference-fortnight.R   # Core fortnight algorithm (internal)
-├── identify-reference-week.R        # Core week algorithm + technical stop handling (internal)
-├── fetch-sidra-population.R         # fetch_monthly_population() - SIDRA API
+├── pnadc-experimental-periods.R     # pnadc_experimental_periods() - probabilistic/UPA strategies
+├── fetch-sidra-population.R         # fetch_monthly_population() - SIDRA population API
+├── fetch-sidra-series.R             # fetch_sidra_rolling_quarters() + unified SIDRA cache
+├── mensalize-sidra-series.R         # mensalize_sidra_series() - rolling quarters → monthly
+├── sidra-series-metadata.R          # get_sidra_series_metadata() - 86+ series definitions
+├── data-starting-points.R           # compute_*() functions + pnadc_series_starting_points dataset
 ├── utils-dates.R                    # Fast IBGE date utilities (lookup tables, week/fortnight functions)
 ├── utils-validation.R               # validate_pnadc() + internal helpers
 └── PNADCperiods-package.R           # Package docs + globalVariables
@@ -169,15 +186,16 @@ The `pnadc_experimental_periods()` function provides three strategies for improv
 
 ### Output Columns
 
-When `include_derived = TRUE` (default), output is directly compatible with `pnadc_apply_periods()`:
+Output is directly compatible with `pnadc_apply_periods()`:
 
 | Column | Description |
 |--------|-------------|
-| `ref_month_exp`, `ref_fortnight_exp`, `ref_week_exp` | Experimental positions (1-3, 1-6, 1-12) |
-| `ref_month_exp_confidence`, etc. | Confidence scores (0-1) |
+| `ref_month_in_quarter`, `ref_fortnight_in_month`, `ref_week_in_month` | Combined strict + experimental positions |
+| `ref_month_yyyymm`, `ref_fortnight_yyyyff`, `ref_week_yyyyww` | YYYYMM/FF/WW codes |
+| `determined_month`, `determined_fortnight`, `determined_week` | TRUE if assigned (strict or experimental) |
+| `determined_probable_month/fortnight/week` | TRUE if assigned by probabilistic strategy |
 | `probabilistic_assignment` | TRUE if any period assigned experimentally |
-| `determined_month`, `determined_fortnight`, `determined_week` | Combined strict + experimental flags |
-| All derived columns from strict crosswalk | IBGE boundaries, YYYYMM/FF/WW codes |
+| `week_1_start` ... `week_4_end` | IBGE week boundaries for assigned month |
 
 ## Calibration Pipeline
 
@@ -228,12 +246,56 @@ The package is optimized for large datasets (~450,000 rows/sec):
 4. **Vectorized operations:** All calculations use vectorized data.table syntax
 5. **Efficient joins:** data.table binary joins instead of `merge()`
 
+## SIDRA Series Mensalization
+
+The package provides functions to convert IBGE's rolling quarterly (trimestre móvel) aggregate series to exact monthly estimates.
+
+### Mathematical Foundation
+
+Rolling quarters are 3-month moving averages. The relationship:
+```
+RQ_t - RQ_{t-1} = (Month_t - Month_{t-3}) / 3
+```
+
+This allows recovery of exact monthly values given starting points.
+
+### Algorithm Steps
+
+1. Fetch rolling quarters from SIDRA API
+2. Calculate `d3 = 3 × (RQ_t - RQ_{t-1})`
+3. Separate d3 by month position in quarter (mesnotrim 1, 2, 3)
+4. Cumulate separately: `cum1`, `cum2`, `cum3`
+5. Apply starting points: `y = y0 + cum`
+6. Final adjustment for rolling quarter consistency
+
+### Starting Points
+
+- Pre-computed for 53 series from 2013-2019 microdata
+- Bundled in `pnadc_series_starting_points` dataset
+- Users can compute custom starting points via `compute_starting_points_from_microdata()`
+
+### Available Series
+
+86+ series across themes:
+- **labor_market**: Employment, unemployment, participation rates
+- **earnings**: Wages, income by category
+- **demographics**: Population components
+- **social_protection**: Pension coverage
+- **prices**: Deflated series
+
+### Caching
+
+Unified cache infrastructure with optional expiration:
+- Rolling quarters and population data cached in `.sidra_cache` environment
+- `clear_sidra_cache()` to force fresh download
+
 ## Dependencies
 
 **Required:**
 - `data.table` (>= 1.14.0) - Core data manipulation
 - `checkmate` (>= 2.0.0) - Input validation
-- `sidrar` (>= 0.2.9) - SIDRA API access for population data
+- `sidrar` (>= 0.2.9) - SIDRA API access for population and series data
+- `lubridate` (>= 1.9.4) - Date/time utilities
 
 **Suggested:**
 - `dplyr` - Alternative data manipulation
@@ -271,17 +333,15 @@ result <- pnadc_apply_periods(pnadc_2023, crosswalk,
 
 ### Experimental Period Assignment
 ```r
-# Build standard crosswalk
-crosswalk <- pnadc_identify_periods(pnadc_data)
+# Build standard crosswalk (with date bounds for probabilistic strategy)
+crosswalk <- pnadc_identify_periods(pnadc_data, store_date_bounds = TRUE)
 
 # Apply experimental strategies for additional assignments
 crosswalk_exp <- pnadc_experimental_periods(
   crosswalk,
-  pnadc_data,
   strategy = "both",  # probabilistic + UPA aggregation
   confidence_threshold = 0.9,
-  upa_proportion_threshold = 0.5,
-  include_derived = TRUE  # Output compatible with pnadc_apply_periods()
+  upa_proportion_threshold = 0.5
 )
 
 # Use directly with calibration
@@ -291,6 +351,18 @@ result <- pnadc_apply_periods(pnadc_data, crosswalk_exp,
 
 # Filter to strict-only if needed
 strict_only <- crosswalk_exp[probabilistic_assignment == FALSE | is.na(probabilistic_assignment)]
+```
+
+### SIDRA Series Mensalization
+```r
+# Fetch rolling quarterly data from SIDRA
+rolling <- fetch_sidra_rolling_quarters(theme = "labor_market")
+
+# Convert to exact monthly estimates
+monthly <- mensalize_sidra_series(rolling)
+
+# View available series
+get_sidra_series_metadata(theme = "labor_market")
 ```
 
 ## Required PNADC Variables
