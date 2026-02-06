@@ -9,14 +9,9 @@ vignette: >
 
 <!--
 MAINTAINER NOTE:
-The code chunks in this vignette must match the code in:
+Code chunks marked with "# VIGNETTE CODE:" comments in
   mensalizacao_pnad/code/generate_vignette_data.R
-
-Look for comments like "# VIGNETTE CODE: chunk-name" in that script.
-To regenerate figures, run that script. Changes to code here
-must be mirrored in the generation script (and vice versa).
-
-Run code/check_vignette_sync.R to verify synchronization before release.
+must match the code shown here. To regenerate figures, run that script.
 -->
 
 ```{r setup, include = FALSE}
@@ -35,27 +30,19 @@ knitr::opts_chunk$set(
 
 ## Introduction
 
-Brazil's Continuous National Household Sample Survey (PNADC) is one of the most important sources of labor market data in Latin America. Regularly, IBGE (Brazil's statistics agency) publishes the quarterly and annual microdata used for the calculation of official labor market statistics: unemployment rates, employment levels, and other key indicators. However, what many users don't realize is that these **quarterly (or annual) statistics are actually an average of three-month phenomena**. In the official IBGE website for indicators extration (SIDRA) there is indeed monthly information. However, these monthly series are not a snapshot of a particular month, but instead a rolling average of all interviews conducted during three months.
+Brazil's Continuous National Household Sample Survey (PNADC) publishes quarterly and annual microdata for official labor market statistics. However, these **quarterly statistics are actually an average of three-month phenomena**---the SIDRA monthly series are rolling averages, not true monthly snapshots. This quarterly averaging obscures the timing and magnitude of economic shocks and blurs the detection of turning points.
 
-This averaging has three important consequences:
+The `PNADCperiods` package solves this by identifying which specific month each interview refers to, using birthday information and IBGE's interview scheduling rules. With the full PNADC history (2012-2025), the algorithm achieves a **~97% determination rate** for monthly identification.
 
-1. **Timing errors**: The quarterly peak of unemployment may not coincide with the actual monthly peak. A crisis that peaked in April might show up as a "Q2" phenomenon, obscuring when the shock actually hit.
+This vignette demonstrates three cases where monthly data reveals dynamics that quarterly data hides, culminating in a powerful validation using minimum wage transitions.
 
-2. **Magnitude errors**: The true size of a peak or trough of a variable is diluted by averaging with adjacent months. If unemployment spiked to 16% in one month but was 12% in the surrounding months, the quarterly average would show something like 13-14%---understating the severity of the shock.
-
-3. **Turning point detection**: The precise month when a trend reversed direction becomes blurred. Did the economy start recovering in May or June? Quarterly data can't tell you.
-
-The `PNADCperiods` package solves this problem by identifying which specific month each interview refers to, using birthday information and IBGE's interview scheduling rules. With the full PNADC history (2012-2025), the algorithm achieves a **95.4% determination rate** for monthly identification---meaning we can assign specific reference months to nearly all observations.
-
-This vignette demonstrates three compelling cases where monthly data reveals dynamics that quarterly data hides, culminating in a powerful validation using minimum wage transitions.
-
-> **Working with poverty or income data?** This vignette focuses on **labor market** indicators using quarterly PNADC data. For poverty and income analysis using annual PNADC data (which includes comprehensive household income variables), see [Monthly Poverty Analysis with Annual PNADC Data](annual-poverty-analysis.html).
+> **Working with poverty or income data?** See [Monthly Poverty Analysis with Annual PNADC Data](annual-poverty-analysis.html).
 
 ---
 
 ## Prerequisites
 
-To reproduce these analyses, you need stacked PNADC microdata spanning multiple quarters. The code below assumes you have already loaded and processed your data. See [Download and Prepare Data](download-and-prepare.html) for data preparation, or [Get Started](getting-started.html) for basic usage.
+To reproduce these analyses, you need stacked PNADC microdata spanning multiple quarters. See [Download and Prepare Data](download-and-prepare.html) for data preparation, or [Get Started](getting-started.html) for basic usage.
 
 ```{r libraries}
 # Load required packages
@@ -69,7 +56,7 @@ library(scales)
 
 ## Preparing the Data
 
-This section shows how to create the aggregate time series used in the examples below. 
+This section shows how to create the aggregate time series used in the examples below.
 
 ### Step 1: Load and Mensalize Your Data
 
@@ -80,6 +67,9 @@ pnadc <- read_fst("path/to/your/pnadc_stacked.fst", as.data.table = TRUE)
 
 # Build crosswalk (identify reference periods)
 crosswalk <- pnadc_identify_periods(pnadc, verbose = TRUE)
+
+# Keep a clean copy for sub-monthly calibration later (Section 4)
+pnadc_clean <- copy(pnadc)
 
 # Apply crosswalk with weight calibration
 pnadc <- pnadc_apply_periods(
@@ -166,11 +156,10 @@ With these objects created, you can now run all the examples below.
 
 ## 1. COVID-19 Unemployment: The True Peak
 
-The COVID-19 pandemic caused the sharpest labor market shock in Brazilian history. Within weeks, millions of workers lost their jobs or exited the labor force entirely. Policymakers scrambled to respond, but the quarterly data they relied on couldn't tell them exactly when the crisis peaked or how severe it truly was.
+The COVID-19 pandemic caused the sharpest labor market shock in Brazilian history. Quarterly data couldn't tell policymakers exactly when the crisis peaked or how severe it truly was---information critical for calibrating emergency responses like unemployment benefits and business support.
 
-This matters because emergency policy responses---unemployment benefits, business support, public health measures---need to be calibrated to the actual severity of the shock. If quarterly data says unemployment peaked at 14.4% but the true monthly peak was 16.1%, policymakers might underestimate the resources needed for relief programs. Similarly, knowing that the peak occurred in a specific month rather than a generic "quarter" helps researchers connect labor market outcomes to specific policy interventions or public health events.
-
-Let's compare the quarterly and monthly unemployment series during the COVID period:
+<details>
+<summary>Show plotting code</summary>
 
 ```{r covid-unemployment}
 # Filter to COVID period (Oct 2019 - Jan 2022)
@@ -242,19 +231,20 @@ ggplot() +
   )
 ```
 
+</details>
+
 ![COVID-19 Unemployment: Monthly vs Quarterly](figures/applied-examples/fig-covid-unemployment.png){width=100%}
 
-The monthly series reveals that unemployment peaked roughly 2 percentage points higher than the quarterly data suggests, and the timing of the peak is more precisely identified. This difference represents millions of additional unemployed workers whose situation was masked by quarterly averaging.
+The monthly series reveals that unemployment peaked roughly 2 percentage points higher than the quarterly data suggests, and the timing of the peak is more precisely identified.
 
 ---
 
 ## 2. The 2014-2017 Recession: Tracking Month-by-Month Deterioration
 
-Brazil's 2014-2017 recession was one of the deepest in the country's history. Unemployment rose from around 6% to over 13%, a catastrophic deterioration affecting tens of millions of families. But how did this deterioration unfold? Did unemployment rise gradually, or in sudden jumps?
+Brazil's 2014-2017 recession saw unemployment rise from around 6% to over 13%. Monthly data reveals this deterioration unfolded in fits and starts, with several months showing unemployment increases exceeding 1 percentage point---sudden shocks invisible in the averaged quarterly figures.
 
-The monthly data tells reveals that the recession unfolded in fits and starts, with several months showing unemployment increases exceeding 1 percentage point---sudden shocks that were invisible in the averaged quarterly figures.
-
-This distinction matters for understanding the political economy of recessions. Sudden jumps in unemployment create different social and political pressures than gradual deterioration. They may trigger policy responses, protests, or other social reactions.
+<details>
+<summary>Show plotting code</summary>
 
 ```{r recession-detail}
 # Filter to recession period (Jun 2014 - Jun 2017)
@@ -320,10 +310,11 @@ ggplot() +
   )
 ```
 
+</details>
+
 ![2014-2017 Recession: Month-by-Month Detail](figures/applied-examples/fig-recession-detail.png){width=100%}
 
-The yellow circles mark months where unemployment jumped by more than 1 percentage point: sudden deteriorations that are completely invisible in the smooth quarterly trend. These moments likely correspond to specific economic or policy events that researchers can now investigate.
-
+The yellow circles mark months where unemployment jumped by more than 1 percentage point: sudden deteriorations that are completely invisible in the smooth quarterly trend.
 
 ---
 
@@ -334,17 +325,11 @@ Perhaps the most compelling validation of the mensalization methodology comes fr
 - **Habitual income (VD4016)**: What the worker usually earns---refers to the **current** reference month
 - **Effective income (VD4017)**: What the worker actually received---refers to the **previous** month
 
-This distinction creates almost a natural experiment. When the minimum wage increases (typically in January), workers earning the minimum wage should show the new value in their *habitual* income immediately, but their *effective* income should still show the old value (since it refers to the previous month). The following month, effective income catches up.
+When the minimum wage increases (typically in January), habitual income should show the new value immediately, while effective income should still show the old value (since it refers to the previous month). This one-month lag is a prediction of our mensalization: if reference month identification is correct, the pattern is crisp; if wrong, it blurs.
 
-This one-month lag is a prediction of the mensalization methodology. If our reference month identification is correct, we should see this pattern clearly. If it's wrong, the pattern would be blurred or absent.
-
-### Methodology
-
-We focus on formal private sector employees (VD4009 == 1) aged 18 and older, tracking the share earning **exactly** each historical minimum wage value. This precise measurement (not "around minimum wage" but "exactly R$ 622" or "exactly R$ 678") makes the transition patterns especially clear.
+We focus on formal private sector employees (VD4009 == 1) aged 18+, tracking the share earning **exactly** each historical minimum wage value.
 
 ### Preparing the Minimum Wage Data
-
-The analysis below requires pre-computed objects: `monthly_mw_exact` (monthly aggregates by MW value) and `mw_adjustment_months` (dates when MW changed). Here's how to create them:
 
 ```{r mw-data-prep}
 # Historical minimum wage values (R$)
@@ -379,7 +364,10 @@ monthly_mw_exact[, period := as.Date(paste0(ref_month_yyyymm %/% 100, "-",
 
 ### The Smoking Gun: January 2013 Transition
 
-The clearest test of our methodology comes from examining a single, clean transition. In January 2013, the minimum wage increased from R$ 622 to R$ 678:
+In January 2013, the minimum wage increased from R$ 622 to R$ 678:
+
+<details>
+<summary>Show plotting code</summary>
 
 ```{r mw-2013-transition}
 # Create long format for plotting (needed for all MW examples)
@@ -437,20 +425,23 @@ ggplot(mw_2013,
   )
 ```
 
+</details>
+
 ![MW 2013 Transition Detail](figures/applied-examples/fig-mw-2013-transition.png){width=100%}
 
 This is the smoking gun. In the left panel (habitual income), workers shift from R$ 622 to R$ 678 in **January**. In the right panel (effective income), the same shift happens in **February**---exactly the one-month lag predicted by the temporal reference of each variable.
 
 ### A Harder Test: The 2020 Double Adjustment
 
-The January 2013 transition demonstrates the one-month lag with perfect clarity. But what happens when things get more complicated? The year 2020 provides an unusually demanding test.
-
 In an unusual sequence, Brazil adjusted the minimum wage twice in consecutive months:
 
-- **January 2020**: R$ 998 → R$ 1,039 (annual adjustment)
-- **February 2020**: R$ 1,039 → R$ 1,045 (correction)
+- **January 2020**: R$ 998 -> R$ 1,039 (annual adjustment)
+- **February 2020**: R$ 1,039 -> R$ 1,045 (correction)
 
-This creates a situation where R$ 1,039 was the official minimum wage for only one month. If our reference month identification were imprecise, these rapid transitions would blur together. Instead:
+R$ 1,039 was the official minimum wage for only one month. If our reference month identification were imprecise, these rapid transitions would blur together.
+
+<details>
+<summary>Show plotting code</summary>
 
 ```{r mw-2020-double}
 # Filter to 2020 double adjustment period (Jul 2019 - Jul 2020)
@@ -496,18 +487,16 @@ ggplot(mw_2020,
   )
 ```
 
+</details>
+
 ![MW 2020 Double Adjustment](figures/applied-examples/fig-mw-2020-double.png){width=100%}
 
-The pattern remains crisp even under this demanding test. In habitual income:
-
-- January shows R$ 1,039 replacing R$ 998
-- February shows R$ 1,045 replacing R$ 1,039
-
-In effective income, each transition appears exactly one month later. The short-lived R$ 1,039 value creates a distinctive spike visible in both panels, offset by precisely one month.
+The pattern remains crisp. In habitual income, January shows R$ 1,039 replacing R$ 998, and February shows R$ 1,045 replacing R$ 1,039. In effective income, each transition appears exactly one month later.
 
 ### The Full Picture: 2012-2025
 
-Even with consecutive monthly adjustments creating overlapping transitions, the one-month lag remains crisp. Does this pattern hold across the entire series?
+<details>
+<summary>Show plotting code</summary>
 
 ```{r mw-big-picture}
 # Create color palette (blue to red gradient)
@@ -554,11 +543,11 @@ ggplot(mw_long_filtered,
   guides(color = guide_legend(ncol = 2))
 ```
 
+</details>
+
 ![MW Big Picture: All Values Over Time](figures/applied-examples/fig-mw-big-picture.png){width=100%}
 
-The figure shows all minimum wage values tracked over the full period. Each vertical line marks a MW adjustment. Notice how the pattern in the top panel (habitual income) is shifted one month earlier than the bottom panel (effective income)---exactly as predicted, consistently across thirteen years and fourteen minimum wage values.
-
-This provides strong validation that the mensalization algorithm correctly identifies reference months.
+Each vertical line marks a MW adjustment. The pattern in the top panel (habitual income) is shifted one month earlier than the bottom panel (effective income)---consistently across thirteen years and sixteen minimum wage values. This provides strong validation that the mensalization algorithm correctly identifies reference months.
 
 ---
 
@@ -570,143 +559,112 @@ This provides strong validation that the mensalization algorithm correctly ident
 | **Recession tracking** | Appears as smooth climb | Multiple months with >1 p.p. jumps |
 | **Minimum wage** | Timing impossible | 1-month lag validates methodology |
 
-Monthly data from `PNADCperiods` enables:
-
-- **Precise timing** of economic turning points
-- **True magnitudes** of shocks (not moving averages)
-- **Exact dating** of policy-relevant changes
-- **Validation** through known temporal patterns
+Monthly data from `PNADCperiods` enables **precise timing** of economic turning points, **true magnitudes** of shocks, and **validation** through known temporal patterns.
 
 ---
 
 ## 4. Beyond Monthly: Fortnightly and Weekly Analysis
 
-The examples above demonstrate the power of monthly disaggregation. But `PNADCperiods` can go even finer: the package also identifies **fortnightly** (quinzenal, 15-day periods) and **weekly** reference periods for each observation.
+`PNADCperiods` also identifies **fortnightly** and **weekly** reference periods. These have lower determination rates because, unlike months (which aggregate constraints across quarterly visits), fortnights and weeks can only use information from within a single quarter.
 
-### When Does Finer Granularity Matter?
-
-Some phenomena unfold faster than monthly cycles:
-
-- **Rapid policy shocks**: COVID-19 lockdowns began mid-March 2020---the monthly average blends pre- and post-lockdown
-- **Holiday effects**: Carnival, Christmas, and New Year have distinctive within-month labor market patterns
-- **Transition timing**: Knowing exactly which fortnight or week a change occurred can matter for event studies
-
-However, finer granularity comes at a cost: **smaller samples**.
-
-### The Sample Size Trade-Off
-
-**Strict determination rates** (from `pnadc_identify_periods()`):
-
-| Granularity | Determination Rate | Typical Obs/Period | Best For |
-|-------------|-------------------|-------------------|----------|
-| Monthly | **95.4%** | ~130,000 | Most analyses |
-| Fortnightly | **7.1%** | ~3,000 | Transition timing |
-| Weekly | **2.5%** | ~1,000 | Shock detection |
-
-**Why the low rates for fortnights and weeks?** Unlike months, which aggregate constraints across multiple quarterly visits (leveraging the panel design), fortnights and weeks can only use information from within a single quarter. The birthday constraints rarely narrow the interview window to a single 15-day or 7-day period.
-
-### Boosting Sub-Monthly Sample Sizes with Experimental Strategies
-
-The strict rates above can be improved using `pnadc_experimental_periods()`. This function applies two strategies:
-
-1. **Probabilistic assignment**: When the interview window spans exactly two consecutive periods and ≥X% of the interval falls in one period, assign to that period. Threshold X set by `confidence_threshold` parameter.
-
-2. **UPA aggregation**: When ≥Y% of strictly identified observations within a UPA-V1014 group have the same period, extend that assignment to undetermined observations. Threshold Y set by `upa_proportion_threshold`.
-
-With experimental strategies (`strategy = "both"`, conf=0.85, upa=0.80):
+### Determination Rates and Experimental Strategies
 
 | Granularity | Strict Rate | Experimental Rate | Improvement |
 |-------------|-------------|-------------------|-------------|
-| Fortnight | 7.1% | **~11%** | ~1.5× more data |
-| Weekly | 2.5% | **~6%** | ~2.4× more data |
+| Monthly | **~97%** | -- | -- |
+| Fortnightly | **~8%** | **~12%** | ~1.5x |
+| Weekly | **~3%** | **~6%** | ~2x |
 
-**Note:** The improvement is modest but meaningful. For comparison, using conf=0.8 (less conservative) achieves fortnight 13.5% and week 7.5%, while conf=0.9 (more conservative) achieves fortnight 13.5% and week 3.6%. The fortnight rate doesn't vary much with threshold, but weekly rate is threshold-sensitive.
+The `pnadc_experimental_periods()` function applies two strategies to boost sub-monthly rates: **probabilistic assignment** (when most of the interview window falls in one period) and **UPA aggregation** (when most observations in a UPA agree on the same period).
 
-The examples below use experimental strategies to maximize fortnight/week sample sizes while maintaining reasonable confidence.
+### Sub-Monthly Calibration Workflow
 
-### Example: COVID-19 Lockdown at Fortnightly Resolution
+Sub-monthly analysis requires a separate call to `pnadc_apply_periods()` with the appropriate `calibration_unit`. This is because each calibration unit produces its own weight column (`weight_fortnight` or `weight_weekly`), calibrated to account for the non-random selection into sub-monthly determination.
 
-The COVID-19 pandemic provides a compelling test case. Brazilian lockdowns began around March 16, 2020---almost perfectly aligned with the fortnight boundary. Monthly data for March averages the pre-lockdown first half with the post-lockdown second half. Fortnightly data can separate them.
+**Important:** Use a clean copy of your data (before any prior `pnadc_apply_periods()` call) to avoid column conflicts from duplicate merges.
 
-We examine **labor force participation**, which dropped sharply as workers exited the labor market entirely (not just becoming unemployed, but stopping their job search):
-
-```{r covid-fortnight}
-# Apply experimental strategies to boost fortnight determination
-# conf=0.85 (85% confidence), upa=0.80 (80% consensus)
+```{r submonthly-workflow}
+# Step 1: Apply experimental strategies to the crosswalk
 crosswalk_exp <- pnadc_experimental_periods(
   crosswalk,
-  strategy = "both",  # probabilistic + UPA aggregation
-  confidence_threshold = 0.85,       # >=85% of interval in one period
-  upa_proportion_threshold = 0.80,   # >=80% UPA consensus for extension
+  strategy = "both",
+  confidence_threshold = 0.85,
+  upa_proportion_threshold = 0.80,
   verbose = TRUE
 )
 
-# The experimental crosswalk now has ~12-13% fortnight determination
-# vs 8.9% strict. At conf=0.85, upa=0.80, we balance coverage with
-# assignment confidence.
-
-# For fortnightly analysis, we need CALIBRATED weights, not V1028.
-# The fortnight-determined subset (~12-13%) is NOT a random sample,
-# so using uncalibrated V1028 would cause systematic bias.
-# We use pnadc_apply_periods() with calibration_unit = "fortnight"
-# to generate properly calibrated weight_fortnight values.
-
-# First merge the experimental crosswalk for fortnight columns
-pnadc_fortnight <- merge(pnadc, crosswalk_exp[, .(Ano, Trimestre, UPA, V1008, V1014,
-                                                    ref_fortnight_in_quarter, ref_fortnight_yyyyff,
-                                                    determined_fortnight)],
-                         by = c("Ano", "Trimestre", "UPA", "V1008", "V1014"), all.x = TRUE)
-
-# Calibrate fortnight weights using experimental crosswalk
+# Step 2: Apply to CLEAN data with calibration_unit = "fortnight"
+# (pnadc_apply_periods handles the crosswalk merge internally)
 pnadc_fortnight <- pnadc_apply_periods(
-  pnadc_fortnight,
+  pnadc_clean,
   crosswalk_exp,
   weight_var = "V1028",
   anchor = "quarter",
   calibrate = TRUE,
-  calibration_unit = "fortnight",
-  verbose = FALSE
+  calibration_unit = "fortnight"
 )
 
-# Filter to COVID period with calibrated weights
-pnadc_fortnight <- pnadc_fortnight[!is.na(ref_fortnight_in_quarter) & !is.na(weight_fortnight) &
-                                   Ano == 2020 & Trimestre %in% 1:2]
+# Step 3: For weekly analysis, call again with calibration_unit = "week"
+pnadc_weekly <- pnadc_apply_periods(
+  pnadc_clean,
+  crosswalk_exp,
+  weight_var = "V1028",
+  anchor = "quarter",
+  calibrate = TRUE,
+  calibration_unit = "week",
+  smooth = FALSE  # No smoothing for weekly (too sparse)
+)
+```
 
-# Compute participation rate by fortnight using CALIBRATED weight_fortnight
-# This ensures proper population representation for the non-random fortnight subset
-fortnight_covid <- pnadc_fortnight[, .(
-  participation_rate = sum(pea * weight_fortnight, na.rm = TRUE) /
+### Example: COVID-19 Lockdown at Fortnightly Resolution
+
+Brazilian lockdowns began around March 16, 2020---almost perfectly aligned with the fortnight boundary. Monthly data for March averages pre- and post-lockdown. Fortnightly data can separate them.
+
+```{r fortnight-aggregate}
+# Filter to COVID period with calibrated fortnight weights
+pnadc_fn_covid <- pnadc_fortnight[
+  !is.na(weight_fortnight) & Ano == 2020 & Trimestre %in% 1:2 & V2009 >= 14
+]
+
+# Compute participation rate by fortnight
+fortnight_covid <- pnadc_fn_covid[, .(
+  participation_rate = sum((VD4001 == 1) * weight_fortnight, na.rm = TRUE) /
                        sum(weight_fortnight, na.rm = TRUE),
-  unemployment_rate = sum(unemployed * weight_fortnight, na.rm = TRUE) /
-                      sum(pea * weight_fortnight, na.rm = TRUE),
   n_obs = .N
-), by = .(Ano, Trimestre, ref_fortnight_in_quarter, ref_fortnight_yyyyff)]
+), by = .(ref_fortnight_yyyyff)]
 
-# Add period Date column (1st or 16th of month)
-fortnight_covid[, `:=`(
-  month = ((ref_fortnight_yyyyff %% 100) - 1L) %/% 2L + 1L,
-  day = fifelse(ref_fortnight_yyyyff %% 2L == 1L, 1L, 16L),
-  year = ref_fortnight_yyyyff %/% 100L
-)]
-fortnight_covid[, period := as.Date(paste(year, month, day, sep = "-"))]
+# Add period Date column
+fortnight_covid[, period := as.Date(paste0(
+  ref_fortnight_yyyyff %/% 100, "-",
+  ((ref_fortnight_yyyyff %% 100) - 1L) %/% 2L + 1L, "-",
+  fifelse(ref_fortnight_yyyyff %% 2L == 1L, "1", "16")
+))]
+```
 
-# Create plot comparing monthly vs fortnightly
+<details>
+<summary>Show plotting code</summary>
+
+```{r covid-fortnight}
+# Monthly comparison data
+covid_monthly_part <- monthly_total[
+  period >= "2020-01-01" & period <= "2020-06-30",
+  .(period, participation_rate)
+]
+
 ggplot() +
   # Monthly as reference
-  geom_line(data = covid_monthly_participation,
+  geom_line(data = covid_monthly_part,
             aes(x = period, y = participation_rate),
             color = "darkred", linewidth = 1, alpha = 0.7) +
-  geom_point(data = covid_monthly_participation,
+  geom_point(data = covid_monthly_part,
              aes(x = period, y = participation_rate),
              color = "darkred", size = 3) +
 
   # Fortnightly
-  geom_line(data = covid_fortnight_participation,
-            aes(x = period, y = participation_rate),
-            color = "#ff7f0e", linewidth = 0.8, linetype = "dashed") +
-  geom_point(data = covid_fortnight_participation,
-             aes(x = period, y = participation_rate),
-             color = "#ff7f0e", size = 2) +
+  geom_point(data = fortnight_covid[n_obs >= 300],
+             aes(x = period, y = participation_rate, size = n_obs),
+             color = "#ff7f0e", alpha = 0.8) +
+  scale_size_continuous(range = c(2, 5), guide = "none") +
 
   # Mark lockdown transition
   geom_vline(xintercept = as.Date("2020-03-16"),
@@ -716,86 +674,57 @@ ggplot() +
   scale_x_date(date_breaks = "1 month", date_labels = "%b\n%Y") +
   labs(
     title = "COVID-19 Labor Force Participation: Monthly vs Fortnightly",
-    subtitle = "Fortnightly data (orange) reveals sharper discontinuity at lockdown onset (experimental strategies)",
+    subtitle = "Fortnightly points (orange) show sharper discontinuity at lockdown onset (experimental strategies)",
     x = NULL, y = "Labor Force Participation Rate",
-    caption = "Uses pnadc_experimental_periods(strategy='both', conf=0.85, upa=0.80) for ~12-13% fortnight rate."
+    caption = "Uses pnadc_experimental_periods(strategy='both', conf=0.85, upa=0.80). Only fortnights with n >= 300 shown."
   ) +
   theme_minimal(base_size = 11)
 ```
 
+</details>
+
 ![COVID Lockdown: Monthly vs Fortnightly](figures/applied-examples/fig-covid-fortnight-comparison.png){width=100%}
 
-The fortnightly data shows a sharper discontinuity around March 16---the participation rate in the second fortnight of March (Mar-2) dropped more steeply than the monthly average suggests. This demonstrates how fortnightly resolution can capture transition timing more precisely.
+The fortnightly data shows a sharper discontinuity around March 16---the participation rate in the second fortnight of March dropped more steeply than the monthly average suggests.
 
 ### Example: Carnival Week Labor Market Effects
 
-Carnival is Brazil's largest cultural event, concentrated in specific states (Bahia, Rio de Janeiro, Pernambuco) and occurring during a specific week each year. Do workers reduce their hours during Carnival week?
+Carnival is Brazil's largest cultural event, concentrated in specific states (Bahia, Rio de Janeiro, Pernambuco). We **pool multiple years** (2019, 2022-2025, excluding COVID years) and compare Carnival states to other states, using **average hours worked** (VD4035):
 
-With strict determination, the ~2.5% weekly rate makes this analysis challenging. However, using `pnadc_experimental_periods()` with the same thresholds boosts this to ~6%. We **pool multiple years** (2019, 2022-2025, excluding COVID years) and compare Carnival states to other states. We use **average hours worked** (VD4035) as our indicator, which should show a clear drop during Carnival:
-
-```{r carnival-weekly}
-# Use experimental strategies for improved weekly determination
-# (Same crosswalk_exp created in the fortnight example above)
-
-# Filter to Q1 of Carnival years (2019, 2022-2025)
-# Use observations with determined weeks (among employed with valid hours)
+```{r carnival-aggregate}
+# Filter to Q1 of Carnival years with calibrated weekly weights
 carnival_years <- c(2019L, 2022L, 2023L, 2024L, 2025L)
-
-# For weekly analysis, we need CALIBRATED weights, not V1028.
-# The weekly-determined subset (~5-6%) is NOT a random sample,
-# so using uncalibrated V1028 would cause systematic bias.
-# We use pnadc_apply_periods() with calibration_unit = "week"
-# to generate properly calibrated weight_weekly values.
-
-# Merge experimental crosswalk for week data
-pnadc_weekly <- merge(pnadc, crosswalk_exp[, .(Ano, Trimestre, UPA, V1008, V1014,
-                                                 ref_week_in_quarter, ref_week_yyyyww,
-                                                 determined_week)],
-                      by = c("Ano", "Trimestre", "UPA", "V1008", "V1014"), all.x = TRUE)
-
-# Calibrate weekly weights using experimental crosswalk
-pnadc_weekly <- pnadc_apply_periods(
-  pnadc_weekly,
-  crosswalk_exp,
-  weight_var = "V1028",
-  anchor = "quarter",
-  calibrate = TRUE,
-  calibration_unit = "week",
-  smooth = FALSE,  # No smoothing for weekly (too sparse)
-  verbose = FALSE
-)
-
-# Filter to employed with valid hours and calibrated weights
-pnadc_weekly <- pnadc_weekly[
-  !is.na(ref_week_in_quarter) & !is.na(weight_weekly) &
-  Trimestre == 1L & Ano %in% carnival_years &
-  employed == 1L & !is.na(VD4035)
+pnadc_wk <- pnadc_weekly[
+  !is.na(weight_weekly) & Trimestre == 1L & Ano %in% carnival_years &
+  V2009 >= 14 & VD4002 == 1 & !is.na(VD4035)
 ]
 
-# Define Carnival weeks (ISO week of Carnival Tuesday varies by year)
-# 2019: Week 10 | 2022: Week 9 | 2023: Week 8 | 2024: Week 7 | 2025: Week 10
+# Define Carnival weeks (ISO week of Carnival Tuesday)
 carnival_weeks <- data.table(
   Ano = carnival_years,
   carnival_iso_week = c(10L, 9L, 8L, 7L, 10L)
 )
 
 # Extract ISO week and merge
-pnadc_weekly[, iso_week := ref_week_yyyyww %% 100L]
-pnadc_weekly <- merge(pnadc_weekly, carnival_weeks, by = "Ano", all.x = TRUE)
-pnadc_weekly[, is_carnival_week := (iso_week == carnival_iso_week)]
+pnadc_wk[, iso_week := ref_week_yyyyww %% 100L]
+pnadc_wk <- merge(pnadc_wk, carnival_weeks, by = "Ano", all.x = TRUE)
+pnadc_wk[, is_carnival_week := (iso_week == carnival_iso_week)]
 
 # Flag Carnival-intensive states (BA=29, RJ=33, PE=26)
-pnadc_weekly[, is_carnival_state := UF %in% c(29L, 33L, 26L)]
+pnadc_wk[, is_carnival_state := UF %in% c(29L, 33L, 26L)]
 
-# Aggregate: Average hours worked by Carnival vs non-Carnival weeks × region
-# Use CALIBRATED weight_weekly for proper population representation
-weekly_carnival <- pnadc_weekly[, .(
+# Aggregate: average hours by Carnival week x region (pooled across years)
+weekly_carnival <- pnadc_wk[, .(
   avg_hours_worked = sum(VD4035 * weight_weekly, na.rm = TRUE) /
                      sum(weight_weekly, na.rm = TRUE),
   n_obs = .N
 ), by = .(is_carnival_week, is_carnival_state)]
+```
 
-# Create difference-in-differences plot
+<details>
+<summary>Show plotting code</summary>
+
+```{r carnival-weekly}
 ggplot(weekly_carnival,
        aes(x = fifelse(is_carnival_week, "Carnival Week", "Other Weeks"),
            y = avg_hours_worked,
@@ -809,64 +738,24 @@ ggplot(weekly_carnival,
     subtitle = "Pooled data from Q1 2019, 2022-2025 (experimental strategies)",
     x = NULL, y = "Average Hours Worked (per week)",
     fill = "Region",
-    caption = "Uses pnadc_experimental_periods(strategy='both', conf=0.85, upa=0.80) for ~5-6% weekly rate. Pooled across 5 years."
+    caption = "Uses pnadc_experimental_periods(strategy='both', conf=0.85, upa=0.80). Pooled across 5 years."
   ) +
   theme_minimal(base_size = 11)
 ```
 
+</details>
+
 ![Carnival Week Effects](figures/applied-examples/fig-carnival-weekly-did.png){width=100%}
 
-The comparison shows that workers in Carnival-intensive states (BA/RJ/PE) reduce their average hours worked during Carnival week (34.8h) compared to other weeks (36.9h)---a drop of about 2 hours. The pattern provides evidence of Carnival's labor market impact, though the small weekly sample sizes mean estimates have considerable uncertainty.
+Workers in Carnival-intensive states reduce their average hours worked during Carnival week compared to other weeks, though the small weekly sample sizes mean estimates have considerable uncertainty.
 
-### Practical Guidelines for Sub-Monthly Analysis
+### Practical Guidelines
 
-| Question Type | Recommended Granularity | Sample Strategy |
-|---------------|------------------------|-----------------|
-| "How much changed?" | Monthly | Standard strict algorithm |
-| "When exactly did it change?" | Fortnight | Use experimental strategies |
-| "Was there a within-week pattern?" | Weekly | Experimental + pool multiple years |
-
-**Key takeaways:**
-
-1. **Monthly analysis handles most use cases** with 94.3% determination (8Q) or 97.0% (full history)
-2. **Fortnightly analysis** becomes practical with experimental strategies (~12-13% with conf=0.85 vs ~8.9% strict)
-3. **Weekly analysis** benefits from experimental strategies (~5-6% with conf=0.85 vs ~3.3% strict); pool multiple years essential for subgroup analysis
-4. **Confidence threshold trade-off**: Use 0.85-0.9 for balance; use 0.8 only if you need maximum weekly coverage
-
----
-
-## Reproducing These Results
-
-To reproduce the analyses in this vignette:
-
-1. Download PNADC quarterly microdata from IBGE
-2. Stack multiple quarters (we recommend at least 2 years)
-3. Apply mensalization:
-
-```{r reproduce, eval=FALSE}
-library(PNADCperiods)
-library(data.table)
-
-# Load your stacked PNADC data
-pnadc <- fread("your_pnadc_stacked.csv")
-
-# Build crosswalk and apply with weight calibration
-crosswalk <- pnadc_identify_periods(pnadc)
-result <- pnadc_apply_periods(pnadc, crosswalk,
-                               weight_var = "V1028",
-                               anchor = "quarter",
-                               calibrate = TRUE)
-
-# Compute monthly series
-monthly_total <- result[!is.na(weight_monthly), .(
-  unemployment_rate = sum((VD4001 == 1 & VD4002 == 2) * weight_monthly) /
-                      sum((VD4001 == 1) * weight_monthly),
-  participation_rate = sum((VD4001 == 1) * weight_monthly) /
-                       sum(weight_monthly)
-), by = ref_month_yyyymm]
-```
-
-See [Get Started](getting-started.html) for complete documentation of the package functions.
+| Recommended Granularity | Best For | Sample Strategy |
+|------------------------|----------|-----------------|
+| Monthly | Most analyses (~97% rate) | Standard strict algorithm |
+| Fortnightly | Transition timing (~12% exp.) | Experimental strategies |
+| Weekly | Within-week patterns (~6% exp.) | Experimental + pool multiple years |
 
 ---
 

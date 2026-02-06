@@ -17,8 +17,6 @@ navbar:
       menu:
       - text: Download and Prepare Data
         href: articles/download-and-prepare.html
-      - text: SIDRA Mensalization Guide
-        href: articles/sidra-mensalization.html
       - text: Applied Examples
         href: articles/applied-examples.html
       - text: Annual Poverty Analysis
@@ -28,8 +26,8 @@ navbar:
       - text: How PNADCperiods Works
         href: articles/how-it-works.html
       - text: "---"
-      - text: Benchmark Report
-        href: articles/determination-rates-benchmark.html
+      - text: SIDRA Mensalization Guide
+        href: articles/sidra-mensalization.html
 
 articles:
 - title: ~
@@ -49,10 +47,6 @@ articles:
 - title: SIDRA Mensalization
   contents:
   - sidra-mensalization
-
-- title: Benchmarks
-  contents:
-  - determination-rates-benchmark
 
 reference:
 - title: Main Functions
