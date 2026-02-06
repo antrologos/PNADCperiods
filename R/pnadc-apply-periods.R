@@ -564,7 +564,7 @@ calibrate_weights_internal <- function(dt,
   }
 
   # Step 3: Final calibration to external totals (only for determined obs)
-  dt <- PNADCperiods:::calibrate_to_external_totals(dt, target_totals, ref_var)
+  dt <- PNADCperiods:::calibrate_to_external_totals(dt, target_totals, ref_var, anchor)
 
   # Step 4: Smooth weights (if requested and appropriate for the time period)
   if (smooth) {
@@ -729,14 +729,18 @@ reweight_at_cell_level <- function(dt, cell_var, anchor_vars, ref_var, weight_ve
 #' Calibrate to External Population Totals
 #'
 #' Implements Marcos Hecksher's methodology for monthly calibration:
-#' - Month 2: Scale to poptrim (quarterly V1028 sum from ALL observations)
-#' - Months 1 and 3: Scale to SIDRA monthly population
+#' - When anchor = "quarter":
+#'   - Month 2: Scale to poptrim (quarterly V1028 sum from ALL observations)
+#'   - Months 1 and 3: Scale to SIDRA monthly population
+#' - When anchor = "year":
+#'   - ALL months: Scale to SIDRA monthly population
 #'
 #' For fortnights and weeks, all periods are scaled to their respective SIDRA targets.
 #'
+#' @param anchor Character. "quarter" or "year". Determines calibration strategy.
 #' @keywords internal
 #' @noRd
-calibrate_to_external_totals <- function(dt, target_totals, ref_var) {
+calibrate_to_external_totals <- function(dt, target_totals, ref_var, anchor = "quarter") {
 
   # Don't copy target_totals, work with it directly
   tt <- ensure_data_table(target_totals, copy = FALSE)
@@ -794,14 +798,19 @@ calibrate_to_external_totals <- function(dt, target_totals, ref_var) {
   # ==========================================================================
   # MARCOS' METHODOLOGY: Different calibration for month 2 vs months 1,3
   # ==========================================================================
-  # For MONTHS:
+  # For MONTHS with QUARTER anchor:
   #   - Month 2: Scale to poptrim (quarterly V1028 sum = population of middle month)
   #   - Months 1,3: Scale to SIDRA monthly population
+  # For MONTHS with YEAR anchor:
+  #   - ALL months: Scale to SIDRA monthly population
   # For FORTNIGHTS/WEEKS: All periods scale to their respective SIDRA targets
 
   is_month <- grepl("month", ref_var, ignore.case = TRUE)
+  is_quarter_anchor <- identical(anchor, "quarter")
 
-  if (is_month && "poptrim" %in% names(dt) && "ref_month_in_quarter" %in% names(dt)) {
+  # Only use month 2 = poptrim rule when anchor is "quarter"
+  if (is_month && is_quarter_anchor &&
+      "poptrim" %in% names(dt) && "ref_month_in_quarter" %in% names(dt)) {
     # Month 2: Use poptrim (quarterly V1028 sum from ALL observations)
     # poptrim is already in the data.table, computed before filtering
     dt[.is_determined == TRUE & ref_month_in_quarter == 2L & pop_current > 0,
@@ -812,7 +821,8 @@ calibrate_to_external_totals <- function(dt, target_totals, ref_var) {
          !is.na(target_pop) & pop_current > 0,
        weight_current := weight_current * (target_pop * 1000 / pop_current)]
   } else {
-    # Fortnights, weeks, or monthly without position info: scale all to SIDRA
+    # Year anchor, fortnights, weeks, or monthly without position info:
+    # Scale ALL periods to SIDRA targets
     dt[.is_determined == TRUE & !is.na(target_pop) & pop_current > 0,
        weight_current := weight_current * (target_pop * 1000 / pop_current)]
   }
