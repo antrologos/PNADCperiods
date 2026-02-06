@@ -77,67 +77,46 @@ The code chunks in this vignette must match the code in:
   mensalizacao_pnad/code/generate_annual_poverty_figures.R
 
 Look for comments like "# VIGNETTE CODE: chunk-name" in that script.
-To regenerate figures, run that script. Changes to code here
-must be mirrored in the generation script (and vice versa).
-
-Run code/check_vignette_sync.R to verify synchronization before release.
+To regenerate figures, run that script.
 -->
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
 <p>When exactly did poverty spike during COVID-19? Official annual
 statistics tell us that 2020 was a difficult year—but they can’t tell us
-whether the crisis peaked in April, May, or June. They can’t reveal
-whether the Auxílio Emergencial (emergency cash transfers) reduced
-poverty immediately upon implementation or with a delay. And they can’t
-show us the month-by-month path of recovery.</p>
-<p><strong>Monthly data can.</strong></p>
-<p>This vignette demonstrates a powerful technique: combining the
-mensalization algorithm with <strong>annual PNADC data</strong> to
-produce monthly poverty statistics. The annual PNADC releases contain
-comprehensive household income measures that aren’t available in the
-quarterly releases. By applying a mensalization crosswalk (from
-quarterly data) to annual income data, we get the best of both worlds:
-monthly temporal precision with comprehensive income measurement.</p>
+whether the crisis peaked in April or June, whether the Auxilio
+Emergencial reduced poverty immediately or with a delay, or what the
+month-by-month recovery path looked like. <strong>Monthly data
+can.</strong></p>
+<p>This vignette combines the mensalization algorithm with
+<strong>annual PNADC data</strong> to produce monthly poverty
+statistics. The annual PNADC releases contain comprehensive household
+income measures (<code>VD5008</code>) that aren’t available in the
+quarterly releases. By applying a mensalization crosswalk (built from
+quarterly data) to annual income data, we get monthly temporal precision
+with comprehensive income measurement.</p>
 <div class="float">
 <img src="figures/annual-poverty-analysis/fig-workflow-diagram.png" style="width:100.0%" alt="Data Workflow: Monthly Poverty Analysis with Annual PNADC"><div class="figcaption">Data Workflow: Monthly Poverty Analysis with
 Annual PNADC</div>
 </div>
-<div class="section level3">
-<h3 id="why-this-works">Why This Works<a class="anchor" aria-label="anchor" href="#why-this-works"></a>
-</h3>
-<p>IBGE’s PNADC uses a rotating panel design. The same households are
-interviewed in both quarterly and annual data collection. This means we
-can:</p>
+<p>IBGE’s PNADC uses a rotating panel design where the same households
+appear in both quarterly and annual data. The workflow is:</p>
 <ol style="list-style-type: decimal">
-<li>Build a <strong>crosswalk</strong> that identifies which reference
-month each observation belongs to (using quarterly data)</li>
+<li>Build a <strong>crosswalk</strong> from quarterly data using
+<code><a href="../reference/pnadc_identify_periods.html">pnadc_identify_periods()</a></code>
+</li>
 <li>
-<strong>Apply</strong> this crosswalk to annual income data using
-<code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code> (which also calibrates weights)</li>
+<strong>Apply</strong> the crosswalk to annual income data with
+<code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code> (which handles the merge internally
+and calibrates weights)</li>
 <li>Analyze detailed income and poverty measures at monthly
 frequency</li>
 </ol>
-</div>
-<div class="section level3">
-<h3 id="what-youll-learn">What You’ll Learn<a class="anchor" aria-label="anchor" href="#what-youll-learn"></a>
-</h3>
-<ul>
-<li>How to create a mensalization crosswalk from quarterly data</li>
-<li>How to apply the crosswalk to annual PNADC income data and calibrate
-weights</li>
-<li>How to construct per capita household income and poverty
-measures</li>
-<li>How to analyze monthly poverty dynamics during the 2015-2024
-period</li>
-</ul>
 <hr>
-</div>
 </div>
 <div class="section level2">
 <h2 id="prerequisites">Prerequisites<a class="anchor" aria-label="anchor" href="#prerequisites"></a>
 </h2>
-<p>This vignette requires the following packages:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://antrologos.github.io/PNADCperiods/">PNADCperiods</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span>
@@ -147,8 +126,7 @@ period</li>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="http://r-survey.r-forge.r-project.org/survey/" class="external-link">survey</a></span><span class="op">)</span>      <span class="co"># Survey analysis</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://scales.r-lib.org" class="external-link">scales</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://patchwork.data-imaginist.com" class="external-link">patchwork</a></span><span class="op">)</span>   <span class="co"># Combine plots</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://hbiostat.org/R/Hmisc/" class="external-link">Hmisc</a></span><span class="op">)</span>       <span class="co"># wtd.mean</span></span></code></pre></div>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://patchwork.data-imaginist.com" class="external-link">patchwork</a></span><span class="op">)</span>   <span class="co"># Combine plots</span></span></code></pre></div>
 <p>You also need:</p>
 <ul>
 <li>
@@ -164,217 +142,27 @@ format with income supplement variables</li>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="quick-start">Quick Start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
-</h2>
-<p>If you want to see the end result before diving into the methodology,
-here’s what monthly poverty analysis reveals:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Load pre-computed monthly poverty estimates</span></span>
-<span><span class="va">monthly_poverty</span> <span class="op">&lt;-</span> <span class="fu">fst</span><span class="fu">::</span><span class="fu"><a href="http://www.fstpackage.org/reference/write_fst.html" class="external-link">read_fst</a></span><span class="op">(</span><span class="st">"monthly_poverty_aggregates.fst"</span>,</span>
-<span>                                  as.data.table <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Monthly poverty rate for March 2020 (COVID onset)</span></span>
-<span><span class="va">monthly_poverty</span><span class="op">[</span><span class="va">ref_month_yyyymm</span> <span class="op">==</span> <span class="fl">202003</span>, <span class="va">poverty_rate</span><span class="op">]</span></span>
-<span></span>
-<span><span class="co"># Compare to December 2020 (after Auxílio Emergencial)</span></span>
-<span><span class="va">monthly_poverty</span><span class="op">[</span><span class="va">ref_month_yyyymm</span> <span class="op">==</span> <span class="fl">202012</span>, <span class="va">poverty_rate</span><span class="op">]</span></span></code></pre></div>
-<p>The rest of this vignette explains how to produce these estimates
-from raw PNADC data.</p>
-<hr>
-</div>
-<div class="section level2">
-<h2 id="data-strategy">Data Strategy<a class="anchor" aria-label="anchor" href="#data-strategy"></a>
-</h2>
-<div class="section level3">
-<h3 id="the-crosswalk-concept">The Crosswalk Concept<a class="anchor" aria-label="anchor" href="#the-crosswalk-concept"></a>
-</h3>
-<p>The mensalization algorithm determines which specific month an
-interview refers to by analyzing birthday constraints and IBGE’s
-interview scheduling rules. However, this algorithm requires the
-quarterly data format—specifically, variables like <code>V2008</code>
-(birth day), <code>V20081</code> (birth month), and <code>V20082</code>
-(birth year) that aren’t always available in annual releases.</p>
-<p>The solution is a <strong>crosswalk</strong>: we run mensalization on
-quarterly data to get reference months, then apply the crosswalk to
-annual data using <code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code>. This function
-handles the merge internally and also calibrates survey weights.</p>
-</div>
-<div class="section level3">
-<h3 id="join-keys">Join Keys<a class="anchor" aria-label="anchor" href="#join-keys"></a>
-</h3>
-<p>The <code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code> function uses five key
-variables to link crosswalk records with your data:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Join keys used internally by pnadc_apply_periods()</span></span>
-<span><span class="co"># Note: Column names are case-sensitive</span></span>
-<span><span class="va">join_keys</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Ano"</span>, <span class="st">"Trimestre"</span>, <span class="st">"UPA"</span>, <span class="st">"V1008"</span>, <span class="st">"V1014"</span><span class="op">)</span></span></code></pre></div>
-<blockquote>
-<p><strong>Note:</strong> You don’t need to call <code><a href="https://rdrr.io/r/base/merge.html" class="external-link">merge()</a></code>
-directly. The <code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code> function uses these
-keys internally to match crosswalk records with your data.</p>
-</blockquote>
-</div>
-<div class="section level3">
-<h3 id="match-rate-and-missing-observations">Match Rate and Missing Observations<a class="anchor" aria-label="anchor" href="#match-rate-and-missing-observations"></a>
-</h3>
-<p>When applying the crosswalk to annual data, expect approximately
-<strong>97% of observations</strong> to have a determined reference
-month. The crosswalk built from 2015-2024 quarterly data (40 quarters)
-achieves <strong>96.3% month determination</strong> on the quarterly
-data itself. When applied to annual data with
-<code>anchor = "year"</code>, this translates to a <strong>96.9% match
-rate</strong> due to the yearly weight calibration structure.</p>
-<p>The remaining ~3% occur because:</p>
-<ul>
-<li>Some observations fall in edge cases where the mensalization
-algorithm cannot determine a unique month</li>
-<li>Minor inconsistencies between quarterly and annual data
-collection</li>
-</ul>
-<p>For poverty analysis, we recommend <strong>dropping observations
-without determined reference months</strong>. This is the cleanest
-approach and introduces minimal bias since the undetermined cases are
-essentially random across the income distribution.</p>
-<blockquote>
-<p><strong>Want even higher determination rates?</strong> Experimental
-probabilistic strategies can boost rates further (e.g., 96.3% → 97-98%
-for months). See the <a href="how-it-works.html#experimental-strategies">experimental strategies
-section</a> in the How It Works vignette. For most analyses, the strict
-determination rates above are already excellent.</p>
-</blockquote>
-<hr>
-</div>
-</div>
-<div class="section level2">
-<h2 id="required-variables">Required Variables<a class="anchor" aria-label="anchor" href="#required-variables"></a>
-</h2>
-<div class="section level3">
-<h3 id="from-quarterly-data-for-mensalization">From Quarterly Data (for mensalization)<a class="anchor" aria-label="anchor" href="#from-quarterly-data-for-mensalization"></a>
-</h3>
-<table class="table">
-<thead><tr class="header">
-<th>Variable</th>
-<th>Description</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td>
-<code>Ano</code>, <code>Trimestre</code>
-</td>
-<td>Time period identifiers</td>
-</tr>
-<tr class="even">
-<td>
-<code>UPA</code>, <code>V1008</code>, <code>V1014</code>
-</td>
-<td>Household-panel join keys</td>
-</tr>
-<tr class="odd">
-<td>
-<code>V2008</code>, <code>V20081</code>, <code>V20082</code>
-</td>
-<td>Birthday (day, month, year)</td>
-</tr>
-<tr class="even">
-<td><code>V2009</code></td>
-<td>Age</td>
-</tr>
-<tr class="odd">
-<td><code>V1028</code></td>
-<td>Original survey weight (quarterly)</td>
-</tr>
-<tr class="even">
-<td>
-<code>UF</code>, <code>posest</code>, <code>posest_sxi</code>
-</td>
-<td>For weight calibration</td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="section level3">
-<h3 id="from-annual-data-for-poverty-analysis">From Annual Data (for poverty analysis)<a class="anchor" aria-label="anchor" href="#from-annual-data-for-poverty-analysis"></a>
-</h3>
-<table class="table">
-<thead><tr class="header">
-<th>Variable</th>
-<th>Description</th>
-<th>Category</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td><code>vd5008</code></td>
-<td>Household per capita income</td>
-<td>Income</td>
-</tr>
-<tr class="even">
-<td><code>v2005</code></td>
-<td>Position in household</td>
-<td>Filter</td>
-</tr>
-<tr class="odd">
-<td><code>v2009</code></td>
-<td>Age</td>
-<td>Demographics</td>
-</tr>
-<tr class="even">
-<td><code>v1032</code></td>
-<td>Survey weight</td>
-<td>Design</td>
-</tr>
-<tr class="odd">
-<td><code>uf</code></td>
-<td>State</td>
-<td>Geography</td>
-</tr>
-<tr class="even">
-<td><code>estrato</code></td>
-<td>Survey stratum</td>
-<td>Design</td>
-</tr>
-<tr class="odd">
-<td><code>posest</code></td>
-<td>Post-stratum</td>
-<td>Calibration</td>
-</tr>
-<tr class="even">
-<td><code>posest_sxi</code></td>
-<td>Post-stratum auxiliary</td>
-<td>Calibration</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Why VD5008?</strong> IBGE pre-calculates this variable to
-include all income sources (labor, transfers, pensions, other) and
-divides by household size. Using VD5008 directly ensures consistency
-with official IBGE statistics and simplifies the workflow.</p>
-</blockquote>
-<hr>
-</div>
-</div>
-<div class="section level2">
 <h2 id="complete-workflow">Complete Workflow<a class="anchor" aria-label="anchor" href="#complete-workflow"></a>
 </h2>
 <div class="section level3">
 <h3 id="step-1-create-mensalization-crosswalk">Step 1: Create Mensalization Crosswalk<a class="anchor" aria-label="anchor" href="#step-1-create-mensalization-crosswalk"></a>
 </h3>
-<p>First, load stacked quarterly PNADC data and run the mensalization
+<p>Load stacked quarterly PNADC data and run the mensalization
 algorithm:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Define paths</span></span>
 <span><span class="va">pnad_quarterly_dir</span> <span class="op">&lt;-</span> <span class="st">"path/to/quarterly/data"</span></span>
 <span></span>
 <span><span class="co"># List quarterly files (2015-2024)</span></span>
 <span><span class="va">quarterly_files</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span></span>
 <span>  path <span class="op">=</span> <span class="va">pnad_quarterly_dir</span>,</span>
-<span>  pattern <span class="op">=</span> <span class="st">"PNADC_.*\\.fst$"</span>,</span>
+<span>  pattern <span class="op">=</span> <span class="st">"pnadc_20(1[5-9]|2[0-4])-[1-4]q\\.fst$"</span>,</span>
 <span>  full.names <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Variables needed for mensalization</span></span>
 <span><span class="va">quarterly_vars</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>  <span class="st">"Ano"</span>, <span class="st">"Trimestre"</span>, <span class="st">"UPA"</span>, <span class="st">"V1008"</span>, <span class="st">"V1014"</span>, <span class="st">"V2003"</span>,</span>
+<span>  <span class="st">"Ano"</span>, <span class="st">"Trimestre"</span>, <span class="st">"UPA"</span>, <span class="st">"V1008"</span>, <span class="st">"V1014"</span>,</span>
 <span>  <span class="st">"V2008"</span>, <span class="st">"V20081"</span>, <span class="st">"V20082"</span>, <span class="st">"V2009"</span>,</span>
 <span>  <span class="st">"V1028"</span>, <span class="st">"UF"</span>, <span class="st">"posest"</span>, <span class="st">"posest_sxi"</span>, <span class="st">"Estrato"</span></span>
 <span><span class="op">)</span></span>
@@ -394,7 +182,7 @@ algorithm:</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Check determination rate (expect ~96% with 40 quarters of data)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">crosswalk</span><span class="op">$</span><span class="va">ref_month_in_quarter</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">crosswalk</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">determined_month</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="step-2-load-annual-pnadc-data">Step 2: Load Annual PNADC Data<a class="anchor" aria-label="anchor" href="#step-2-load-annual-pnadc-data"></a>
@@ -402,7 +190,7 @@ algorithm:</p>
 <p>Annual PNADC files follow a specific naming convention. Note that
 2020-2021 use visit 5 (due to COVID-related field disruptions), while
 other years use visit 1:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">pnad_annual_dir</span> <span class="op">&lt;-</span> <span class="st">"path/to/annual/data"</span></span>
 <span></span>
 <span><span class="co"># Define which visit to use for each year</span></span>
@@ -416,12 +204,10 @@ other years use visit 1:</p>
 interviews for 2020-2021 have significant quality issues or are
 unavailable entirely. Visit 5 interviews were conducted later under
 improved conditions and are the standard choice for COVID-era income and
-poverty analysis. This follows IBGE’s own recommendations for annual
-income analysis during this period.</p>
+poverty analysis.</p>
 </blockquote>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># Build file paths</span></span>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Build file paths</span></span>
 <span><span class="va">annual_files</span> <span class="op">&lt;-</span> <span class="va">visit_selection</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
 <span>  file <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">pnad_annual_dir</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"pnadc_%d_visita%d.fst"</span>, <span class="va">ano</span>, <span class="va">visita</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span>, by <span class="op">=</span> <span class="va">ano</span><span class="op">]</span></span>
@@ -429,7 +215,7 @@ income analysis during this period.</p>
 <span><span class="co"># Variables to load</span></span>
 <span><span class="va">annual_vars</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>  <span class="co"># Join keys</span></span>
-<span>  <span class="st">"ano"</span>, <span class="st">"trimestre"</span>, <span class="st">"upa"</span>, <span class="st">"v1008"</span>, <span class="st">"v1014"</span>, <span class="st">"v2003"</span>,</span>
+<span>  <span class="st">"ano"</span>, <span class="st">"trimestre"</span>, <span class="st">"upa"</span>, <span class="st">"v1008"</span>, <span class="st">"v1014"</span>,</span>
 <span>  <span class="co"># Demographics</span></span>
 <span>  <span class="st">"v2005"</span>, <span class="st">"v2007"</span>, <span class="st">"v2009"</span>, <span class="st">"v2010"</span>, <span class="st">"uf"</span>, <span class="st">"estrato"</span>,</span>
 <span>  <span class="co"># Weights and calibration</span></span>
@@ -450,13 +236,42 @@ income analysis during this period.</p>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
+<h3 id="step-2b-standardize-column-names">Step 2b: Standardize Column Names<a class="anchor" aria-label="anchor" href="#step-2b-standardize-column-names"></a>
+</h3>
+<p>The annual data has lowercase column names, but
+<code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code> requires specific casing for the join
+keys. Standardize before applying the crosswalk:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># pnadc_apply_periods() expects uppercase join keys</span></span>
+<span><span class="va">key_mappings</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>  <span class="st">"ano"</span> <span class="op">=</span> <span class="st">"Ano"</span>, <span class="st">"trimestre"</span> <span class="op">=</span> <span class="st">"Trimestre"</span>,</span>
+<span>  <span class="st">"upa"</span> <span class="op">=</span> <span class="st">"UPA"</span>, <span class="st">"v1008"</span> <span class="op">=</span> <span class="st">"V1008"</span>, <span class="st">"v1014"</span> <span class="op">=</span> <span class="st">"V1014"</span>,</span>
+<span>  <span class="st">"v1032"</span> <span class="op">=</span> <span class="st">"V1032"</span>, <span class="st">"uf"</span> <span class="op">=</span> <span class="st">"UF"</span>, <span class="st">"v2009"</span> <span class="op">=</span> <span class="st">"V2009"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">old_name</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">key_mappings</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="va">old_name</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">annual_data</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/setattr.html" class="external-link">setnames</a></span><span class="op">(</span><span class="va">annual_data</span>, <span class="va">old_name</span>, <span class="va">key_mappings</span><span class="op">[[</span><span class="va">old_name</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+<blockquote>
+<p><strong>Note:</strong> The calibration columns <code>posest</code>
+and <code>posest_sxi</code> stay lowercase—the package expects them in
+that case. Only the join keys (<code>Ano</code>, <code>Trimestre</code>,
+<code>UPA</code>, <code>V1008</code>, <code>V1014</code>) and weight
+column (<code>V1032</code>) need uppercase.</p>
+</blockquote>
+</div>
+<div class="section level3">
 <h3 id="step-3-apply-crosswalk-and-calibrate-weights">Step 3: Apply Crosswalk and Calibrate Weights<a class="anchor" aria-label="anchor" href="#step-3-apply-crosswalk-and-calibrate-weights"></a>
 </h3>
 <p>Apply the crosswalk to annual data and calibrate weights using
-<code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code>:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Apply crosswalk to annual data and calibrate V1032 weights</span></span>
-<span><span class="va">d</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span></span>
+<code><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods()</a></code>. The function handles the merge
+internally using the five join keys (<code>Ano</code>,
+<code>Trimestre</code>, <code>UPA</code>, <code>V1008</code>,
+<code>V1014</code>):</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">d</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pnadc_apply_periods.html">pnadc_apply_periods</a></span><span class="op">(</span></span>
 <span>  <span class="va">annual_data</span>,</span>
 <span>  <span class="va">crosswalk</span>,</span>
 <span>  weight_var <span class="op">=</span> <span class="st">"V1032"</span>,</span>
@@ -469,25 +284,19 @@ income analysis during this period.</p>
 <span></span>
 <span><span class="co"># Check match rate (expect ~97% with year anchor)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">ref_month_in_quarter</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>The function reports the match rate and details about the
-hierarchical calibration process.</p>
 <blockquote>
-<p><strong>Why use
-<code>pnadc_apply_periods(..., anchor = "year")</code>?</strong></p>
-<p>Annual PNADC data contains only one visit per household (e.g., visit
-1 or visit 5), not all 8 rotation groups like quarterly data. The
-function properly calibrates the annual weight <strong>V1032</strong> to
-monthly SIDRA population totals using <code>anchor = "year"</code> to
-preserve yearly totals while redistributing to months.</p>
-<p>For technical details, see <a href="how-it-works.html#mensalizing-annual-pnadc-data">How It
-Works</a>.</p>
+<p><strong>Why <code>anchor = "year"</code>?</strong> Annual PNADC data
+contains only one visit per household (e.g., visit 1 or visit 5), not
+all rotation groups like quarterly data. The <code>"year"</code> anchor
+calibrates the annual weight <code>V1032</code> to monthly SIDRA
+population totals while preserving yearly totals.</p>
 </blockquote>
 </div>
 <div class="section level3">
 <h3 id="step-4-construct-per-capita-income">Step 4: Construct Per Capita Income<a class="anchor" aria-label="anchor" href="#step-4-construct-per-capita-income"></a>
 </h3>
 <p>Use IBGE’s pre-calculated household per capita income variable:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Filter to household members only</span></span>
 <span><span class="va">d</span> <span class="op">&lt;-</span> <span class="va">d</span><span class="op">[</span><span class="va">v2005</span> <span class="op">&lt;=</span> <span class="fl">14</span> <span class="op">|</span> <span class="va">v2005</span> <span class="op">==</span> <span class="fl">16</span><span class="op">]</span></span>
 <span></span>
@@ -501,7 +310,7 @@ Works</a>.</p>
 <h3 id="step-5-apply-deflation">Step 5: Apply Deflation<a class="anchor" aria-label="anchor" href="#step-5-apply-deflation"></a>
 </h3>
 <p>Convert nominal income to real values using IBGE deflators:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Load deflator data (from IBGE documentation)</span></span>
 <span><span class="va">deflator</span> <span class="op">&lt;-</span> <span class="fu">readxl</span><span class="fu">::</span><span class="fu"><a href="https://readxl.tidyverse.org/reference/read_excel.html" class="external-link">read_excel</a></span><span class="op">(</span><span class="st">"path/to/deflator_pnadc_2024.xls"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/setDT.html" class="external-link">setDT</a></span><span class="op">(</span><span class="va">deflator</span><span class="op">)</span></span>
@@ -524,7 +333,7 @@ Works</a>.</p>
 <h3 id="step-6-define-poverty-line">Step 6: Define Poverty Line<a class="anchor" aria-label="anchor" href="#step-6-define-poverty-line"></a>
 </h3>
 <p>Calculate the World Bank PPP-based poverty threshold:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># World Bank poverty line: USD 8.30 PPP per day (upper-middle income threshold)</span></span>
 <span><span class="va">poverty_line_830_ppp_daily</span> <span class="op">&lt;-</span> <span class="fl">8.30</span></span>
 <span></span>
@@ -562,7 +371,7 @@ recent available.</p>
 </h3>
 <p>Before computing poverty measures, we define the FGT family of
 poverty indices:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># FGT poverty measure family (Foster-Greer-Thorbecke)</span></span>
 <span><span class="co"># alpha = 0: Headcount ratio (share below line)</span></span>
 <span><span class="co"># alpha = 1: Poverty gap (average shortfall)</span></span>
@@ -584,7 +393,7 @@ poverty indices:</p>
 <h3 id="example-1-monthly-fgt-poverty-measures">Example 1: Monthly FGT Poverty Measures<a class="anchor" aria-label="anchor" href="#example-1-monthly-fgt-poverty-measures"></a>
 </h3>
 <p>Calculate monthly poverty rates using the FGT family:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Filter to determined observations</span></span>
 <span><span class="va">d_monthly</span> <span class="op">&lt;-</span> <span class="va">d</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">ref_month_yyyymm</span><span class="op">)</span><span class="op">]</span></span>
 <span></span>
@@ -600,7 +409,7 @@ poverty indices:</p>
 <span>  poverty_gap <span class="op">=</span> <span class="fu">fgt</span><span class="op">(</span><span class="va">hhinc_pc</span>, <span class="va">poverty_line</span>, <span class="va">peso</span>, alpha <span class="op">=</span> <span class="fl">1</span><span class="op">)</span>,</span>
 <span></span>
 <span>  <span class="co"># Mean income</span></span>
-<span>  mean_income <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/Hmisc/man/wtd.stats.html" class="external-link">wtd.mean</a></span><span class="op">(</span><span class="va">hhinc_pc</span>, <span class="va">peso</span><span class="op">)</span>,</span>
+<span>  mean_income <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/weighted.mean.html" class="external-link">weighted.mean</a></span><span class="op">(</span><span class="va">hhinc_pc</span>, <span class="va">peso</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
 <span></span>
 <span>  <span class="co"># Sample size</span></span>
 <span>  n_obs <span class="op">=</span> <span class="va">.N</span></span>
@@ -612,21 +421,20 @@ poverty indices:</p>
 <span>  <span class="va">ref_month_yyyymm</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html" class="external-link">%/%</a></span> <span class="fl">100</span>, <span class="st">"-"</span>,</span>
 <span>  <span class="va">ref_month_yyyymm</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html" class="external-link">%%</a></span> <span class="fl">100</span>, <span class="st">"-15"</span></span>
 <span><span class="op">)</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
-<div class="float">
+<details><summary>
+Show plotting code
+</summary><div class="float">
 <img src="figures/annual-poverty-analysis/fig-fgt-monthly-series.png" style="width:100.0%" alt="Monthly Poverty Measures: Brazil, 2015-2024"><div class="figcaption">Monthly Poverty Measures: Brazil,
 2015-2024</div>
 </div>
-<p>The figure reveals several key dynamics:</p>
+</details><p>The figure reveals several key dynamics:</p>
 <ol style="list-style-type: decimal">
-<li><p><strong>Pre-COVID baseline</strong>: Poverty rates were gradually
-declining from 2015-2019, recovering from the 2015-2016
-recession.</p></li>
 <li><p><strong>COVID-19 spike (March-April 2020)</strong>: The poverty
 rate shows a sharp increase in early 2020.</p></li>
-<li><p><strong>Auxílio Emergencial effect (May-December 2020)</strong>:
+<li><p><strong>Auxilio Emergencial effect (May-December 2020)</strong>:
 Emergency cash transfers dramatically reduced poverty below pre-pandemic
 levels.</p></li>
-<li><p><strong>Post-Auxílio adjustment (2021)</strong>: As emergency aid
+<li><p><strong>Post-Auxilio adjustment (2021)</strong>: As emergency aid
 was reduced, poverty rates partially rebounded.</p></li>
 </ol>
 </div>
@@ -635,7 +443,7 @@ was reduced, poverty rates partially rebounded.</p></li>
 </h3>
 <p>For proper inference, use complex survey design with monthly
 weights:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Survey design with monthly weights (March 2020 example)</span></span>
 <span><span class="va">design</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/survey/man/svydesign.html" class="external-link">svydesign</a></span><span class="op">(</span></span>
 <span>  ids <span class="op">=</span> <span class="op">~</span><span class="va">UPA</span>, strata <span class="op">=</span> <span class="op">~</span><span class="va">estrato</span>, weights <span class="op">=</span> <span class="op">~</span><span class="va">peso</span>,</span>
@@ -649,20 +457,22 @@ see the <a href="complex-survey-design.html">Complex Survey Design</a>
 vignette.</p>
 </div>
 <div class="section level3">
-<h3 id="example-3-post-hoc-smoothing-of-aggregates">Example 3: Post-hoc Smoothing of Aggregates<a class="anchor" aria-label="anchor" href="#example-3-post-hoc-smoothing-of-aggregates"></a>
+<h3 id="example-3-post-hoc-smoothing">Example 3: Post-hoc Smoothing<a class="anchor" aria-label="anchor" href="#example-3-post-hoc-smoothing"></a>
 </h3>
 <p>The raw monthly series may show quarterly artifacts from IBGE’s
 rotating panel design. If artifacts persist after weight calibration
 (which applies smoothing by default), you can apply additional post-hoc
-smoothing to your aggregated estimates:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+smoothing:</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Three-month centered rolling average (using data.table::frollmean)</span></span>
 <span><span class="va">monthly_poverty</span><span class="op">[</span>, <span class="va">poverty_rate_smoothed</span> <span class="op">:=</span></span>
 <span>                  <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/froll.html" class="external-link">frollmean</a></span><span class="op">(</span><span class="va">poverty_rate</span>, <span class="fl">3</span>, align <span class="op">=</span> <span class="st">"center"</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
-<div class="float">
+<details><summary>
+Show plotting code
+</summary><div class="float">
 <img src="figures/annual-poverty-analysis/fig-smoothing-comparison.png" style="width:100.0%" alt="Raw vs Smoothed Monthly Poverty Rate"><div class="figcaption">Raw vs Smoothed Monthly Poverty Rate</div>
 </div>
-<p><strong>Caution</strong>: Smoothing removes noise but may also mask
+</details><p><strong>Caution</strong>: Smoothing removes noise but may also mask
 real month-to-month dynamics. Use smoothing for trend visualization, but
 report raw estimates for specific months of interest.</p>
 <hr>
@@ -689,7 +499,7 @@ report raw estimates for specific months of interest.</p>
 <td>Visible March-April 2020</td>
 </tr>
 <tr class="even">
-<td><strong>Auxílio timing</strong></td>
+<td><strong>Auxilio timing</strong></td>
 <td>Effect blurred</td>
 <td>Clear May 2020 onset</td>
 </tr>
@@ -705,43 +515,10 @@ report raw estimates for specific months of interest.</p>
 </tr>
 </tbody>
 </table>
-<div class="section level3">
-<h3 id="when-to-use-this-approach">When to Use This Approach<a class="anchor" aria-label="anchor" href="#when-to-use-this-approach"></a>
-</h3>
-<ul>
-<li>
-<strong>Event studies</strong>: Analyzing policy changes or economic
-shocks with precise timing</li>
-<li>
-<strong>Policy evaluation</strong>: Measuring immediate effects of
-interventions (e.g., cash transfers)</li>
-<li>
-<strong>Seasonal analysis</strong>: Identifying within-year patterns
-in poverty</li>
-<li>
-<strong>Nowcasting</strong>: Producing more timely poverty
-estimates</li>
-</ul>
-</div>
-<div class="section level3">
-<h3 id="limitations">Limitations<a class="anchor" aria-label="anchor" href="#limitations"></a>
-</h3>
-<ul>
-<li>
-<strong>Sample loss</strong>: ~3% of observations have undetermined
-reference months</li>
-<li>
-<strong>Data lag</strong>: Annual PNADC is released with 18+ month
-delay</li>
-<li>
-<strong>Variable changes</strong>: Pre-2015 annual data uses
-different variable names</li>
-<li>
-<strong>Confidence intervals</strong>: Monthly estimates have wider
-uncertainty than annual</li>
-</ul>
+<p><strong>Limitations</strong>: ~3% sample loss from undetermined
+reference months; annual PNADC is released with 18+ month delay; monthly
+estimates have wider confidence intervals than annual.</p>
 <hr>
-</div>
 </div>
 <div class="section level2">
 <h2 id="further-reading">Further Reading<a class="anchor" aria-label="anchor" href="#further-reading"></a>
@@ -760,13 +537,12 @@ Variance estimation</li>
 <a href="applied-examples.html">Applied Examples</a> - Unemployment
 and minimum wage examples</li>
 </ul>
-<hr>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
 <ul>
-<li>IBGE. Pesquisa Nacional por Amostra de Domicílios Contínua (PNADC).
+<li>IBGE. Pesquisa Nacional por Amostra de Domicilios Continua (PNADC).
 <a href="https://www.ibge.gov.br/estatisticas/sociais/trabalho/" class="external-link uri">https://www.ibge.gov.br/estatisticas/sociais/trabalho/</a>
 </li>
 <li>World Bank. Poverty and Shared Prosperity Reports. Various
