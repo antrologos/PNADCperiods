@@ -61,7 +61,7 @@ The starting points (y0) are computed by:
 \section{Series-Specific Handling}{
 
 When \code{use_series_specific_periods = TRUE}, the following series receive
-special handling to match Marcos Hecksher's methodology:
+special handling for series-specific data availability:
 \describe{
 \item{CNPJ series}{empregadorcomcnpj, empregadorsemcnpj, contapropriacomcnpj,
 contapropriasemcnpj use calibration period 201601-201912 and cumsum starts

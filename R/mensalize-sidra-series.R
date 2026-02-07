@@ -126,7 +126,7 @@ mensalize_sidra_series <- function(rolling_quarters,
   all_series <- setdiff(all_series, avg_income_series)
 
   # Filter out residual series - they are COMPUTED from mensalized components
-  # Marcos computes these as residuals after mensalization (Stata lines 511-514)
+  # Residual series are computed from mensalized components (see derived series logic)
   # to ensure subcategories sum exactly to parent totals
   residual_series <- c("popforadaforca", "empregadorsemcnpj",
                        "contapropriasemcnpj", "trabfamauxiliar")
@@ -194,7 +194,7 @@ mensalize_sidra_series <- function(rolling_quarters,
 
   # Compute comrendtodos (number of people with income) from SIDRA data
   # This is needed to derive average income series (rendhabnominaltodos, rendefetnominaltodos)
-  # Formula from Marcos' Stata: comrendtodos = (massa/rend + massa/rend)/2 * 1000
+  # Formula: comrendtodos = (massa/rend + massa/rend)/2 * 1000
   # The SIDRA series are: massa in millions, rend in reais, so result is in thousands
   if ("massahabnominaltodos" %in% names(dt) && "rendhabnominaltodos" %in% names(dt) &&
       "massaefetnominaltodos" %in% names(dt) && "rendefetnominaltodos" %in% names(dt)) {
@@ -234,7 +234,7 @@ mensalize_sidra_series <- function(rolling_quarters,
   )
 
   # Define split-calibration series (require two separate mensalizations stitched together)
-  # subocuphoras: VD4004 pre-201509, VD4004A post-201509 (Stata lines 461-480)
+  # subocuphoras: VD4004 pre-201509, VD4004A post-201509 (split calibration)
   split_series <- c("subocuphoras")
 
   # Process each series
@@ -778,7 +778,7 @@ mensalize_sidra_series <- function(rolling_quarters,
 
   # ==========================================================================
   # AVERAGE INCOME: output = numerator / denominator * multiplier
-  # Formula: m_rend = m_massa / m_comrendtodos * 1000 (Stata lines 531-532)
+  # Formula: m_rend = m_massa / m_comrendtodos * 1000
   # ==========================================================================
   average_income = list(
     list(name = "rendhabnominaltodos",
@@ -814,7 +814,7 @@ mensalize_sidra_series <- function(rolling_quarters,
 
   # ==========================================================================
   # RESIDUALS: output = parent - sum(subtract)
-  # Computed as residuals to ensure accounting identities (Stata lines 511-514)
+  # Computed as residuals to ensure accounting identities
   # ==========================================================================
   residuals = list(
     list(name = "popforadaforca",
@@ -843,7 +843,7 @@ mensalize_sidra_series <- function(rolling_quarters,
 
   # ==========================================================================
   # RATES: output = (sum of numerator) / (sum of denominator) * 100
-  # All rates use decimals = 1 for consistency with Stata output
+  # All rates use decimals = 1
   # ==========================================================================
   rates = list(
     list(name = "taxapartic",
@@ -909,7 +909,7 @@ mensalize_sidra_series <- function(rolling_quarters,
 
   # ==========================================================================
   # DEFLATED: output = source * deflator (rounded)
-  # "hab" series use current IPCA, "efet" series use lagged IPCA (Stata lines 232, 261-264)
+  # "hab" series use current IPCA, "efet" series use lagged IPCA
   # ==========================================================================
   deflated = list(
     list(name = "massahabtodosipcabr",
@@ -976,7 +976,7 @@ mensalize_sidra_series <- function(rolling_quarters,
 #'
 #' @section Series-Specific Handling:
 #' When \code{use_series_specific_periods = TRUE}, the following series receive
-#' special handling to match Marcos Hecksher's methodology:
+#' special handling for series-specific data availability:
 #' \describe{
 #'   \item{CNPJ series}{empregadorcomcnpj, empregadorsemcnpj, contapropriacomcnpj,
 #'     contapropriasemcnpj use calibration period 201601-201912 and cumsum starts
@@ -1031,7 +1031,7 @@ compute_series_starting_points <- function(monthly_estimates,
   cnpj_series <- c("empregadorcomcnpj", "empregadorsemcnpj",
                    "contapropriacomcnpj", "contapropriasemcnpj")
 
-  # subocuphoras requires SPLIT CALIBRATION (Stata lines 440-480)
+  # subocuphoras requires SPLIT CALIBRATION
   # The VD4004 -> VD4004A transition at 201510 requires TWO separate mensalizations:
   # - Post-201509: cumsum from 201510, calibration 201601-201912 (same as CNPJ)
   # - Pre-201509: cumsum from start, calibration 201301-201412
@@ -1193,7 +1193,7 @@ compute_series_starting_points <- function(monthly_estimates,
     # ========================================================================
     # SPLIT CALIBRATION for subocuphoras (and similar series)
     # Compute ADDITIONAL starting points for pre-VD4004_SPLIT data
-    # (Matches Marcos' Stata lines 461-480)
+    # (split calibration for pre-VD4004_SPLIT period)
     # ========================================================================
     if (is_split_series) {
       split_month <- .PNADC_DATES$VD4004_SPLIT
@@ -1236,14 +1236,13 @@ compute_series_starting_points <- function(monthly_estimates,
 
 
 # ==============================================================================
-# Stata-Compatible Starting Points Computation
+# Starting Points Computation from Microdata
 # ==============================================================================
 
-#' Compute z_ Aggregates Using Stata-Compatible Methodology
+#' Compute z_ Aggregates from Monthly Microdata
 #'
-#' Computes monthly z_ aggregates from PNADC microdata. Can replicate Marcos
-#' Hecksher's exact Stata calibration or use a corrected methodology that scales
-#' all months to external population.
+#' Computes monthly z_ aggregates from PNADC microdata using calibrated monthly
+#' weights, with options for different population scaling approaches.
 #'
 #' @param calibrated_data PNADC microdata output from \code{pnadc_apply_periods()}
 #'   with \code{calibrate = TRUE}. Must include \code{weight_monthly},
@@ -1260,8 +1259,8 @@ compute_series_starting_points <- function(monthly_estimates,
 #' This function creates z_ indicator variables and aggregates them using the
 #' calibrated \code{weight_monthly} from \code{pnadc_apply_periods()}.
 #'
-#' The \code{pnadc_apply_periods()} function now implements Marcos Hecksher's
-#' methodology correctly:
+#' The \code{pnadc_apply_periods()} function implements the calibration
+#' methodology as follows:
 #' \itemize{
 #'   \item Month 2: Scaled to poptrim (quarterly V1028 sum from ALL observations)
 #'   \item Months 1,3: Scaled to SIDRA monthly population
@@ -1274,7 +1273,7 @@ compute_series_starting_points <- function(monthly_estimates,
 #' # Step 1: Build crosswalk
 #' crosswalk <- pnadc_identify_periods(stacked_data)
 #'
-#' # Step 2: Calibrate weights (implements Marcos' methodology)
+#' # Step 2: Calibrate weights
 #' calibrated <- pnadc_apply_periods(stacked_data, crosswalk,
 #'                                    weight_var = "V1028",
 #'                                    calibration_unit = "month")
@@ -1368,7 +1367,7 @@ compute_z_aggregates <- function(calibrated_data, verbose = TRUE) {
       z_trabfamauxiliar = as.integer(VD4009 == 10L)
     )]
 
-    # CNPJ indicators - use %in% for NA-safe comparison (matches Stata behavior)
+    # CNPJ indicators - use %in% for NA-safe comparison (NA-safe)
     # V4019 only available from ~201510, so these will be 0/FALSE for earlier periods
     if ("V4019" %in% names(dt)) {
       dt[, z_empregadorcomcnpj := as.integer(VD4009 %in% 8L & V4019 %in% 1L)]
@@ -1406,7 +1405,7 @@ compute_z_aggregates <- function(calibrated_data, verbose = TRUE) {
   }
 
   # Suboccupation (variable changed name over time: VD4004 -> VD4004A at 201510)
-  # Stata boundary: VD4004 used for anomesexato <= VD4004_SPLIT, VD4004A for > VD4004_SPLIT
+  # VD4004 used for anomesexato <= VD4004_SPLIT, VD4004A otherwise
   if ("VD4004A" %in% names(dt) || "VD4004" %in% names(dt)) {
     split_month <- .PNADC_DATES$VD4004_SPLIT
     dt[, z_subocuphoras := 0L]
@@ -1701,7 +1700,7 @@ compute_z_aggregates <- function(calibrated_data, verbose = TRUE) {
   # NOTE: Derived series (rates, per-capita income) are NOT computed here
   # ============================================================================
   # Rate series (taxadesocup, taxapartic, etc.) should NOT have starting points.
-  # Marcos' methodology: mensalize COMPONENT series (popdesocup, popnaforca),
+  # Methodology: mensalize COMPONENT series (popdesocup, popnaforca),
   # then DERIVE rates: m_taxadesocup = m_popdesocup / m_popnaforca * 100
   #
   # Per-capita income series (rendhabnominaltodos, rendefetnominaltodos) are
@@ -1746,14 +1745,14 @@ compute_z_aggregates <- function(calibrated_data, verbose = TRUE) {
 #' This function performs the complete workflow:
 #' \enumerate{
 #'   \item Build crosswalk via \code{pnadc_identify_periods()}
-#'   \item Calibrate weights via \code{pnadc_apply_periods()} using Marcos' methodology
+#'   \item Calibrate weights via \code{pnadc_apply_periods()}
 #'   \item Compute z_ aggregates via \code{compute_z_aggregates()}
 #'   \item Fetch SIDRA rolling quarters
 #'   \item Compute starting points via \code{compute_series_starting_points()}
 #' }
 #'
 #' @section Weight Calibration:
-#' Weights are calibrated following Marcos Hecksher's methodology:
+#' Weights are calibrated as follows:
 #' \itemize{
 #'   \item Month 2: Scaled to poptrim (quarterly V1028 sum from ALL observations)
 #'   \item Months 1,3: Scaled to SIDRA monthly population
@@ -1804,7 +1803,7 @@ compute_starting_points_from_microdata <- function(data,
   if (verbose) message("Step 1: Building crosswalk...")
   crosswalk <- pnadc_identify_periods(data, verbose = verbose)
 
-  # Step 2: Calibrate weights (Marcos' methodology: month 2 -> poptrim, months 1,3 -> SIDRA)
+  # Step 2: Calibrate weights (month 2 -> poptrim, months 1,3 -> SIDRA)
   if (verbose) message("\nStep 2: Calibrating weights...")
   calibrated <- pnadc_apply_periods(
     data = data,

@@ -4,7 +4,7 @@
 
 R package (`PNADCperiods`) that converts Brazil's quarterly PNADC survey data into sub-quarterly time series (monthly, fortnightly, weekly) with optional weight calibration.
 
-**Authors:** Marcos Hecksher (methodology) | Rogerio Barbosa (R package)
+**Authors:** Marcos Hecksher & Rogerio Barbosa
 **Repository:** https://github.com/antrologos/PNADCperiods
 
 ## Quick Reference

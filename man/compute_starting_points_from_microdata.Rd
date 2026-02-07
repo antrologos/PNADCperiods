@@ -40,7 +40,7 @@ calibration, z_ aggregation, and starting point computation.
 This function performs the complete workflow:
 \enumerate{
 \item Build crosswalk via \code{pnadc_identify_periods()}
-\item Calibrate weights via \code{pnadc_apply_periods()} using Marcos' methodology
+\item Calibrate weights via \code{pnadc_apply_periods()}
 \item Compute z_ aggregates via \code{compute_z_aggregates()}
 \item Fetch SIDRA rolling quarters
 \item Compute starting points via \code{compute_series_starting_points()}
@@ -48,7 +48,7 @@ This function performs the complete workflow:
 }
 \section{Weight Calibration}{
 
-Weights are calibrated following Marcos Hecksher's methodology:
+Weights are calibrated as follows:
 \itemize{
 \item Month 2: Scaled to poptrim (quarterly V1028 sum from ALL observations)
 \item Months 1,3: Scaled to SIDRA monthly population

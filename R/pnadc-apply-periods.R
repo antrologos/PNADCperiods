@@ -727,7 +727,7 @@ reweight_at_cell_level <- function(dt, cell_var, anchor_vars, ref_var, weight_ve
 
 #' Calibrate to External Population Totals
 #'
-#' Implements Marcos Hecksher's methodology for monthly calibration:
+#' Implements the monthly calibration methodology:
 #' - When anchor = "quarter":
 #'   - Month 2: Scale to poptrim (quarterly V1028 sum from ALL observations)
 #'   - Months 1 and 3: Scale to SIDRA monthly population

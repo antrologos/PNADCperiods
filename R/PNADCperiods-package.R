@@ -249,7 +249,7 @@ utils::globalVariables(c(
   "description_pt", "description_en", "description",
   "unit", "unit_label_pt", "unit_label_en",
   "is_derived", "requires_deflation",
-  # Mensalization algorithm variables (from Stata methodology)
+  # Mensalization algorithm variables
   "mesnotrim", "anomesfinaltrimmovel", "anomesexato",
   "d3", "cum", "cum1", "cum2", "cum3",
   "d3m1", "d3m2", "d3m3",

@@ -173,7 +173,7 @@ monthly <- mensalize_sidra_series(rolling_quarters)
 head(monthly[, .(anomesexato, m_popocup, m_taxadesocup)])
 ```
 
-`fetch_sidra_rolling_quarters()` downloads 70+ economic indicators from IBGE's SIDRA API (Tables 4093, 6390, 6392, 6399, 6906). `mensalize_sidra_series()` applies the Hecksher formula using pre-computed starting points bundled with the package, converting rolling quarter averages into exact monthly values.
+`fetch_sidra_rolling_quarters()` downloads 70+ economic indicators from IBGE's SIDRA API (Tables 4093, 6390, 6392, 6399, 6906). `mensalize_sidra_series()` applies the mensalization formula using pre-computed starting points bundled with the package, converting rolling quarter averages into exact monthly values.
 
 The output contains `anomesexato` (month in YYYYMM format) and `m_*` columns with mensalized monthly estimates, starting from March 2012.
 

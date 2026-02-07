@@ -2,7 +2,7 @@
 % Please edit documentation in R/mensalize-sidra-series.R
 \name{compute_z_aggregates}
 \alias{compute_z_aggregates}
-\title{Compute z_ Aggregates Using Stata-Compatible Methodology}
+\title{Compute z_ Aggregates from Monthly Microdata}
 \usage{
 compute_z_aggregates(calibrated_data, verbose = TRUE)
 }
@@ -21,16 +21,15 @@ data.table with columns:
 }
 }
 \description{
-Computes monthly z_ aggregates from PNADC microdata. Can replicate Marcos
-Hecksher's exact Stata calibration or use a corrected methodology that scales
-all months to external population.
+Computes monthly z_ aggregates from PNADC microdata using calibrated monthly
+weights, with options for different population scaling approaches.
 }
 \details{
 This function creates z_ indicator variables and aggregates them using the
 calibrated \code{weight_monthly} from \code{pnadc_apply_periods()}.
 
-The \code{pnadc_apply_periods()} function now implements Marcos Hecksher's
-methodology correctly:
+The \code{pnadc_apply_periods()} function implements the calibration
+methodology as follows:
 \itemize{
 \item Month 2: Scaled to poptrim (quarterly V1028 sum from ALL observations)
 \item Months 1,3: Scaled to SIDRA monthly population
@@ -43,7 +42,7 @@ This function simply aggregates the indicators using the already-calibrated weig
 # Step 1: Build crosswalk
 crosswalk <- pnadc_identify_periods(stacked_data)
 
-# Step 2: Calibrate weights (implements Marcos' methodology)
+# Step 2: Calibrate weights
 calibrated <- pnadc_apply_periods(stacked_data, crosswalk,
                                    weight_var = "V1028",
                                    calibration_unit = "month")

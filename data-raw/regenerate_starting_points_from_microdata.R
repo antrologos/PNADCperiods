@@ -132,7 +132,7 @@ message("  Fetched ", ncol(rolling_quarters) - 2, " series")
 # Step 5b: Compute comrendtodos from SIDRA massa/rend series
 # ==============================================================================
 # This is needed for compute_series_starting_points() to compute y0 for comrendtodos
-# Formula matches Marcos' Stata and mensalize_sidra_series.R line 204-205
+# Formula matches mensalize_sidra_series.R line 204-205
 
 message("\nStep 5b: Computing comrendtodos from SIDRA massa/rend series...")
 

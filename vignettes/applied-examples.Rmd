@@ -772,4 +772,4 @@ Workers in Carnival-intensive states reduce their average hours worked during Ca
 
 - IBGE. Pesquisa Nacional por Amostra de Domicilios Continua (PNADC).
   https://www.ibge.gov.br/estatisticas/sociais/trabalho/
-- Hecksher, M. (2025). Mensalizacao da PNADC. Working paper.
+- Barbosa, Rogerio J; Hecksher, Marcos. (2026). PNADCperiods: Identify Reference Periods in Brazil's PNADC Survey Data. R package version v0.1.0. https://github.com/antrologos/PNADCperiods
