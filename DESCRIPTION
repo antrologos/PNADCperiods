@@ -23,7 +23,10 @@ Description: Identifies reference periods (months, fortnights, and weeks) in
     further improve these determination rates. The package provides
     adaptive hierarchical weight calibration (4/2/1 cell levels for month/
     fortnight/week) with period-specific smoothing to produce survey weights
-    calibrated to IBGE SIDRA population totals.
+    calibrated to IBGE SIDRA population totals. Also includes a SIDRA
+    mensalization module that converts 86+ official rolling quarter series
+    from the IBGE SIDRA API into exact monthly estimates, without requiring
+    access to microdata. Methodology by Hecksher (2020).
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

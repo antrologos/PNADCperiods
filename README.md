@@ -82,7 +82,7 @@ monthly <- mensalize_sidra_series(rolling)
 
 ## Credits
 
-Original PNADC data is collected by the Brazilian Institute of Geography and Statistics (IBGE). The {PNADCperiods} package is developed at the [Center for the Study of Wealth and Social Stratification (Ceres - IESP/UERJ)](https://ceres-iesp.uerj.br/) and the Institute for Applied Economic Research (Ipea), Brazil.
+Original PNADC data is collected by the Brazilian Institute of Geography and Statistics (IBGE). The mensalization methodology was developed by Marcos Hecksher ([Ipea](https://www.ipea.gov.br/)) --- see Hecksher (2020, IPEA Nota Tecnica Disoc n. 62 and n. 87; Carta de Conjuntura v. 47). The R package, interactive dashboard, and documentation website were developed by Rogerio J. Barbosa at the [Center for the Study of Wealth and Social Stratification (Ceres - IESP/UERJ)](https://ceres-iesp.uerj.br/).
 
 **Citation:**
 
