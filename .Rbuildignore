@@ -2,3 +2,6 @@
 ^\.Rproj\.user$
 ^doc$
 ^Meta$
+^CLAUDE\.md$
+^ARCHITECTURE_PLAN\.md$
+^\.claude$

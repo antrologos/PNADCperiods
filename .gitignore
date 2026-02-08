@@ -20,3 +20,8 @@ lib/
 
 # Test output directory
 test_output/
+
+# Claude Code
+CLAUDE.md
+ARCHITECTURE_PLAN.md
+.claude/
