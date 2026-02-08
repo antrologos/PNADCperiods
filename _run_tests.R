@@ -1,0 +1,10 @@
+library(testthat)
+library(PNADCperiods)
+results <- devtools::test("D:/Dropbox/Artigos/mensalizacao_pnad/PNADCperiods",
+                          reporter = "summary")
+cat("\n\n=== TEST SUMMARY ===\n")
+cat("Passed:", sum(as.data.frame(results)$passed), "\n")
+cat("Failed:", sum(as.data.frame(results)$failed), "\n")
+cat("Warnings:", sum(as.data.frame(results)$warning), "\n")
+cat("Skipped:", sum(as.data.frame(results)$skipped), "\n")
+cat("Errors:", sum(as.data.frame(results)$error > 0), "\n")

@@ -48,11 +48,7 @@ This function performs the complete workflow:
 }
 \section{Weight Calibration}{
 
-Weights are calibrated as follows:
-\itemize{
-\item Month 2: Scaled to poptrim (quarterly V1028 sum from ALL observations)
-\item Months 1,3: Scaled to SIDRA monthly population
-}
+All months are scaled uniformly to SIDRA monthly population totals.
 }
 
 \examples{

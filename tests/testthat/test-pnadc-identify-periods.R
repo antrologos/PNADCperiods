@@ -408,8 +408,8 @@ test_that("February 29 birthdays are handled correctly", {
   expect_true(is.data.frame(crosswalk))
   expect_equal(nrow(crosswalk), nrow(data))
 
-  # 4. Context: Implementation should use Feb 28 as substitute in non-leap years
-  # This is the standard approach per CLAUDE.md line 307
+  # 4. Context: Implementation substitutes March 1 for Feb 29 in non-leap years
+  # See pnadc-identify-periods.R line 307
 })
 
 

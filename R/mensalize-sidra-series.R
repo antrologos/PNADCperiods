@@ -1261,10 +1261,7 @@ compute_series_starting_points <- function(monthly_estimates,
 #'
 #' The \code{pnadc_apply_periods()} function implements the calibration
 #' methodology as follows:
-#' \itemize{
-#'   \item Month 2: Scaled to poptrim (quarterly V1028 sum from ALL observations)
-#'   \item Months 1,3: Scaled to SIDRA monthly population
-#' }
+#' All months are scaled uniformly to SIDRA monthly population totals.
 #'
 #' This function simply aggregates the indicators using the already-calibrated weights.
 #'
@@ -1752,11 +1749,7 @@ compute_z_aggregates <- function(calibrated_data, verbose = TRUE) {
 #' }
 #'
 #' @section Weight Calibration:
-#' Weights are calibrated as follows:
-#' \itemize{
-#'   \item Month 2: Scaled to poptrim (quarterly V1028 sum from ALL observations)
-#'   \item Months 1,3: Scaled to SIDRA monthly population
-#' }
+#' All months are scaled uniformly to SIDRA monthly population totals.
 #'
 #' @examples
 #' \dontrun{
@@ -1803,7 +1796,7 @@ compute_starting_points_from_microdata <- function(data,
   if (verbose) message("Step 1: Building crosswalk...")
   crosswalk <- pnadc_identify_periods(data, verbose = verbose)
 
-  # Step 2: Calibrate weights (month 2 -> poptrim, months 1,3 -> SIDRA)
+  # Step 2: Calibrate weights (all months -> SIDRA monthly population)
   if (verbose) message("\nStep 2: Calibrating weights...")
   calibrated <- pnadc_apply_periods(
     data = data,

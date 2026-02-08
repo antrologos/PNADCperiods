@@ -75,7 +75,7 @@ test_that("extrapolate_boundary_months fills in boundary values", {
   set.seed(42)
   n <- 30
   dt <- data.table::data.table(
-    anomesexato = 201201L + 0:(n-1),
+    anomesexato = generate_yyyymm_seq(201201L, n),
     m_populacao = c(NA, 200000 + cumsum(rnorm(n-2, 100, 10)), NA)
   )
 
@@ -93,7 +93,7 @@ test_that("extrapolate_boundary_months fills in boundary values", {
 test_that("extrapolate_boundary_months handles short series", {
   # Series too short for extrapolation (< 26 rows)
   dt <- data.table::data.table(
-    anomesexato = 201201L:201210L,
+    anomesexato = generate_yyyymm_seq(201201L, 10L),
     m_populacao = c(NA, 200000:200007, NA)
   )
 
@@ -111,7 +111,7 @@ test_that("extrapolate_boundary_months preserves middle values", {
   original_middle <- 200000 + cumsum(rnorm(n-2, 100, 10))
 
   dt <- data.table::data.table(
-    anomesexato = 201201L + 0:(n-1),
+    anomesexato = generate_yyyymm_seq(201201L, n),
     m_populacao = c(NA, original_middle, NA)
   )
 
@@ -125,7 +125,7 @@ test_that("extrapolate_boundary_months removes temporary columns", {
   set.seed(42)
   n <- 30
   dt <- data.table::data.table(
-    anomesexato = 201201L + 0:(n-1),
+    anomesexato = generate_yyyymm_seq(201201L, n),
     m_populacao = c(NA, 200000 + cumsum(rnorm(n-2, 100, 10)), NA)
   )
 

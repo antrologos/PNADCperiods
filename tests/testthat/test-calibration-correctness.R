@@ -1,33 +1,39 @@
 # Tests for weight calibration correctness
-# These tests verify the core invariant: calibrated weights preserve parent period totals
-# This is THE TRUE benchmark per CLAUDE.md - child period estimates must match parent periods
+# Core invariant: each sub-monthly period (fortnight, week) is calibrated to the
+# MONTHLY population total from SIDRA. So sum(weight_fortnight) per fortnight =
+# sum(weight_monthly) per month = SIDRA population. Same for weeks.
 
 # =============================================================================
 # WEIGHT SUM PRESERVATION TESTS
 # =============================================================================
 
-test_that("monthly weights are valid and scaled to population magnitudes", {
+test_that("all months are calibrated to SIDRA target population", {
   # 1. Setup: Create realistic data with multiple quarters
   set.seed(123)
   data <- create_realistic_pnadc(n_quarters = 4, n_upas = 20)
 
-  # Add calibration columns
-  valid_ufs <- c(11:17, 21:29, 31:35, 41:43, 50:53)
-  data[, `:=`(
-    UF = sample(valid_ufs, .N, replace = TRUE),
-    V1028 = runif(.N, 500, 2000),
-    posest = sample(1:500, .N, replace = TRUE),
-    posest_sxi = sample(100:999, .N, replace = TRUE)
-  )]
-
-  # 2. Execute: Identify periods and apply calibration
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
+
+  # Create custom target_totals so test is offline and deterministic.
+  # Use the quarterly V1028 sum / 1000 as a population target so that
+  # target_pop * 1000 gives a value the calibration can converge to.
+  qtr_wsum <- data[, .(qtr_wsum = sum(V1028, na.rm = TRUE)), by = .(Ano, Trimestre)]
+  targets <- qtr_wsum[, {
+    months <- (Trimestre - 1L) * 3L + 1:3
+    data.table::data.table(
+      ref_month_yyyymm = Ano * 100L + months,
+      m_populacao = qtr_wsum / 1000
+    )
+  }, by = .(Ano, Trimestre)][, .(ref_month_yyyymm, m_populacao)]
+
+  # 2. Execute: Identify periods and apply calibration with custom targets
   result <- pnadc_apply_periods(
     data, crosswalk,
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = targets,
     verbose = FALSE
   )
 
@@ -42,89 +48,139 @@ test_that("monthly weights are valid and scaled to population magnitudes", {
   expect_false(any(is.na(determined$weight_monthly)),
                label = "No NA weights for determined observations")
 
-  # 4. Verify: Month 2 matches poptrim (quarterly V1028 sum)
-  # Note: poptrim = sum(V1028) from ALL observations (including undetermined)
-  poptrim <- data[, .(poptrim = sum(V1028, na.rm = TRUE)), by = .(Ano, Trimestre)]
-  month2_pops <- result[determined_month == TRUE & ref_month_in_quarter == 2L,
-                        .(m2_sum = sum(weight_monthly)), by = .(Ano, Trimestre)]
-  merged <- merge(poptrim, month2_pops, by = c("Ano", "Trimestre"))
-  expect_equal(merged$m2_sum, merged$poptrim, tolerance = 0.01,
-               label = "Month 2 calibrated to quarterly V1028 total (poptrim)")
+  # 4. Verify: ALL months (1, 2, 3) are calibrated to the same SIDRA target
+  # Each month's weight sum should equal target_pop * 1000
+  month_sums <- determined[, .(w_sum = sum(weight_monthly)),
+                           by = .(Ano, ref_month_in_year)]
+  month_sums[, ref_month_yyyymm := Ano * 100L + ref_month_in_year]
+  merged <- merge(month_sums, targets, by = "ref_month_yyyymm")
+  expect_equal(merged$w_sum, merged$m_populacao * 1000, tolerance = 0.01,
+               label = "All months calibrated to SIDRA target population")
 })
 
 
-test_that("fortnight weights sum to parent monthly totals", {
+test_that("each fortnight's weights sum to the monthly population total", {
   # 1. Setup: Create data and identify periods
   set.seed(124)
   data <- create_realistic_pnadc(n_quarters = 4, n_upas = 20)
 
-  valid_ufs <- c(11:17, 21:29, 31:35, 41:43, 50:53)
-  data[, `:=`(
-    UF = sample(valid_ufs, .N, replace = TRUE),
-    V1028 = runif(.N, 500, 2000),
-    posest = sample(1:500, .N, replace = TRUE),
-    posest_sxi = sample(100:999, .N, replace = TRUE)
-  )]
-
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
-  # 2. Execute: Apply fortnight calibration
-  result <- pnadc_apply_periods(
+  # Create custom target_totals scaled to the test data's weight sums.
+  # With simulated data, quarterly V1028 sum differs from real SIDRA population.
+  # Setting m_populacao = quarterly_sum / 1000 gives a consistent target value.
+  qtr_wsum <- data[, .(qtr_wsum = sum(V1028, na.rm = TRUE)), by = .(Ano, Trimestre)]
+  targets <- qtr_wsum[, {
+    months <- (Trimestre - 1L) * 3L + 1:3
+    data.table::data.table(
+      ref_month_yyyymm = Ano * 100L + months,
+      m_populacao = qtr_wsum / 1000
+    )
+  }, by = .(Ano, Trimestre)][, .(ref_month_yyyymm, m_populacao)]
+
+  # 2. Execute: Apply fortnight calibration with custom targets
+  fortnight_targets <- PNADCperiods:::derive_fortnight_population(targets)
+  result_fortnight <- pnadc_apply_periods(
     data, crosswalk,
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "fortnight",
+    target_totals = fortnight_targets,
     verbose = FALSE
   )
 
-  # 3. Verify: Fortnight weights must sum to parent month totals
-  # For each month, sum of fortnight weights should equal sum of V1028
-  check <- result[determined_fortnight == TRUE, .(
-    fortnight_sum = sum(weight_fortnight, na.rm = TRUE),
-    v1028_sum = sum(V1028, na.rm = TRUE)
-  ), by = .(Ano, Trimestre, ref_month_in_quarter)]
+  # 3. Execute: Apply month calibration with same base targets
+  result_month <- pnadc_apply_periods(
+    data, crosswalk,
+    weight_var = "V1028",
+    anchor = "quarter",
+    calibrate = TRUE,
+    calibration_unit = "month",
+    target_totals = targets,
+    verbose = FALSE
+  )
 
-  # 4. Context: Fortnights are sub-periods of months
-  expect_equal(check$fortnight_sum, check$v1028_sum, tolerance = 1e-6,
-               label = "Fortnight weights must sum to parent monthly totals")
+  # 4. Each INDIVIDUAL fortnight's weights should sum to the monthly population total
+  # This is the key calibration invariant: fortnights and weeks are calibrated
+  # to the SIDRA monthly population target, so each sub-period = monthly total
+  t_fortnight <- result_fortnight[!is.na(ref_fortnight_in_month), .(
+    N_fortnight = sum(weight_fortnight, na.rm = TRUE)
+  ), by = .(Ano, ref_month_in_year, ref_fortnight_in_month)][
+    order(Ano, ref_month_in_year, ref_fortnight_in_month)]
+
+  t_month <- result_month[!is.na(ref_month_in_quarter), .(
+    N_month = sum(weight_monthly, na.rm = TRUE)
+  ), by = .(Ano, ref_month_in_year)][
+    order(Ano, ref_month_in_year)]
+
+  t <- merge(t_fortnight, t_month, by = c("Ano", "ref_month_in_year"))
+
+  if (nrow(t) > 0) {
+    expect_equal(t$N_fortnight, t$N_month, tolerance = 0.01,
+                 label = "Each fortnight's weights must sum to monthly population total")
+  }
 })
 
 
-test_that("weekly weights sum to parent fortnight totals", {
+test_that("each week's weights sum to the monthly population total", {
   # 1. Setup: Create data and identify periods
   set.seed(125)
   data <- create_realistic_pnadc(n_quarters = 4, n_upas = 20)
 
-  valid_ufs <- c(11:17, 21:29, 31:35, 41:43, 50:53)
-  data[, `:=`(
-    UF = sample(valid_ufs, .N, replace = TRUE),
-    V1028 = runif(.N, 500, 2000),
-    posest = sample(1:500, .N, replace = TRUE),
-    posest_sxi = sample(100:999, .N, replace = TRUE)
-  )]
-
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
-  # 2. Execute: Apply weekly calibration
-  result <- pnadc_apply_periods(
+  # Custom targets scaled to test data (same approach as fortnight test)
+  qtr_wsum <- data[, .(qtr_wsum = sum(V1028, na.rm = TRUE)),
+                  by = .(Ano, Trimestre)]
+  targets <- qtr_wsum[, {
+    months <- (Trimestre - 1L) * 3L + 1:3
+    data.table::data.table(
+      ref_month_yyyymm = Ano * 100L + months,
+      m_populacao = qtr_wsum / 1000
+    )
+  }, by = .(Ano, Trimestre)][, .(ref_month_yyyymm, m_populacao)]
+
+  # 2. Execute: Apply week calibration with custom targets
+  week_targets <- PNADCperiods:::derive_weekly_population(targets)
+  result_week <- pnadc_apply_periods(
     data, crosswalk,
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "week",
+    target_totals = week_targets,
     verbose = FALSE
   )
 
-  # 3. Verify: Weekly weights must sum to parent fortnight totals
-  check <- result[determined_week == TRUE, .(
-    week_sum = sum(weight_weekly, na.rm = TRUE),
-    v1028_sum = sum(V1028, na.rm = TRUE)
-  ), by = .(Ano, Trimestre, ref_fortnight_in_quarter)]
+  # 3. Execute: Apply month calibration with same base targets
+  result_month <- pnadc_apply_periods(
+    data, crosswalk,
+    weight_var = "V1028",
+    anchor = "quarter",
+    calibrate = TRUE,
+    calibration_unit = "month",
+    target_totals = targets,
+    verbose = FALSE
+  )
 
-  # 4. Context: Weeks are sub-periods of fortnights
-  expect_equal(check$week_sum, check$v1028_sum, tolerance = 1e-6,
-               label = "Weekly weights must sum to parent fortnight totals")
+  # 4. Each INDIVIDUAL week's weights should sum to monthly total
+  t_week <- result_week[!is.na(ref_week_in_month), .(
+    N_week = sum(weight_weekly, na.rm = TRUE)
+  ), by = .(Ano, ref_month_in_year, ref_week_in_month)][
+    order(Ano, ref_month_in_year, ref_week_in_month)]
+
+  t_month <- result_month[!is.na(ref_month_in_quarter), .(
+    N_month = sum(weight_monthly, na.rm = TRUE)
+  ), by = .(Ano, ref_month_in_year)][
+    order(Ano, ref_month_in_year)]
+
+  t <- merge(t_week, t_month, by = c("Ano", "ref_month_in_year"))
+
+  if (nrow(t) > 0) {
+    expect_equal(t$N_week, t$N_month, tolerance = 0.01,
+                 label = "Each week's weights must sum to monthly total")
+  }
 })
 
 

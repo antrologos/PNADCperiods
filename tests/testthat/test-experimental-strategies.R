@@ -125,13 +125,14 @@ test_that("probabilistic strategy preserves strict determinations", {
   result_determined <- result[determined_month == TRUE]
 
   # All strict IDs should still be determined in result
+  # Note: Crosswalk is at household level; V2003 is not in the crosswalk output
   strict_ids <- paste(strict_determined$Ano, strict_determined$Trimestre,
                       strict_determined$UPA, strict_determined$V1008,
-                      strict_determined$V2003, sep = "_")
+                      strict_determined$V1014, sep = "_")
 
   result_ids <- paste(result_determined$Ano, result_determined$Trimestre,
                       result_determined$UPA, result_determined$V1008,
-                      result_determined$V2003, sep = "_")
+                      result_determined$V1014, sep = "_")
 
   all_preserved <- all(strict_ids %in% result_ids)
 

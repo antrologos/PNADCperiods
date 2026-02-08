@@ -27,9 +27,8 @@ These starting points were computed from PNADC microdata using the full
 R package pipeline, ensuring consistency with
 \code{\link{compute_starting_points_from_microdata}}:
 \enumerate{
-\item Weight calibration via \code{\link{pnadc_apply_periods}}: month 2
-scaled to poptrim (quarterly V1028 sum from ALL observations), months 1
-and 3 scaled to SIDRA monthly population
+\item Weight calibration via \code{\link{pnadc_apply_periods}}: all months
+scaled to SIDRA monthly population totals
 \item z_ aggregates computed via \code{\link{compute_z_aggregates}} using
 calibrated \code{weight_monthly}
 \item Starting points computed via \code{\link{compute_series_starting_points}}

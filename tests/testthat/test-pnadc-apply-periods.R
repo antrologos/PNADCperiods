@@ -319,7 +319,7 @@ test_that("pnadc_apply_periods respects verbose parameter", {
       calibrate = FALSE,
       verbose = TRUE
     ),
-    "Applying|Joining|crosswalk"
+    "Applying|crosswalk"
   )
 })
 
@@ -327,7 +327,7 @@ test_that("pnadc_apply_periods respects verbose parameter", {
 # EDGE CASE TESTS
 # =============================================================================
 
-test_that("pnadc_apply_periods handles empty data gracefully", {
+test_that("pnadc_identify_periods rejects empty data", {
   test_data <- create_realistic_pnadc(n_quarters = 1, n_upas = 5)
   test_data <- test_data[0]  # Empty data
 
@@ -370,22 +370,18 @@ test_that("pnadc_apply_periods handles mismatched data keys", {
 test_that("pnadc_apply_periods works with real identify function output", {
   # Create data and run the identify function
   test_data <- create_realistic_pnadc(n_quarters = 2, n_upas = 5)
+  crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
 
-  # Use actual pnadc_identify_periods if available
-  if (exists("pnadc_identify_periods")) {
-    crosswalk <- pnadc_identify_periods(test_data, verbose = FALSE)
+  result <- pnadc_apply_periods(
+    test_data, crosswalk,
+    weight_var = "V1028",
+    anchor = "quarter",
+    calibrate = FALSE,
+    verbose = FALSE
+  )
 
-    result <- pnadc_apply_periods(
-      test_data, crosswalk,
-      weight_var = "V1028",
-      anchor = "quarter",
-      calibrate = FALSE,
-      verbose = FALSE
-    )
-
-    expect_s3_class(result, "data.table")
-    expect_true("ref_month_in_quarter" %in% names(result))
-    expect_true("ref_fortnight_in_quarter" %in% names(result))
-    expect_true("ref_week_in_quarter" %in% names(result))
-  }
+  expect_s3_class(result, "data.table")
+  expect_true("ref_month_in_quarter" %in% names(result))
+  expect_true("ref_fortnight_in_quarter" %in% names(result))
+  expect_true("ref_week_in_quarter" %in% names(result))
 })

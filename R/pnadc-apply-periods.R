@@ -404,9 +404,6 @@ pnadc_apply_periods <- function(data,
 #' @param min_cell_size Minimum observations per cell. Levels with smaller
 #'   cells are skipped. Default 1.
 #' @param smooth Apply smoothing?
-#' @param parent_constraint Apply parent-period constraint? If TRUE (default),
-#'   scales child period weights so they sum to parent period totals. This
-#'   improves parent-period consistency of estimates.
 #' @param keep_all Keep undetermined observations?
 #' @param verbose Print progress?
 #' @return data.table with weight_calibrated column
@@ -432,38 +429,11 @@ calibrate_weights_internal <- function(dt,
                                        n_cells = NULL,
                                        min_cell_size = 1L,
                                        smooth = FALSE,
-                                       parent_constraint = TRUE,
                                        keep_all = TRUE,
                                        verbose = FALSE) {
 
   # Pre-extract ref column for direct access
   ref_col <- dt[[ref_var]]
-
-  # ==========================================================================
-  # MARCOS' METHODOLOGY: Compute poptrim from ALL observations BEFORE filtering
-  # ==========================================================================
-  # poptrim = sum(V1028) for the quarter, using ALL observations (including
-
-  # undetermined). In PNADC quarterly data, this equals the population of the
-  # middle month (month 2) of the quarter.
-  # This must be computed BEFORE filtering to determined observations.
-
-  is_month <- grepl("month", ref_var, ignore.case = TRUE)
-  if (is_month) {
-    # Create quarter key for poptrim computation
-    dt[, .poptrim_quarter := Ano * 10L + Trimestre]
-    # Compute poptrim from ALL observations (including undetermined)
-    dt[, poptrim := sum(get(weight_var), na.rm = TRUE), by = .poptrim_quarter]
-    if (verbose) {
-      poptrim_sample <- dt[!duplicated(.poptrim_quarter), .(quarter = .poptrim_quarter, poptrim)]
-      cat(sprintf("    Computed poptrim (quarterly V1028 sum) for %d quarters\n",
-                  nrow(poptrim_sample)))
-      cat(sprintf("    Sample poptrim values: %.1fM - %.1fM\n",
-                  min(poptrim_sample$poptrim) / 1e6,
-                  max(poptrim_sample$poptrim) / 1e6))
-    }
-    dt[, .poptrim_quarter := NULL]
-  }
 
   # Determine anchor grouping variable
   anchor_vars <- if (anchor == "quarter") {
@@ -505,16 +475,19 @@ calibrate_weights_internal <- function(dt,
 
   # Auto-select number of cell levels based on time period granularity
   if (is.null(n_cells)) {
-    n_cells <- if (grepl("week", ref_var, ignore.case = TRUE)) {
-      1L  # Weekly: use age groups only (celula1)
-    } else if (grepl("fortnight", ref_var, ignore.case = TRUE)) {
-      2L  # Fortnight: use age + region (celula1, celula2)
-    } else {
-      4L  # Monthly: use full hierarchy (celula1-4)
-    }
+    #n_cells <- if (grepl("week", ref_var, ignore.case = TRUE)) {
+    #  1L  # Weekly: use age groups only (celula1)
+    #} else if (grepl("fortnight", ref_var, ignore.case = TRUE)) {
+    #  2L  # Fortnight: use age + region (celula1, celula2)
+    #} else {
+    #  4L  # Monthly: use full hierarchy (celula1-4)
+    #}
+
+    n_cells <- 4
+
     if (verbose) {
-      cat(sprintf("    Auto-selected %d cell level(s) for %s calibration\n",
-                  n_cells, ref_var))
+      #cat(sprintf("    Auto-selected %d cell level(s) for %s calibration\n",
+      #            n_cells, ref_var))
     }
   } else {
     if (!n_cells %in% 1L:4L) {
@@ -563,17 +536,15 @@ calibrate_weights_internal <- function(dt,
   }
 
   # Step 3: Final calibration to external totals (only for determined obs)
-  dt <- PNADCperiods:::calibrate_to_external_totals(dt, target_totals, ref_var, anchor)
+  dt <- PNADCperiods:::calibrate_to_external_totals(dt, target_totals, ref_var)
 
   # Step 4: Smooth weights (if requested and appropriate for the time period)
   if (smooth) {
     dt <- PNADCperiods:::smooth_calibrated_weights(dt, ref_var)
   }
 
-  # Step 5: Apply parent-period constraint (ensures child periods aggregate to parent)
-  if (parent_constraint) {
-    dt <- PNADCperiods:::apply_parent_period_constraint(dt, weight_var, ref_var, verbose)
-  }
+  # Step 5: Parent-period constraint (no-op: all periods calibrated to SIDRA)
+  dt <- PNADCperiods:::apply_parent_period_constraint(dt, weight_var, ref_var, verbose)
 
   # Rename final weight
   data.table::setnames(dt, "weight_current", "weight_calibrated")
@@ -585,7 +556,7 @@ calibrate_weights_internal <- function(dt,
   cell_cols <- paste0("celula", seq_len(n_cells))
   temp_cols <- c("anchor_year", ".anchor_key", ".is_determined",
                  cell_cols,
-                 "pop_current", "target_pop", "poptrim")
+                 "pop_current", "target_pop")
   existing_temp <- temp_cols[temp_cols %in% names(dt)]
   if (length(existing_temp) > 0) {
     dt[, (existing_temp) := NULL]
@@ -727,19 +698,16 @@ reweight_at_cell_level <- function(dt, cell_var, anchor_vars, ref_var, weight_ve
 
 #' Calibrate to External Population Totals
 #'
-#' Implements the monthly calibration methodology:
-#' - When anchor = "quarter":
-#'   - Month 2: Scale to poptrim (quarterly V1028 sum from ALL observations)
-#'   - Months 1 and 3: Scale to SIDRA monthly population
-#' - When anchor = "year":
-#'   - ALL months: Scale to SIDRA monthly population
+#' Scales weights so that the sum of calibrated weights for each period matches
+#' the corresponding SIDRA monthly population total. All months, fortnights,
+#' and weeks are treated uniformly -- each period is scaled to its SIDRA target.
 #'
-#' For fortnights and weeks, all periods are scaled to their respective SIDRA targets.
-#'
-#' @param anchor Character. "quarter" or "year". Determines calibration strategy.
+#' @param dt data.table with weight_current and .is_determined columns
+#' @param target_totals data.table with population targets (in thousands)
+#' @param ref_var Name of reference period variable (e.g., "ref_month_yyyymm")
 #' @keywords internal
 #' @noRd
-calibrate_to_external_totals <- function(dt, target_totals, ref_var, anchor = "quarter") {
+calibrate_to_external_totals <- function(dt, target_totals, ref_var) {
 
   # Don't copy target_totals, work with it directly
   tt <- ensure_data_table(target_totals, copy = FALSE)
@@ -794,39 +762,12 @@ calibrate_to_external_totals <- function(dt, target_totals, ref_var, anchor = "q
   # Join targets
   dt[tt, on = ref_var, target_pop := i.target_pop]
 
-  # ==========================================================================
-  # MARCOS' METHODOLOGY: Different calibration for month 2 vs months 1,3
-  # ==========================================================================
-  # For MONTHS with QUARTER anchor:
-  #   - Month 2: Scale to poptrim (quarterly V1028 sum = population of middle month)
-  #   - Months 1,3: Scale to SIDRA monthly population
-  # For MONTHS with YEAR anchor:
-  #   - ALL months: Scale to SIDRA monthly population
-  # For FORTNIGHTS/WEEKS: All periods scale to their respective SIDRA targets
+  # All months, fortnights, and weeks: scale to SIDRA population targets
+  # target_pop is in thousands, so multiply by 1000 to get actual population
+  dt[.is_determined == TRUE & !is.na(target_pop) & pop_current > 0,
+     weight_current := weight_current * (target_pop * 1000 / pop_current)]
 
-  is_month <- grepl("month", ref_var, ignore.case = TRUE)
-  is_quarter_anchor <- identical(anchor, "quarter")
-
-  # Only use month 2 = poptrim rule when anchor is "quarter"
-  if (is_month && is_quarter_anchor &&
-      "poptrim" %in% names(dt) && "ref_month_in_quarter" %in% names(dt)) {
-    # Month 2: Use poptrim (quarterly V1028 sum from ALL observations)
-    # poptrim is already in the data.table, computed before filtering
-    dt[.is_determined == TRUE & ref_month_in_quarter == 2L & pop_current > 0,
-       weight_current := weight_current * (poptrim / pop_current)]
-
-    # Months 1 and 3: Use SIDRA monthly population (target_pop is in thousands)
-    dt[.is_determined == TRUE & ref_month_in_quarter %in% c(1L, 3L) &
-         !is.na(target_pop) & pop_current > 0,
-       weight_current := weight_current * (target_pop * 1000 / pop_current)]
-  } else {
-    # Year anchor, fortnights, weeks, or monthly without position info:
-    # Scale ALL periods to SIDRA targets
-    dt[.is_determined == TRUE & !is.na(target_pop) & pop_current > 0,
-       weight_current := weight_current * (target_pop * 1000 / pop_current)]
-  }
-
-  # Clean up (keep poptrim for now, it will be cleaned up in calibrate_weights_internal)
+  # Clean up
   cols_to_remove <- intersect(c("pop_current", "target_pop"), names(dt))
   if (length(cols_to_remove) > 0) {
     dt[, (cols_to_remove) := NULL]
@@ -945,179 +886,35 @@ smooth_calibrated_weights <- function(dt, ref_var) {
 
 #' Apply Parent-Period Constraint
 #'
-#' Ensures that calibrated child-period weights aggregate consistently to
-#' parent-period totals. This improves parent-period consistency of estimates.
-#'
-#' For each parent period:
-#' - Months: scale so sum(monthly weights) = sum(V1028) per quarter
-#' - Fortnights: scale so sum(fortnight weights) = sum(V1028) per quarter
-#'   (then additionally ensure consistency within months)
-#' - Weeks: scale so sum(weekly weights) = sum(V1028) per quarter
-#'   (then additionally ensure consistency within fortnights)
+#' Previously ensured child-period weights aggregated to parent-period totals.
+#' Now skipped for all period types because each period (month, fortnight, week)
+#' is independently calibrated to the FULL SIDRA population. Each period
+#' represents the full Brazilian population, not a subdivision of a parent period.
 #'
 #' @param dt data.table with calibrated weights in weight_current column
 #' @param weight_var Original weight variable name (e.g., "V1028")
 #' @param ref_var Reference period variable (e.g., "ref_month_yyyymm")
 #' @param verbose Print progress messages?
-#' @return data.table with parent-constrained weights
+#' @return data.table unchanged (constraint is no longer applied)
 #' @keywords internal
 #' @noRd
 apply_parent_period_constraint <- function(dt, weight_var, ref_var, verbose = FALSE) {
 
-  # Determine period type
-  is_month <- grepl("month", ref_var, ignore.case = TRUE)
-  is_fortnight <- grepl("fortnight", ref_var, ignore.case = TRUE)
-  is_week <- grepl("week", ref_var, ignore.case = TRUE)
-
   # ==========================================================================
-  # CRITICAL FIX: Skip quarterly SUM constraint for MONTHS
+  # All periods skip the parent-period SUM constraint
   # ==========================================================================
-  # Each month represents the FULL Brazilian population (~200M), not 1/3 of
-  # the quarterly total. IBGE's rolling quarter design means months are
-  # independently sampled populations, not subdivisions of a quarter.
+  # Each period (month, fortnight, week) represents the FULL Brazilian
+  # population, calibrated to SIDRA monthly population totals.
+  # They are NOT subdivisions of a parent period.
   #
-  # The old constraint computed: factor = quarterly_V1028 / sum(3_months)
-  # which yielded ~0.333 (crushing weights by 2/3) - THIS WAS WRONG.
+  # The old constraint forced child-period weight sums to match the
+  # parent-period V1028 sum, which crushed externally-calibrated weights.
   #
-  # Correct behavior: Each month keeps its external calibration (~200M).
+  # Correct behavior: Each period keeps its external SIDRA calibration.
   # Parent-period consistency is evaluated via WEIGHTED AVERAGES of estimates,
   # not via forcing weight SUMS to match.
 
-  if (is_month) {
-    if (verbose) cat("    Skipping quarterly sum constraint for months (each month = full population)\n")
-    return(dt)
-  }
-
-  # ==========================================================================
-  # CONSTRAINT 1: All child periods sum to quarterly V1028 total
-  # ==========================================================================
-  # For fortnights/weeks only - ensures consistency with quarterly benchmark
-
-  if (verbose) cat("    Applying parent-period constraint (quarterly anchor)...\n")
-
-  # Create quarter identifier
-  dt[, .ppc_quarter := Ano * 10L + Trimestre]
-
-  # Original quarterly totals (from V1028)
-  quarterly_totals <- dt[.is_determined == TRUE,
-                         .(q_total_orig = sum(get(weight_var), na.rm = TRUE)),
-                         by = .ppc_quarter]
-
-  # Current child-period totals per quarter
-  dt[.is_determined == TRUE,
-     .ppc_q_current := sum(weight_current, na.rm = TRUE),
-     by = .ppc_quarter]
-
-  # Join and compute adjustment factor
-  dt[quarterly_totals, on = ".ppc_quarter", .ppc_q_target := i.q_total_orig]
-
-  dt[.is_determined == TRUE & .ppc_q_current > 0,
-     .ppc_q_factor := .ppc_q_target / .ppc_q_current]
-
-  dt[is.na(.ppc_q_factor), .ppc_q_factor := 1]
-
-  # Apply quarterly constraint
-  dt[.is_determined == TRUE,
-     weight_current := weight_current * .ppc_q_factor]
-
-  if (verbose) {
-    factors <- unique(dt[.is_determined == TRUE, .(.ppc_quarter, .ppc_q_factor)])
-    cat(sprintf("      Quarterly adjustment factors: [%.4f, %.4f]\n",
-                min(factors$.ppc_q_factor, na.rm = TRUE),
-                max(factors$.ppc_q_factor, na.rm = TRUE)))
-  }
-
-  # ==========================================================================
-  # CONSTRAINT 2: For fortnights/weeks, also ensure within-month consistency
-  # ==========================================================================
-  # This ensures fortnights within a month sum to the monthly total
-
-  if (is_fortnight) {
-    # Extract month from fortnight: YYYYFF -> YYYYMM
-    dt[, .ppc_month := {
-      year <- get(ref_var) %/% 100L
-      ff <- get(ref_var) %% 100L
-      month <- (ff + 1L) %/% 2L
-      year * 100L + month
-    }]
-
-    # Monthly totals from the quarterly-constrained weights
-    # First pass: compute what monthly totals SHOULD be (proportional to V1028)
-    monthly_totals <- dt[.is_determined == TRUE,
-                         .(m_total_orig = sum(get(weight_var), na.rm = TRUE)),
-                         by = .ppc_month]
-
-    # Current fortnight totals per month
-    dt[.is_determined == TRUE,
-       .ppc_m_current := sum(weight_current, na.rm = TRUE),
-       by = .ppc_month]
-
-    # Join and compute adjustment
-    dt[monthly_totals, on = ".ppc_month", .ppc_m_target := i.m_total_orig]
-
-    dt[.is_determined == TRUE & .ppc_m_current > 0,
-       .ppc_m_factor := .ppc_m_target / .ppc_m_current]
-
-    dt[is.na(.ppc_m_factor), .ppc_m_factor := 1]
-
-    # Apply monthly constraint
-    dt[.is_determined == TRUE,
-       weight_current := weight_current * .ppc_m_factor]
-
-    if (verbose) {
-      factors <- unique(dt[.is_determined == TRUE, .(.ppc_month, .ppc_m_factor)])
-      cat(sprintf("      Monthly adjustment factors: [%.4f, %.4f]\n",
-                  min(factors$.ppc_m_factor, na.rm = TRUE),
-                  max(factors$.ppc_m_factor, na.rm = TRUE)))
-    }
-
-    dt[, c(".ppc_month", ".ppc_m_current", ".ppc_m_target", ".ppc_m_factor") := NULL]
-  }
-
-  if (is_week) {
-    # Extract fortnight from week: YYYYWW -> YYYYFF
-    dt[, .ppc_fortnight := {
-      year <- get(ref_var) %/% 100L
-      ww <- get(ref_var) %% 100L
-      ff <- (ww + 1L) %/% 2L
-      year * 100L + ff
-    }]
-
-    # Fortnight totals (proportional to V1028)
-    fortnight_totals <- dt[.is_determined == TRUE,
-                           .(f_total_orig = sum(get(weight_var), na.rm = TRUE)),
-                           by = .ppc_fortnight]
-
-    # Current week totals per fortnight
-    dt[.is_determined == TRUE,
-       .ppc_f_current := sum(weight_current, na.rm = TRUE),
-       by = .ppc_fortnight]
-
-    # Join and compute adjustment
-    dt[fortnight_totals, on = ".ppc_fortnight", .ppc_f_target := i.f_total_orig]
-
-    dt[.is_determined == TRUE & .ppc_f_current > 0,
-       .ppc_f_factor := .ppc_f_target / .ppc_f_current]
-
-    dt[is.na(.ppc_f_factor), .ppc_f_factor := 1]
-
-    # Apply fortnight constraint
-    dt[.is_determined == TRUE,
-       weight_current := weight_current * .ppc_f_factor]
-
-    if (verbose) {
-      factors <- unique(dt[.is_determined == TRUE, .(.ppc_fortnight, .ppc_f_factor)])
-      cat(sprintf("      Fortnight adjustment factors: [%.4f, %.4f]\n",
-                  min(factors$.ppc_f_factor, na.rm = TRUE),
-                  max(factors$.ppc_f_factor, na.rm = TRUE)))
-    }
-
-    dt[, c(".ppc_fortnight", ".ppc_f_current", ".ppc_f_target", ".ppc_f_factor") := NULL]
-  }
-
-  # Clean up
-  dt[, c(".ppc_quarter", ".ppc_q_current", ".ppc_q_target", ".ppc_q_factor") := NULL]
-
+  if (verbose) cat("    Skipping parent-period constraint (all periods calibrated to SIDRA population)\n")
   dt
 }
 

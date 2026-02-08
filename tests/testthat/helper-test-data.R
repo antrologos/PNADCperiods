@@ -249,3 +249,63 @@ create_monthly_targets <- function(start_yyyymm = 202301L,
 
   months[, .(ref_month_yyyymm, m_populacao)]
 }
+
+
+#' Create Mock Rolling Quarter Data for Testing
+#'
+#' Creates synthetic rolling quarter data matching SIDRA format.
+#' Useful for testing mensalize_sidra_series() without API calls.
+#'
+#' @param n_months Number of months to generate
+#' @param series Character vector of series names to include
+#' @param start_yyyymm Starting YYYYMM (default 201201)
+#' @param base_values Named list of base values per series
+#' @return data.table with anomesfinaltrimmovel, mesnotrim, and series columns
+create_mock_rolling_quarters <- function(n_months = 36L,
+                                          series = "popocup",
+                                          start_yyyymm = 201201L,
+                                          base_values = NULL) {
+  start_year <- start_yyyymm %/% 100L
+  start_month <- start_yyyymm %% 100L
+
+  dt <- data.table::data.table(month_num = seq_len(n_months))
+  dt[, `:=`(
+    year = start_year + (start_month + month_num - 2L) %/% 12L,
+    month = ((start_month + month_num - 2L) %% 12L) + 1L
+  )]
+  dt[, anomesfinaltrimmovel := year * 100L + month]
+  dt[, mesnotrim := ((month - 1L) %% 3L) + 1L]
+
+  # Generate series columns with realistic rolling quarter patterns
+  for (s in series) {
+    base <- if (!is.null(base_values) && s %in% names(base_values)) {
+      base_values[[s]]
+    } else {
+      100000  # default base value
+    }
+    # Slight trend + seasonal pattern for realism
+    dt[, (s) := base * (1 + 0.001 * (month_num - 1) +
+                          0.005 * sin(2 * pi * month_num / 12))]
+  }
+
+  dt[, .(anomesfinaltrimmovel, mesnotrim,
+         .SD), .SDcols = series]
+}
+
+
+#' Generate proper YYYYMM sequence
+#'
+#' @param start_yyyymm Starting YYYYMM integer
+#' @param n Number of months
+#' @return Integer vector of YYYYMM values
+generate_yyyymm_seq <- function(start_yyyymm, n) {
+  start_year <- start_yyyymm %/% 100L
+  start_month <- start_yyyymm %% 100L
+  vapply(seq_len(n), function(i) {
+    total_months <- start_month + i - 2L
+    y <- start_year + total_months %/% 12L
+    m <- (total_months %% 12L) + 1L
+    y * 100L + m
+  }, integer(1))
+}
+

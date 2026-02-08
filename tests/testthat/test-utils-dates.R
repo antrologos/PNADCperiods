@@ -168,22 +168,20 @@ test_that("iso_week extracts week number correctly", {
   # Jan 4 is always week 1
   expect_equal(PNADCperiods:::iso_week(as.Date("2024-01-04")), 1)
 
-  # Year boundary (Dec 31 might be week 52 or 53 or week 1 of next year)
-  week_dec31 <- PNADCperiods:::iso_week(as.Date("2024-12-31"))
-  expect_true(week_dec31 %in% c(1, 52, 53))
+  # Year boundary: 2024-12-31 is Tuesday, Thursday of that week is 2025-01-02
+  # So ISO week is 1 of ISO year 2025
+  expect_equal(PNADCperiods:::iso_week(as.Date("2024-12-31")), 1L)
 })
 
 test_that("iso_year extracts ISO year correctly", {
   # Mid-year - ISO year equals calendar year
   expect_equal(PNADCperiods:::iso_year(as.Date("2024-06-15")), 2024)
 
-  # Jan 1 might belong to previous ISO year
-  iso_yr_jan1 <- PNADCperiods:::iso_year(as.Date("2024-01-01"))
-  expect_true(iso_yr_jan1 %in% c(2023, 2024))
+  # Jan 1, 2024 is Monday, Thursday of that week is Jan 4 -> ISO year 2024
+  expect_equal(PNADCperiods:::iso_year(as.Date("2024-01-01")), 2024L)
 
-  # Dec 31 might belong to next ISO year
-  iso_yr_dec31 <- PNADCperiods:::iso_year(as.Date("2024-12-31"))
-  expect_true(iso_yr_dec31 %in% c(2024, 2025))
+  # Dec 31, 2024 is Tuesday, Thursday of that week is Jan 2, 2025 -> ISO year 2025
+  expect_equal(PNADCperiods:::iso_year(as.Date("2024-12-31")), 2025L)
 })
 
 # =============================================================================
@@ -271,4 +269,93 @@ test_that("calculate_month_position_max handles quarter boundaries", {
     2024, 1
   )
   expect_equal(result, 3)  # Should be month 3
+})
+
+# =============================================================================
+# VECTORIZED INPUT TESTS
+# =============================================================================
+
+test_that("dow is vectorized", {
+  dates <- as.Date(c("2024-01-06", "2024-01-07", "2024-01-08"))
+  result <- dow(dates)
+  expect_equal(result, c(6L, 0L, 1L))  # Sat, Sun, Mon
+  expect_length(result, 3)
+})
+
+test_that("is_leap_year is vectorized", {
+  years <- c(2000, 1900, 2020, 2023, 2024)
+  result <- is_leap_year(years)
+  expect_equal(result, c(TRUE, FALSE, TRUE, FALSE, TRUE))
+  expect_length(result, 5)
+})
+
+test_that("iso_week_year is vectorized", {
+  dates <- as.Date(c("2024-01-04", "2024-06-15", "2024-12-31"))
+  result <- PNADCperiods:::iso_week_year(dates)
+
+  expect_length(result$year, 3)
+  expect_length(result$week, 3)
+  expect_equal(result$year, c(2024L, 2024L, 2025L))
+  expect_equal(result$week, c(1L, 24L, 1L))
+})
+
+# =============================================================================
+# LOOKUP TABLE VALIDATION
+# =============================================================================
+
+test_that(".YEAR_BASE lookup table has correct values for known years", {
+  year_base <- PNADCperiods:::.YEAR_BASE
+  start <- PNADCperiods:::.YEAR_BASE_START
+
+  # Spot-check known values
+  # 2000-01-01 is day 10957 since 1970-01-01
+  expect_equal(year_base[2000 - start + 1L], as.integer(as.Date("2000-01-01")))
+  # 2024-01-01
+  expect_equal(year_base[2024 - start + 1L], as.integer(as.Date("2024-01-01")))
+  # 2012-01-01 (PNADC start)
+  expect_equal(year_base[2012 - start + 1L], as.integer(as.Date("2012-01-01")))
+})
+
+test_that(".JAN4_BASE lookup table has correct values", {
+  jan4_base <- PNADCperiods:::.JAN4_BASE
+  start <- PNADCperiods:::.YEAR_BASE_START
+
+  # Jan 4 of any year is always in ISO week 1
+  expect_equal(jan4_base[2024 - start + 1L], as.integer(as.Date("2024-01-04")))
+  expect_equal(jan4_base[2012 - start + 1L], as.integer(as.Date("2012-01-04")))
+})
+
+test_that("month offset tables have correct values", {
+  # Regular year
+  reg <- PNADCperiods:::.MONTH_OFFSET_REGULAR
+  expect_equal(reg[1], 0L)   # Jan starts at 0
+  expect_equal(reg[2], 31L)  # Feb starts after 31 days of Jan
+  expect_equal(reg[3], 59L)  # Mar starts after 31+28=59 days (non-leap)
+  expect_equal(reg[12], 334L) # Dec starts after 334 days
+
+  # Leap year
+  leap <- PNADCperiods:::.MONTH_OFFSET_LEAP
+  expect_equal(leap[1], 0L)
+  expect_equal(leap[2], 31L)
+  expect_equal(leap[3], 60L)  # Mar starts after 31+29=60 days (leap)
+  expect_equal(leap[12], 335L)
+})
+
+test_that("first_valid_saturday min_days=3 produces different result than min_days=4", {
+  # June 2024 starts on Saturday (dow=6)
+  # First Saturday is day 1, which has 1 day in month
+  # min_days=4: 1 < 4, skip to day 8
+  # min_days=3: 1 < 3, skip to day 8
+  # Both skip for June 2024, but try a month where they differ
+  #
+  # September 2024 starts on Sunday (dow=0)
+  # First Saturday is day 7 (7 days from start)
+  # Both would accept day 7
+  #
+  # February 2024 starts on Thursday (dow=4)
+  # First Saturday is day 3 (3 days from start)
+  # min_days=4: 3 < 4, skip to day 10
+  # min_days=3: 3 >= 3, use day 3
+  expect_equal(first_valid_saturday(2024, 2, min_days = 4), 10)
+  expect_equal(first_valid_saturday(2024, 2, min_days = 3), 3)
 })

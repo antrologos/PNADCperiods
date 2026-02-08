@@ -91,13 +91,15 @@ test_that("apply_periods handles all NA weights gracefully", {
 # =============================================================================
 
 test_that("year boundary transition handled correctly", {
-  # 1. Setup: Create data spanning year boundary (Q4 2023 + Q1 2024)
-  set.seed(100)
-  data_q4 <- create_realistic_pnadc(n_quarters = 1, n_upas = 10, start_year = 2023)
-  data_q4[, Trimestre := 4L]
 
-  data_q1 <- create_realistic_pnadc(n_quarters = 1, n_upas = 10, start_year = 2024)
-  data_q1[, Trimestre := 1L]
+  # 1. Setup: Create data spanning year boundary (Q4 2023 + Q1 2024)
+  # Use 4-quarter data from each year and filter to get correct Q4/Q1 with valid ages
+  set.seed(100)
+  data_2023 <- create_realistic_pnadc(n_quarters = 4, n_upas = 10, start_year = 2023)
+  data_q4 <- data_2023[Trimestre == 4L]
+
+  data_2024 <- create_realistic_pnadc(n_quarters = 4, n_upas = 10, start_year = 2024, seed = 99L)
+  data_q1 <- data_2024[Trimestre == 1L]
 
   # Combine
   data <- rbind(data_q4, data_q1)
@@ -161,7 +163,7 @@ test_that("February 29 birthday in non-leap year", {
     V2009 = 31L  # Age
   )
 
-  # 2. Execute: Should handle gracefully (Feb 28 used as substitute)
+  # 2. Execute: Should handle gracefully (March 1 used as substitute in non-leap years)
   expect_no_error({
     result <- pnadc_identify_periods(data, verbose = FALSE)
   })
@@ -169,7 +171,7 @@ test_that("February 29 birthday in non-leap year", {
   # 3. Verify: Should produce valid crosswalk
   expect_equal(nrow(result), 1)
 
-  # 4. Context: Implementation uses Feb 28 in non-leap years
+  # 4. Context: Implementation substitutes March 1 for Feb 29 in non-leap years
 })
 
 
@@ -208,6 +210,7 @@ test_that("all unknown birthdays (99/9999) handled", {
   data <- create_realistic_pnadc(n_quarters = 2, n_upas = 10)
   data[, `:=`(
     V2008 = 99L,
+    V20081 = 99L,
     V20082 = 9999L
   )]
 

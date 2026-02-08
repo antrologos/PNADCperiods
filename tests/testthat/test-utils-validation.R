@@ -492,6 +492,129 @@ test_that("validate_pnadc detects negative ages", {
   )
 })
 
+# =============================================================================
+# SUBSET_AND_COPY TESTS
+# =============================================================================
+
+test_that("subset_and_copy errors on missing required columns", {
+  dt <- data.table::data.table(a = 1:3, b = 4:6)
+
+  expect_error(
+    PNADCperiods:::subset_and_copy(dt, required_cols = c("a", "c")),
+    "Missing required columns.*c"
+  )
+})
+
+test_that("subset_and_copy selects required columns from data.table", {
+  dt <- data.table::data.table(a = 1:3, b = 4:6, c = 7:9)
+
+  result <- PNADCperiods:::subset_and_copy(dt, required_cols = c("a", "b"))
+
+  expect_s3_class(result, "data.table")
+  expect_equal(names(result), c("a", "b"))
+  expect_equal(nrow(result), 3)
+
+  # Should be a copy (not same address)
+  expect_false(identical(data.table::address(result), data.table::address(dt)))
+})
+
+test_that("subset_and_copy converts data.frame to data.table", {
+  df <- data.frame(a = 1:3, b = 4:6, c = 7:9)
+
+  result <- PNADCperiods:::subset_and_copy(df, required_cols = c("a", "b"))
+
+  expect_s3_class(result, "data.table")
+  expect_equal(names(result), c("a", "b"))
+  expect_equal(nrow(result), 3)
+})
+
+test_that("subset_and_copy includes available optional columns", {
+  dt <- data.table::data.table(a = 1:3, b = 4:6, c = 7:9)
+
+  # Optional cols: c is available, d is not
+  result <- PNADCperiods:::subset_and_copy(
+    dt,
+    required_cols = c("a"),
+    optional_cols = c("c", "d")
+  )
+
+  expect_equal(sort(names(result)), c("a", "c"))
+  expect_false("d" %in% names(result))
+})
+
+test_that("subset_and_copy with NULL optional_cols returns only required", {
+  dt <- data.table::data.table(a = 1:3, b = 4:6)
+
+  result <- PNADCperiods:::subset_and_copy(dt, required_cols = c("a"))
+
+  expect_equal(names(result), "a")
+})
+
+# =============================================================================
+# VALIDATE_MONTHLY_TOTALS ADDITIONAL TESTS
+# =============================================================================
+
+test_that("validate_monthly_totals stop_on_error=FALSE returns FALSE for invalid data", {
+  bad_totals <- data.frame(m_populacao = c(200000, 200100))
+
+  # Function returns invisible(logical): FALSE when issues found
+  result <- validate_monthly_totals(bad_totals, stop_on_error = FALSE)
+
+  expect_type(result, "logical")
+  expect_false(result)
+})
+
+test_that("validate_monthly_totals stop_on_error=FALSE returns TRUE for valid data", {
+  valid_totals <- data.frame(
+    ref_month_yyyymm = c(202301, 202302, 202303),
+    m_populacao = c(200000, 200100, 200200)
+  )
+
+  # Function returns invisible(logical): TRUE when valid
+  result <- validate_monthly_totals(valid_totals, stop_on_error = FALSE)
+
+  expect_type(result, "logical")
+  expect_true(result)
+})
+
+# =============================================================================
+# VALIDATE_PERIOD_INVARIANTS ADDITIONAL TESTS
+# =============================================================================
+
+test_that("validate_period_invariants handles crosswalk missing period columns", {
+  # Crosswalk without any period columns
+  crosswalk <- data.table::data.table(
+    Ano = 2023L,
+    Trimestre = 1L,
+    UPA = 1:5
+  )
+
+  # Should not error when period columns are absent (gracefully skips checks)
+  expect_no_error(
+    PNADCperiods:::validate_period_invariants(crosswalk, context = "test")
+  )
+})
+
+test_that("validate_period_invariants strict=FALSE returns structured report", {
+  # Create invalid crosswalk
+  crosswalk <- data.table::data.table(
+    ref_month_in_quarter = c(1L, 4L),  # 4 is invalid
+    ref_fortnight_in_quarter = c(1L, NA),
+    ref_week_in_quarter = c(1L, NA),
+    determined_month = c(TRUE, TRUE),
+    determined_fortnight = c(TRUE, FALSE),
+    determined_week = c(TRUE, FALSE)
+  )
+
+  result <- suppressWarnings(
+    PNADCperiods:::validate_period_invariants(crosswalk, strict = FALSE)
+  )
+
+  expect_type(result, "list")
+  expect_false(result$valid)
+  expect_true(length(result$violations) > 0)
+})
+
 test_that("validate_pnadc handles empty data gracefully", {
   # 1. Setup: Empty data.frame with correct columns
   empty_data <- data.frame(

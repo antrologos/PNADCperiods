@@ -78,9 +78,8 @@ if (file.exists(CROSSWALK_FILE)) {
 # Step 3: Calibrate weights (Marcos' methodology)
 # ==============================================================================
 
-message("\nStep 3: Calibrating weights (Marcos' methodology)...")
-message("  Month 2: scaled to poptrim (quarterly V1028 sum)")
-message("  Months 1,3: scaled to SIDRA monthly population")
+message("\nStep 3: Calibrating weights...")
+message("  All months: scaled to SIDRA monthly population")
 
 calibrated <- pnadc_apply_periods(
   data = stacked,
@@ -229,9 +228,7 @@ message("  Calibration period: ", CALIBRATION_START, " to ", CALIBRATION_END)
 message("  File: data/pnadc_series_starting_points.rda")
 
 message("\nMethodology:")
-message("  1. pnadc_apply_periods() with Marcos' methodology:")
-message("     - Month 2 scaled to poptrim (quarterly V1028 sum from ALL observations)")
-message("     - Months 1,3 scaled to SIDRA monthly population")
+message("  1. pnadc_apply_periods() with all months scaled to SIDRA monthly population")
 message("  2. compute_z_aggregates() using calibrated weight_monthly")
 message("  3. compute_series_starting_points() with CNPJ-aware calibration periods")
 

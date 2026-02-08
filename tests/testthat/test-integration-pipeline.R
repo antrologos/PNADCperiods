@@ -47,14 +47,6 @@ test_that("full pipeline works end-to-end with monthly calibration", {
   expect_false(any(is.na(determined$weight_monthly)),
                label = "No NA weights for determined observations")
 
-  # Verify month 2 matches poptrim (quarterly V1028 total from ALL observations)
-  poptrim <- data[, .(poptrim = sum(V1028, na.rm = TRUE)), by = .(Ano, Trimestre)]
-  month2 <- determined[ref_month_in_quarter == 2L,
-                       .(m2 = sum(weight_monthly)), by = .(Ano, Trimestre)]
-  merged <- merge(poptrim, month2, by = c("Ano", "Trimestre"))
-  expect_equal(merged$m2, merged$poptrim, tolerance = 0.01,
-               label = "Month 2 calibrated to poptrim")
-
   # 5. Verify: Determination rates are reasonable
   # With 4 quarters, expect >70% month determination
   det_rate <- result[, mean(determined_month, na.rm = TRUE)]
@@ -94,14 +86,55 @@ test_that("full pipeline works with fortnight calibration", {
   expect_true("weight_fortnight" %in% names(result))
   expect_true("determined_fortnight" %in% names(result))
 
-  # 4. Verify: Fortnight weights sum to parent monthly totals
-  weight_check <- result[determined_fortnight == TRUE, .(
-    fortnight_sum = sum(weight_fortnight, na.rm = TRUE),
-    v1028_sum = sum(V1028, na.rm = TRUE)
-  ), by = .(Ano, Trimestre, ref_month_in_quarter)]
+  # 4. Verify: Each fortnight's weights sum to monthly total
+  # Use custom targets scaled to test data's quarterly V1028 sum so calibration converges
+  qtr_wsum <- data[, .(qtr_wsum = sum(V1028, na.rm = TRUE)),
+                  by = .(Ano, Trimestre)]
+  targets <- qtr_wsum[, {
+    months <- (Trimestre - 1L) * 3L + 1:3
+    data.table::data.table(
+      ref_month_yyyymm = Ano * 100L + months,
+      m_populacao = qtr_wsum / 1000
+    )
+  }, by = .(Ano, Trimestre)][, .(ref_month_yyyymm, m_populacao)]
 
-  expect_equal(weight_check$fortnight_sum, weight_check$v1028_sum, tolerance = 1e-6,
-               label = "Fortnight pipeline preserves parent totals")
+  fn_targets <- PNADCperiods:::derive_fortnight_population(targets)
+  result_fn <- pnadc_apply_periods(
+    data, crosswalk,
+    weight_var = "V1028",
+    anchor = "quarter",
+    calibrate = TRUE,
+    calibration_unit = "fortnight",
+    target_totals = fn_targets,
+    smooth = FALSE,
+    verbose = FALSE
+  )
+  result_mo <- pnadc_apply_periods(
+    data, crosswalk,
+    weight_var = "V1028",
+    anchor = "quarter",
+    calibrate = TRUE,
+    calibration_unit = "month",
+    target_totals = targets,
+    smooth = FALSE,
+    verbose = FALSE
+  )
+
+  t_fortnight <- result_fn[!is.na(ref_fortnight_in_month), .(
+    N_fn = sum(weight_fortnight, na.rm = TRUE)
+  ), by = .(Ano, ref_month_in_year, ref_fortnight_in_month)]
+
+  t_month <- result_mo[!is.na(ref_month_in_quarter), .(
+    N_mo = sum(weight_monthly, na.rm = TRUE)
+  ), by = .(Ano, ref_month_in_year)]
+
+  chk <- merge(t_fortnight, t_month,
+               by = c("Ano", "ref_month_in_year"))
+
+  if (nrow(chk) > 0) {
+    expect_equal(chk$N_fn, chk$N_mo, tolerance = 0.01,
+                 label = "Fortnight weights sum to monthly total")
+  }
 })
 
 

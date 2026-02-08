@@ -30,10 +30,7 @@ calibrated \code{weight_monthly} from \code{pnadc_apply_periods()}.
 
 The \code{pnadc_apply_periods()} function implements the calibration
 methodology as follows:
-\itemize{
-\item Month 2: Scaled to poptrim (quarterly V1028 sum from ALL observations)
-\item Months 1,3: Scaled to SIDRA monthly population
-}
+All months are scaled uniformly to SIDRA monthly population totals.
 
 This function simply aggregates the indicators using the already-calibrated weights.
 }
