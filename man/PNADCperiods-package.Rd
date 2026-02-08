@@ -77,8 +77,8 @@ Useful links:
 
 }
 \author{
-Marcos Hecksher \email{mdhecksher@gmail.com}
+Rogerio Barbosa \email{rogerio.barbosa@iesp.uerj.br} (R package, dashboard, and website; Ceres-IESP/UERJ)
 
-Rogerio Barbosa \email{rogerio.barbosa@iesp.uerj.br}
+Marcos Hecksher \email{mdhecksher@gmail.com} (mensalization methodology; Ipea)
 }
 \keyword{internal}
