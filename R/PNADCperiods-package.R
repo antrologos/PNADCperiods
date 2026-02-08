@@ -58,7 +58,18 @@
 #' }
 #'
 #' @references
-#' IBGE Manual Básico da Entrevista PNADC (methodology on "Parada Técnica")
+#' HECKSHER, Marcos. "Valor Impreciso por Mes Exato: Microdados e Indicadores
+#' Mensais Baseados na Pnad Continua". IPEA - Nota Tecnica Disoc, n. 62.
+#' Brasilia, DF: IPEA, 2020.
+#' \url{https://portalantigo.ipea.gov.br/portal/index.php?option=com_content&view=article&id=35453}
+#'
+#' HECKSHER, M. "Cinco meses de perdas de empregos e simulacao de um incentivo
+#' a contratacoes". IPEA - Nota Tecnica Disoc, n. 87. Brasilia, DF: IPEA, 2020.
+#'
+#' HECKSHER, Marcos. "Mercado de trabalho: A queda da segunda quinzena de marco,
+#' aprofundada em abril". IPEA - Carta de Conjuntura, v. 47, p. 1-6, 2020.
+#'
+#' IBGE. Manual Basico da Entrevista PNADC (methodology on "Parada Tecnica").
 #'
 #' @author Rogerio Barbosa \email{rogerio.barbosa@@iesp.uerj.br} (R package, dashboard, and website; Ceres-IESP/UERJ)
 #' @author Marcos Hecksher \email{mdhecksher@@gmail.com} (mensalization methodology; Ipea)

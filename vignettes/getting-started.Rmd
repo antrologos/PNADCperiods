@@ -333,3 +333,12 @@ For poverty and income analysis using annual data, see [Monthly Poverty Analysis
 - **Algorithm details**: [How PNADCperiods Works](how-it-works.html) — complete methodology, experimental strategies, and weight calibration
 - **Benchmarks**: [Determination Rates Benchmark](determination-rates-benchmark.html) — comprehensive performance results across data configurations
 - **Function reference**: Browse the [Reference](../reference/index.html) for documentation of all exported functions
+
+---
+
+## References
+
+- HECKSHER, Marcos. "Valor Impreciso por Mes Exato: Microdados e Indicadores Mensais Baseados na Pnad Continua". IPEA - Nota Tecnica Disoc, n. 62. Brasilia, DF: IPEA, 2020. <https://portalantigo.ipea.gov.br/portal/index.php?option=com_content&view=article&id=35453>
+- HECKSHER, M. "Cinco meses de perdas de empregos e simulacao de um incentivo a contratacoes". IPEA - Nota Tecnica Disoc, n. 87. Brasilia, DF: IPEA, 2020.
+- HECKSHER, Marcos. "Mercado de trabalho: A queda da segunda quinzena de marco, aprofundada em abril". IPEA - Carta de Conjuntura, v. 47, p. 1-6, 2020.
+- Barbosa, Rogerio J; Hecksher, Marcos. (2026). PNADCperiods: Identify Reference Periods in Brazil's PNADC Survey Data. R package version v0.1.0. <https://github.com/antrologos/PNADCperiods>

@@ -447,6 +447,12 @@ For proper inference with confidence intervals, use complex survey design with m
 
 ## References
 
-- IBGE. Pesquisa Nacional por Amostra de Domicilios Continua (PNADC). https://www.ibge.gov.br/estatisticas/sociais/trabalho/
+- HECKSHER, Marcos. "Valor Impreciso por Mes Exato: Microdados e Indicadores Mensais Baseados na Pnad Continua". IPEA - Nota Tecnica Disoc, n. 62. Brasilia, DF: IPEA, 2020. <https://portalantigo.ipea.gov.br/portal/index.php?option=com_content&view=article&id=35453>
+- HECKSHER, M. "Cinco meses de perdas de empregos e simulacao de um incentivo a contratacoes". IPEA - Nota Tecnica Disoc, n. 87. Brasilia, DF: IPEA, 2020.
+- HECKSHER, Marcos. "Mercado de trabalho: A queda da segunda quinzena de marco, aprofundada em abril". IPEA - Carta de Conjuntura, v. 47, p. 1-6, 2020.
+- NERI, Marcelo; HECKSHER, Marcos. "A Montanha-Russa da Pobreza". FGV Social - Sumario Executivo. Rio de Janeiro: FGV, Junho/2022. <https://www.cps.fgv.br/cps/bd/docs/MontanhaRussaDaPobreza_Neri_Hecksher_FGV_Social.pdf>
+- NERI, Marcelo; HECKSHER, Marcos. "A montanha-russa da pobreza mensal e um programa social alternativo". *Revista NECAT*, v. 11, n. 21, 2022.
+- IBGE. Pesquisa Nacional por Amostra de Domicilios Continua (PNADC). <https://www.ibge.gov.br/estatisticas/sociais/trabalho/>
 - World Bank. Poverty and Shared Prosperity Reports. Various years.
 - Foster, J., Greer, J., & Thorbecke, E. (1984). A class of decomposable poverty measures. *Econometrica*, 52(3), 761-766.
+- Barbosa, Rogerio J; Hecksher, Marcos. (2026). PNADCperiods: Identify Reference Periods in Brazil's PNADC Survey Data. R package version v0.1.0. <https://github.com/antrologos/PNADCperiods>

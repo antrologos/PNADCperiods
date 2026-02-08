@@ -9,3 +9,36 @@ bibentry(
   note     = "R package version 0.1.0",
   url      = "https://github.com/antrologos/PNADCperiods"
 )
+
+bibentry(
+  bibtype     = "TechReport",
+  title       = "Valor Impreciso por Mes Exato: Microdados e Indicadores Mensais Baseados na Pnad Continua",
+  author      = person("Marcos", "Hecksher"),
+  year        = "2020",
+  institution = "IPEA",
+  type        = "Nota Tecnica Disoc",
+  number      = "62",
+  address     = "Brasilia, DF",
+  url         = "https://portalantigo.ipea.gov.br/portal/index.php?option=com_content&view=article&id=35453"
+)
+
+bibentry(
+  bibtype     = "TechReport",
+  title       = "Cinco meses de perdas de empregos e simulacao de um incentivo a contratacoes",
+  author      = person("Marcos", "Hecksher"),
+  year        = "2020",
+  institution = "IPEA",
+  type        = "Nota Tecnica Disoc",
+  number      = "87",
+  address     = "Brasilia, DF"
+)
+
+bibentry(
+  bibtype = "Article",
+  title   = "Mercado de trabalho: A queda da segunda quinzena de marco, aprofundada em abril",
+  author  = person("Marcos", "Hecksher"),
+  year    = "2020",
+  journal = "IPEA - Carta de Conjuntura",
+  volume  = "47",
+  pages   = "1-6"
+)

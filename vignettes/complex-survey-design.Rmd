@@ -510,9 +510,18 @@ The gender gap example demonstrated that confidence intervals transform a claim 
 
 ---
 
+## References
+
+- HECKSHER, Marcos. "Valor Impreciso por Mes Exato: Microdados e Indicadores Mensais Baseados na Pnad Continua". IPEA - Nota Tecnica Disoc, n. 62. Brasilia, DF: IPEA, 2020. <https://portalantigo.ipea.gov.br/portal/index.php?option=com_content&view=article&id=35453>
+- HECKSHER, M. "Cinco meses de perdas de empregos e simulacao de um incentivo a contratacoes". IPEA - Nota Tecnica Disoc, n. 87. Brasilia, DF: IPEA, 2020.
+- HECKSHER, Marcos. "Mercado de trabalho: A queda da segunda quinzena de marco, aprofundada em abril". IPEA - Carta de Conjuntura, v. 47, p. 1-6, 2020.
+- Thomas Lumley (2010). *Complex Surveys: A Guide to Analysis Using R*. Wiley.
+- IBGE. *Notas Metodologicas da PNAD Continua*.
+- Barbosa, Rogerio J; Hecksher, Marcos. (2026). PNADCperiods: Identify Reference Periods in Brazil's PNADC Survey Data. R package version v0.1.0. <https://github.com/antrologos/PNADCperiods>
+
+---
+
 ## Further Reading
 
 - [Get Started](getting-started.html) - Basic mensalization workflow
 - [Applied Examples](applied-examples.html) - Monthly labor market analysis with figures
-- Thomas Lumley (2010). *Complex Surveys: A Guide to Analysis Using R*. Wiley.
-- IBGE. *Notas Metodologicas da PNAD Continua*.
