@@ -75,9 +75,14 @@ monthly <- mensalize_sidra_series(rolling)
 - [Applied Examples](https://antrologos.github.io/PNADCperiods/articles/applied-examples.html)
 - [Full Reference](https://antrologos.github.io/PNADCperiods/reference/index.html)
 
+## Authors
+
+- **Rogerio J. Barbosa** (Ceres-IESP/UERJ) -- R package, dashboard, and website
+- **Marcos Hecksher** (Ipea) -- Mensalization methodology
+
 ## Credits
 
-Original PNADC data is collected by the Brazilian Institute of Geography and Statistics (IBGE). The {PNADCperiods} package is developed by a team at the [Center for the Study of Wealth and Social Stratification (Ceres - IESP/UERJ)](https://ceres-iesp.uerj.br/) and at the Institute for Applied Economic Research (Ipea), Brazil.
+Original PNADC data is collected by the Brazilian Institute of Geography and Statistics (IBGE). The {PNADCperiods} package is developed at the [Center for the Study of Wealth and Social Stratification (Ceres - IESP/UERJ)](https://ceres-iesp.uerj.br/) and the Institute for Applied Economic Research (Ipea), Brazil.
 
 **Citation:**
 

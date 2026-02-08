@@ -3,10 +3,12 @@ Title: Identify Reference Periods in Brazil's PNADC Survey Data
 Version: 0.1.0
 Authors@R: c(
     person("Rogerio", "Barbosa", email = "rogerio.barbosa@iesp.uerj.br", role = c("aut", "cre"),
-           comment = c(ORCID = "0000-0002-6796-4547")),
+           comment = c(ORCID = "0000-0002-6796-4547",
+                       contribution = "R package, dashboard, and website")),
     person("Marcos", "Hecksher", email = "mdhecksher@gmail.com", role = c("aut"),
-           comment = c(ORCID = "0000-0003-2992-1252"))
-           )
+           comment = c(ORCID = "0000-0003-2992-1252",
+                       contribution = "Mensalization methodology"))
+    )
 Description: Identifies reference periods (months, fortnights, and weeks) in
     Brazil's quarterly PNADC (Pesquisa Nacional por Amostra de Domicilios
     Continua) survey data and computes calibrated weights for sub-quarterly

@@ -60,8 +60,8 @@
 #' @references
 #' IBGE Manual Básico da Entrevista PNADC (methodology on "Parada Técnica")
 #'
-#' @author Marcos Hecksher \email{mdhecksher@@gmail.com}
-#' @author Rogerio Barbosa \email{rogerio.barbosa@@iesp.uerj.br}
+#' @author Rogerio Barbosa \email{rogerio.barbosa@@iesp.uerj.br} (R package, dashboard, and website; Ceres-IESP/UERJ)
+#' @author Marcos Hecksher \email{mdhecksher@@gmail.com} (mensalization methodology; Ipea)
 #'
 #' @import data.table
 #' @importFrom lubridate ymd
