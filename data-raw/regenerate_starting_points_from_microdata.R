@@ -51,13 +51,50 @@ message(paste(rep("=", 70), collapse = ""), "\n")
 
 message("Step 1: Loading microdata...")
 
-if (!file.exists(MICRODATA_FILE)) {
-  stop("Microdata file not found: ", MICRODATA_FILE,
-       "\nRun test_approachB_full_pipeline.R first to create it.")
-}
+if (file.exists(MICRODATA_FILE)) {
+  stacked <- read_fst(MICRODATA_FILE, as.data.table = TRUE)
+  message("  Loaded cached microdata: ", format(nrow(stacked), big.mark = ","), " obs")
+} else {
+  message("  Stacking quarterly microdata from FST files...")
+  quarterly_dir <- "D:/Dropbox/Bancos_Dados/PNADC/Trimestral/Dados"
+  fst_files <- list.files(quarterly_dir, pattern = "^pnadc_\\d{4}-\\dq\\.fst$",
+                          full.names = TRUE)
+  # Filter to calibration period (2012q1 through 2019q4)
+  start_y <- CALIBRATION_START %/% 100L
+  end_y <- CALIBRATION_END %/% 100L
+  fst_files <- fst_files[grepl(paste0("(", paste(start_y:end_y, collapse = "|"), ")"), fst_files)]
+  message("  Found ", length(fst_files), " quarterly files")
 
-stacked <- read_fst(MICRODATA_FILE, as.data.table = TRUE)
-message("  Loaded ", format(nrow(stacked), big.mark = ","), " observations")
+  # Only read columns needed for identification, calibration, and z_aggregates
+  needed_cols <- c(
+    # Identification
+    "Ano", "Trimestre", "UPA", "V1008", "V1014", "V2003",
+    "V2008", "V20081", "V20082", "V2009",
+    # Calibration
+    "V1028", "UF", "posest", "posest_sxi",
+    # Labor market variables for compute_z_aggregates
+    "VD4001", "VD4002", "VD4003", "VD4004", "VD4004A", "VD4005",
+    "VD4009", "VD4010", "VD4012", "V4019",
+    # Income variables
+    "VD4016", "VD4017", "VD4019", "VD4020",
+    # Hours variables
+    "VD4031", "VD4035"
+  )
+
+  quarters <- lapply(fst_files, function(f) {
+    message("    Reading ", basename(f), "...")
+    available <- names(read_fst(f, as.data.table = TRUE, from = 1, to = 1))
+    cols_to_read <- intersect(needed_cols, available)
+    read_fst(f, columns = cols_to_read, as.data.table = TRUE)
+  })
+  stacked <- rbindlist(quarters, fill = TRUE)
+  rm(quarters); gc()
+  message("  Stacked ", format(nrow(stacked), big.mark = ","), " observations")
+  message("  Columns: ", ncol(stacked))
+  # Cache for next time
+  message("  Caching to ", MICRODATA_FILE, "...")
+  write_fst(stacked, MICRODATA_FILE)
+}
 
 # ==============================================================================
 # Step 2: Load or build crosswalk

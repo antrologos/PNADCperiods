@@ -94,8 +94,7 @@ short-term dynamics: turning points are delayed, seasonal patterns are
 distorted, and international comparison becomes difficult.</p>
 <p>The PNADCperiods package includes a SIDRA mensalization module that
 recovers <strong>exact monthly estimates</strong> from rolling quarter
-data, implementing the methodology developed by Marcos Hecksher. This
-vignette explains how to use it.</p>
+data. This vignette explains how to use it.</p>
 <div class="section level3">
 <h3 id="why-rolling-quarters-are-problematic">Why Rolling Quarters Are Problematic<a class="anchor" aria-label="anchor" href="#why-rolling-quarters-are-problematic"></a>
 </h3>
@@ -136,8 +135,8 @@ true monthly values.</p>
 <li><p><strong><code><a href="../reference/fetch_sidra_rolling_quarters.html">fetch_sidra_rolling_quarters()</a></code></strong>
 downloaded 86+ economic indicators from IBGE’s SIDRA API</p></li>
 <li><p><strong><code><a href="../reference/mensalize_sidra_series.html">mensalize_sidra_series()</a></code></strong> applied
-the Hecksher formula using pre-computed starting points (bundled with
-the package)</p></li>
+the mensalization formula using pre-computed starting points (bundled
+with the package)</p></li>
 <li><p>The result is a <code>data.table</code> with one row per month
 and <code>m_*</code> columns for each mensalized series</p></li>
 </ol>
@@ -399,7 +398,7 @@ from the sequence of
 values.</p>
 </div>
 <div class="section level3">
-<h3 id="the-hecksher-formula">The Hecksher Formula<a class="anchor" aria-label="anchor" href="#the-hecksher-formula"></a>
+<h3 id="the-mensalization-formula">The Mensalization Formula<a class="anchor" aria-label="anchor" href="#the-mensalization-formula"></a>
 </h3>
 <p><strong>Step 1: Compute first differences</strong></p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><msub><mn>3</mn><mi>t</mi></msub><mo>=</mo><msub><mi>x</mi><mi>t</mi></msub><mo>−</mo><msub><mi>x</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">d3_t = x_t - x_{t-1}</annotation></semantics></math></p>
@@ -811,10 +810,9 @@ examples</li>
 </li>
 </ul>
 <blockquote>
-<p>Hecksher, M. (2021). Mensalization of PNADC Series. <em>IPEA
-Technical Note</em>.</p>
-<p>Barbosa, R. (2024). PNADCperiods: Sub-quarterly PNADC Time Series. R
-package. <a href="https://github.com/antrologos/PNADCperiods" class="external-link uri">https://github.com/antrologos/PNADCperiods</a></p>
+<p>Barbosa, Rogerio J; Hecksher, Marcos. (2026). PNADCperiods: Identify
+Reference Periods in Brazil’s PNADC Survey Data. R package version
+v0.1.0. <a href="https://github.com/antrologos/PNADCperiods" class="external-link uri">https://github.com/antrologos/PNADCperiods</a></p>
 </blockquote>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -102,7 +102,7 @@ Default NULL uses .PNADC_DATES$DEFAULT_CALIB_END (201912).</p></dd>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>This function performs the complete workflow:</p><ol><li><p>Build crosswalk via <code><a href="pnadc_identify_periods.html">pnadc_identify_periods()</a></code></p></li>
-<li><p>Calibrate weights via <code><a href="pnadc_apply_periods.html">pnadc_apply_periods()</a></code> using Marcos' methodology</p></li>
+<li><p>Calibrate weights via <code><a href="pnadc_apply_periods.html">pnadc_apply_periods()</a></code></p></li>
 <li><p>Compute z_ aggregates via <code><a href="compute_z_aggregates.html">compute_z_aggregates()</a></code></p></li>
 <li><p>Fetch SIDRA rolling quarters</p></li>
 <li><p>Compute starting points via <code><a href="compute_series_starting_points.html">compute_series_starting_points()</a></code></p></li>
@@ -111,9 +111,8 @@ Default NULL uses .PNADC_DATES$DEFAULT_CALIB_END (201912).</p></dd>
     <h2 id="weight-calibration">Weight Calibration<a class="anchor" aria-label="anchor" href="#weight-calibration"></a></h2>
 
 
-<p>Weights are calibrated following Marcos Hecksher's methodology:</p><ul><li><p>Month 2: Scaled to poptrim (quarterly V1028 sum from ALL observations)</p></li>
-<li><p>Months 1,3: Scaled to SIDRA monthly population</p></li>
-</ul></div>
+<p>All months are scaled uniformly to SIDRA monthly population totals.</p>
+    </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="pnadc_apply_periods.html">pnadc_apply_periods</a></code> for the weight calibration step

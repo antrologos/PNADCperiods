@@ -76,9 +76,8 @@ quarterly series into exact monthly estimates.</p>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>These starting points were computed from PNADC microdata using the full
 R package pipeline, ensuring consistency with
-<code><a href="compute_starting_points_from_microdata.html">compute_starting_points_from_microdata</a></code>:</p><ol><li><p>Weight calibration via <code><a href="pnadc_apply_periods.html">pnadc_apply_periods</a></code>: month 2
-scaled to poptrim (quarterly V1028 sum from ALL observations), months 1
-and 3 scaled to SIDRA monthly population</p></li>
+<code><a href="compute_starting_points_from_microdata.html">compute_starting_points_from_microdata</a></code>:</p><ol><li><p>Weight calibration via <code><a href="pnadc_apply_periods.html">pnadc_apply_periods</a></code>: all months
+scaled to SIDRA monthly population totals</p></li>
 <li><p>z_ aggregates computed via <code><a href="compute_z_aggregates.html">compute_z_aggregates</a></code> using
 calibrated <code>weight_monthly</code></p></li>
 <li><p>Starting points computed via <code><a href="compute_series_starting_points.html">compute_series_starting_points</a></code>

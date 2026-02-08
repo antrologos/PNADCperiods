@@ -319,8 +319,8 @@ estimates.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">monthly</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span><span class="va">anomesexato</span>, <span class="va">m_popocup</span>, <span class="va">m_taxadesocup</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></code></pre></div>
 <p><code><a href="../reference/fetch_sidra_rolling_quarters.html">fetch_sidra_rolling_quarters()</a></code> downloads 70+ economic
 indicators from IBGE’s SIDRA API (Tables 4093, 6390, 6392, 6399, 6906).
-<code><a href="../reference/mensalize_sidra_series.html">mensalize_sidra_series()</a></code> applies the Hecksher formula using
-pre-computed starting points bundled with the package, converting
+<code><a href="../reference/mensalize_sidra_series.html">mensalize_sidra_series()</a></code> applies the mensalization formula
+using pre-computed starting points bundled with the package, converting
 rolling quarter averages into exact monthly values.</p>
 <p>The output contains <code>anomesexato</code> (month in YYYYMM format)
 and <code>m_*</code> columns with mensalized monthly estimates, starting
