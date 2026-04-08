@@ -33,7 +33,7 @@ Default TRUE.}
 A data.table with columns:
 \describe{
 \item{anomesexato}{Integer. YYYYMM exact month}
-\item{m_\if{html}{\out{<series>}}}{Numeric. Mensalized value for each series}
+\item{m_*}{Numeric. Mensalized value for each series (one column per series)}
 }
 }
 \description{

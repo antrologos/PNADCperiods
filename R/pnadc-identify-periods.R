@@ -183,8 +183,8 @@ pnadc_identify_periods <- function(data, verbose = TRUE, store_date_bounds = FAL
 
   # Subset to required columns BEFORE copying (80-90% memory reduction)
   # Instead of copying all 50+ columns, only copy the ~9 columns we actually need
-  required_cols <- PNADCperiods:::required_vars_ref_month()
-  dt            <- PNADCperiods:::subset_and_copy(data, required_cols)
+  required_cols <- required_vars_ref_month()
+  dt            <- subset_and_copy(data, required_cols)
 
   # Freeing memory after making the copy...
   gc()
@@ -235,23 +235,23 @@ pnadc_identify_periods <- function(data, verbose = TRUE, store_date_bounds = FAL
 
   unique_quarters <- unique(dt[, .(Ano, Trimestre)])
   unique_quarters[, `:=`(
-    month1 = PNADCperiods:::quarter_month_n(Trimestre, 1L),
-    month2 = PNADCperiods:::quarter_month_n(Trimestre, 2L),
-    month3 = PNADCperiods:::quarter_month_n(Trimestre, 3L),
+    month1 = quarter_month_n(Trimestre, 1L),
+    month2 = quarter_month_n(Trimestre, 2L),
+    month3 = quarter_month_n(Trimestre, 3L),
 
-    is_leap = PNADCperiods:::is_leap_year(Ano)
+    is_leap = is_leap_year(Ano)
 
   )][, `:=`(
 
     # Standard rule (min_days=4)
-    first_sat_m1 = PNADCperiods:::first_valid_saturday(Ano, month1, min_days = 4L),
-    first_sat_m2 = PNADCperiods:::first_valid_saturday(Ano, month2, min_days = 4L),
-    first_sat_m3 = PNADCperiods:::first_valid_saturday(Ano, month3, min_days = 4L),
+    first_sat_m1 = first_valid_saturday(Ano, month1, min_days = 4L),
+    first_sat_m2 = first_valid_saturday(Ano, month2, min_days = 4L),
+    first_sat_m3 = first_valid_saturday(Ano, month3, min_days = 4L),
 
     # Exception rule (min_days=3)
-    alt_sat_m1 = PNADCperiods:::first_valid_saturday(Ano, month1, min_days = 3L),
-    alt_sat_m2 = PNADCperiods:::first_valid_saturday(Ano, month2, min_days = 3L),
-    alt_sat_m3 = PNADCperiods:::first_valid_saturday(Ano, month3, min_days = 3L)
+    alt_sat_m1 = first_valid_saturday(Ano, month1, min_days = 3L),
+    alt_sat_m2 = first_valid_saturday(Ano, month2, min_days = 3L),
+    alt_sat_m3 = first_valid_saturday(Ano, month3, min_days = 3L)
 
   )][, `:=`(
 
@@ -317,7 +317,7 @@ pnadc_identify_periods <- function(data, verbose = TRUE, store_date_bounds = FAL
     }
   }
 
-  dt[, first_sat_after_birthday := PNADCperiods:::first_saturday_on_or_after(birthday)]
+  dt[, first_sat_after_birthday := first_saturday_on_or_after(birthday)]
 
   # Determine if interview was before or after birthday
   dt[!is.na(V20082), visit_before_birthday := (Ano - V20082) - V2009]
@@ -367,10 +367,10 @@ pnadc_identify_periods <- function(data, verbose = TRUE, store_date_bounds = FAL
   if (verbose) cat("  Step 1.5: Converting to month positions...\n")
 
   dt[, `:=`(
-    month_min_pos     = PNADCperiods:::calculate_month_position_min(date = date_min,     year = Ano, quarter = Trimestre, day_threshold = 3L),
-    month_max_pos     = PNADCperiods:::calculate_month_position_max(date = date_max,     year = Ano, quarter = Trimestre, day_threshold = 3L),
-    alt_month_min_pos = PNADCperiods:::calculate_month_position_min(date = alt_date_min, year = Ano, quarter = Trimestre, day_threshold = 2L),
-    alt_month_max_pos = PNADCperiods:::calculate_month_position_max(date = alt_date_max, year = Ano, quarter = Trimestre, day_threshold = 2L)
+    month_min_pos     = calculate_month_position_min(date = date_min,     year = Ano, quarter = Trimestre, day_threshold = 3L),
+    month_max_pos     = calculate_month_position_max(date = date_max,     year = Ano, quarter = Trimestre, day_threshold = 3L),
+    alt_month_min_pos = calculate_month_position_min(date = alt_date_min, year = Ano, quarter = Trimestre, day_threshold = 2L),
+    alt_month_max_pos = calculate_month_position_max(date = alt_date_max, year = Ano, quarter = Trimestre, day_threshold = 2L)
   )]
 
   # --------------------------------------------------------------------------
@@ -460,14 +460,14 @@ pnadc_identify_periods <- function(data, verbose = TRUE, store_date_bounds = FAL
 
     # Recalculate month positions with dynamic thresholds
     dt[exc_condition, `:=`(
-      month_min_pos = PNADCperiods:::calculate_month_position_min_dynamic(date = date_min,
+      month_min_pos = calculate_month_position_min_dynamic(date = date_min,
                                                                           year = Ano,
                                                                           quarter = Trimestre,
                                                                           exc_m1 = trim_exc_m1,
                                                                           exc_m2 = trim_exc_m2,
                                                                           exc_m3 = trim_exc_m3),
 
-      month_max_pos = PNADCperiods:::calculate_month_position_max_dynamic(date = date_max,
+      month_max_pos = calculate_month_position_max_dynamic(date = date_max,
                                                                           year = Ano,
                                                                           quarter = Trimestre,
                                                                           exc_m1 = trim_exc_m1,

@@ -3,7 +3,7 @@
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/antrologos/PNADCperiods/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/antrologos/PNADCperiods/actions/workflows/R-CMD-check.yaml)
 [![pkgdown](https://github.com/antrologos/PNADCperiods/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/antrologos/PNADCperiods/actions/workflows/pkgdown.yaml)
-[![codecov](https://codecov.io/gh/antrologos/PNADCperiods/branch/master/graph/badge.svg)](https://codecov.io/gh/antrologos/PNADCperiods)
+[![codecov](https://codecov.io/gh/antrologos/PNADCperiods/branch/master/graph/badge.svg)](https://app.codecov.io/gh/antrologos/PNADCperiods)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 <!-- badges: end -->

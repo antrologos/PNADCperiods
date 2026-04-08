@@ -78,7 +78,7 @@
 #' @importFrom lubridate ymd
 #' @importFrom checkmate assert_data_frame assert_int assert_logical assert_string assert_character assert_choice
 #' @importFrom stats lm predict
-#' @importFrom utils head setTxtProgressBar txtProgressBar
+#' @importFrom utils data head setTxtProgressBar txtProgressBar
 #' @keywords internal
 "_PACKAGE"
 
@@ -334,5 +334,56 @@ utils::globalVariables(c(
   "week_1_start", "week_1_end", "week_2_start", "week_2_end",
   "week_3_start", "week_3_end", "week_4_start", "week_4_end",
   "week_5_start", "week_8_end", "week_9_start", "week_12_end",
-  "week_max_hh", "week_min_hh", "week_pos", "week_prob_filter"
+  "week_max_hh", "week_min_hh", "week_pos", "week_prob_filter",
+  # ============================================================================
+  # Derived Series and Aggregate Variables (compute_z_aggregates / compute_series_starting_points)
+  # ============================================================================
+  ".deflator_efet", ".deflator_hab", ".ipca_lagged",
+  "ipca100dez1993", "inpc100dez1993",
+  "comrendtodos", "rendhabnominaltodos", "rendefetnominaltodos",
+  "massahabnominaltodos", "massaefetnominaltodos",
+  # PNADC microdata variables used in compute_z_aggregates
+  "V4019", "VD4001", "VD4002", "VD4003", "VD4004", "VD4004A", "VD4005",
+  "VD4009", "VD4010", "VD4012", "VD4016", "VD4017", "VD4019", "VD4020",
+  "VD4031", "VD4035",
+  # z_ aggregate variables
+  "z_comrendtodos",
+  "z_contapropriacomcnpj", "z_contapropriasemcnpj",
+  "z_contribuinteprev", "z_desalentado", "z_domestico",
+  "z_empregado", "z_empregadorcomcnpj", "z_empregadorsemcnpj",
+  "z_empregpriv", "z_empregpubl",
+  "z_forcaampliada", "z_forcapotencial",
+  "z_massaefetnominaltodos", "z_massaefetrealtodos",
+  "z_massahabnominaltodos", "z_massahabrealtodos",
+  "z_pop14mais", "z_popdesocup", "z_popforadaforca",
+  "z_popnaforca", "z_popocup", "z_subocuphoras",
+  # z_ income/hours disaggregated variables (by position/sector)
+  "z_income_hab_empregado", "z_income_hab_empregpriv",
+  "z_income_hab_empregprivcomcart", "z_income_hab_empregprivsemcart",
+  "z_income_hab_domestico", "z_income_hab_domesticocomcart",
+  "z_income_hab_domesticosemcart",
+  "z_income_hab_empregpubl", "z_income_hab_empregpublcomcart",
+  "z_income_hab_empregpublsemcart", "z_income_hab_estatutmilitar",
+  "z_income_hab_empregador", "z_income_hab_contapropria",
+  "z_income_hab_empregadorcomcnpj", "z_income_hab_empregadorsemcnpj",
+  "z_income_hab_contapropriacomcnpj", "z_income_hab_contapropriasemcnpj",
+  "z_income_hab_agropecuaria", "z_income_hab_industria",
+  "z_income_hab_construcao", "z_income_hab_comercio",
+  "z_income_hab_transporte", "z_income_hab_alojaliment",
+  "z_income_hab_infcomfinimobadm", "z_income_hab_adminpublica",
+  "z_income_hab_outroservico", "z_income_hab_servicodomestico",
+  "z_hours_efet_empregado", "z_hours_efet_empregpriv",
+  "z_hours_efet_empregprivcomcart", "z_hours_efet_empregprivsemcart",
+  "z_hours_efet_domestico", "z_hours_efet_domesticocomcart",
+  "z_hours_efet_domesticosemcart",
+  "z_hours_efet_empregpubl", "z_hours_efet_empregpublcomcart",
+  "z_hours_efet_empregpublsemcart", "z_hours_efet_estatutmilitar",
+  "z_hours_efet_empregador", "z_hours_efet_contapropria",
+  "z_hours_efet_empregadorcomcnpj", "z_hours_efet_empregadorsemcnpj",
+  "z_hours_efet_contapropriacomcnpj", "z_hours_efet_contapropriasemcnpj",
+  "z_hours_efet_agropecuaria", "z_hours_efet_industria",
+  "z_hours_efet_construcao", "z_hours_efet_comercio",
+  "z_hours_efet_transporte", "z_hours_efet_alojaliment",
+  "z_hours_efet_infcomfinimobadm", "z_hours_efet_adminpublica",
+  "z_hours_efet_outroservico", "z_hours_efet_servicodomestico"
 ))

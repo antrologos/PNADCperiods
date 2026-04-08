@@ -5,3 +5,11 @@
 ^CLAUDE\.md$
 ^ARCHITECTURE_PLAN\.md$
 ^\.claude$
+^\.github$
+^docs$
+^data-raw$
+^_pkgdown\.yml$
+^run_tests\.R$
+^_run_tests\.R$
+^cran-comments\.md$
+^\.Rhistory$

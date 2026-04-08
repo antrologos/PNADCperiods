@@ -330,7 +330,7 @@ validate_pnadc <- function(data, check_weights = FALSE, stop_on_error = TRUE) {
   issues <- list()
 
   # Check required columns for reference month
-  required <- PNADCperiods:::required_vars_ref_month()
+  required <- required_vars_ref_month()
   missing  <- setdiff(required, names(data))
   if (length(missing) > 0) {
     issues$missing_ref_month <- missing
@@ -338,7 +338,7 @@ validate_pnadc <- function(data, check_weights = FALSE, stop_on_error = TRUE) {
 
   # Check weight-related columns if requested
   if (check_weights) {
-    required_wt <- PNADCperiods:::required_vars_weights()
+    required_wt <- required_vars_weights()
     missing_wt  <- setdiff(required_wt, names(data))
     if (length(missing_wt) > 0) {
       issues$missing_weights <- missing_wt
@@ -346,7 +346,7 @@ validate_pnadc <- function(data, check_weights = FALSE, stop_on_error = TRUE) {
   }
 
   # Check join key columns (V1008, V2003 may be optional in some cases)
-  join_keys      <- PNADCperiods:::join_key_vars()
+  join_keys      <- join_key_vars()
   join_available <- intersect(join_keys, names(data))
 
   # Validate data types and ranges

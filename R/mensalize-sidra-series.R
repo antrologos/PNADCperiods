@@ -27,7 +27,7 @@ NULL
 #' @return A data.table with columns:
 #'   \describe{
 #'     \item{anomesexato}{Integer. YYYYMM exact month}
-#'     \item{m_<series>}{Numeric. Mensalized value for each series}
+#'     \item{m_*}{Numeric. Mensalized value for each series (one column per series)}
 #'   }
 #'
 #' @details
@@ -947,7 +947,7 @@ mensalize_sidra_series <- function(rolling_quarters,
 #' @param monthly_estimates data.table with columns:
 #'   \itemize{
 #'     \item \code{anomesexato}: YYYYMM exact month
-#'     \item \code{z_<series>}: Monthly estimates from calibrated microdata
+#'     \item \code{z_*}: Monthly estimates from calibrated microdata (one column per series)
 #'   }
 #' @param rolling_quarters data.table from \code{fetch_sidra_rolling_quarters}
 #' @param calibration_start Integer. Start of calibration period (YYYYMM).
@@ -1252,7 +1252,7 @@ compute_series_starting_points <- function(monthly_estimates,
 #' @return data.table with columns:
 #'   \describe{
 #'     \item{anomesexato}{Integer YYYYMM month}
-#'     \item{z_<series>}{Numeric weighted aggregates for each series}
+#'     \item{z_*}{Numeric weighted aggregates for each series (one column per series)}
 #'   }
 #'
 #' @details

@@ -17,7 +17,7 @@ with \code{calibrate = TRUE}. Must include \code{weight_monthly},
 data.table with columns:
 \describe{
 \item{anomesexato}{Integer YYYYMM month}
-\item{z_\if{html}{\out{<series>}}}{Numeric weighted aggregates for each series}
+\item{z_*}{Numeric weighted aggregates for each series (one column per series)}
 }
 }
 \description{

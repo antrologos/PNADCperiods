@@ -18,7 +18,7 @@ compute_series_starting_points(
 \item{monthly_estimates}{data.table with columns:
 \itemize{
 \item \code{anomesexato}: YYYYMM exact month
-\item \code{z_<series>}: Monthly estimates from calibrated microdata
+\item \code{z_*}: Monthly estimates from calibrated microdata (one column per series)
 }}
 
 \item{rolling_quarters}{data.table from \code{fetch_sidra_rolling_quarters}}

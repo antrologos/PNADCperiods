@@ -129,7 +129,7 @@ first_valid_saturday <- function(year, month, min_days = 4L) {
   first_day <- lubridate::ymd(paste(year = year, month = month, day = 1L, sep = "-"))
 
   # Day of week for first of month (0=Sun, 6=Sat)
-  first_dow <- PNADCperiods:::dow(first_day)
+  first_dow <- dow(first_day)
 
   # Calculate first Saturday
   # If first_dow = 0 (Sunday), first Saturday is day 7
@@ -246,7 +246,7 @@ iso_week_year <- function(date) {
 #' @keywords internal
 #' @noRd
 iso_week <- function(date) {
-  PNADCperiods:::iso_week_year(date)$week
+  iso_week_year(date)$week
 }
 
 #' ISO Week-Year
@@ -263,7 +263,7 @@ iso_week <- function(date) {
 #' @keywords internal
 #' @noRd
 iso_year <- function(date) {
-  PNADCperiods:::iso_week_year(date)$year
+  iso_week_year(date)$year
 }
 
 
@@ -284,7 +284,7 @@ iso_year <- function(date) {
 #' @keywords internal
 #' @noRd
 calculate_month_position_min <- function(date, year, quarter, day_threshold = 3L) {
-  first_month <- PNADCperiods:::quarter_first_month(quarter)
+  first_month <- quarter_first_month(quarter)
   date_month  <- data.table::month(date)
   date_day    <- data.table::mday(date)
 
@@ -311,7 +311,7 @@ calculate_month_position_min <- function(date, year, quarter, day_threshold = 3L
 #' @keywords internal
 #' @noRd
 calculate_month_position_max <- function(date, year, quarter, day_threshold = 3L) {
-  first_month <- PNADCperiods:::quarter_first_month(quarter)
+  first_month <- quarter_first_month(quarter)
   date_day    <- data.table::mday(date)
 
   # When day <= threshold, use the month of (date - 3 days)

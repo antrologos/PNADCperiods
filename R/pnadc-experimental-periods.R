@@ -172,18 +172,18 @@ pnadc_experimental_periods <- function(
   # ==========================================================================
 
   if (strategy == "probabilistic") {
-    result <- PNADCperiods:::.apply_probabilistic(
+    result <- .apply_probabilistic(
       crosswalk = result,
       confidence_threshold = confidence_threshold,
       verbose = verbose
     )
   } else if (strategy == "upa_aggregation") {
-    result <- PNADCperiods:::.apply_upa_aggregation(
+    result <- .apply_upa_aggregation(
       crosswalk = result,
       threshold = upa_proportion_threshold,
       verbose   = verbose)
   } else if (strategy == "both") {
-    result <- PNADCperiods:::.apply_combined_strategy(
+    result <- .apply_combined_strategy(
       crosswalk = result,
       confidence_threshold = confidence_threshold,
       upa_threshold        = upa_proportion_threshold,

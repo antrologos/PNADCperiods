@@ -213,8 +213,8 @@ pnadc_apply_periods <- function(data,
   }
 
   # Convert to data.table
-  dt <- PNADCperiods:::ensure_data_table(data, copy = FALSE)
-  xw <- PNADCperiods:::ensure_data_table(crosswalk, copy = FALSE)  # No copy needed - only read
+  dt <- ensure_data_table(data, copy = FALSE)
+  xw <- ensure_data_table(crosswalk, copy = FALSE)  # No copy needed - only read
 
   # Freeing memory
   gc()
@@ -331,12 +331,12 @@ pnadc_apply_periods <- function(data,
 
       target_totals <- switch(calibration_unit,
                               month = monthly_pop,
-                              fortnight = PNADCperiods:::derive_fortnight_population(monthly_pop),
-                              week      = PNADCperiods:::derive_weekly_population(monthly_pop))
+                              fortnight = derive_fortnight_population(monthly_pop),
+                              week      = derive_weekly_population(monthly_pop))
     }
 
     # Run unified calibration
-    dt <- PNADCperiods:::calibrate_weights_internal(
+    dt <- calibrate_weights_internal(
       dt,
       weight_var = weight_var,
       ref_var = ref_var,
@@ -499,7 +499,7 @@ calibrate_weights_internal <- function(dt,
   data.table::set(dt, j = "weight_current", value = dt[[weight_var]])
 
   # Step 1: Create calibration cells (only create needed levels)
-  dt <- PNADCperiods:::create_calibration_cells_unified(dt, n_cells = n_cells)
+  dt <- create_calibration_cells_unified(dt, n_cells = n_cells)
 
   # Pre-extract weight column for reweighting loop
   weight_vec <- dt[[weight_var]]
@@ -523,7 +523,7 @@ calibrate_weights_internal <- function(dt,
     }
 
     # Inline reweighting with pre-extracted columns
-    dt <- PNADCperiods:::reweight_at_cell_level(dt          = dt,
+    dt <- reweight_at_cell_level(dt          = dt,
                                                           cell_var    = cell_var,
                                                           anchor_vars = anchor_vars,
                                                           ref_var     = ref_var,
@@ -536,15 +536,15 @@ calibrate_weights_internal <- function(dt,
   }
 
   # Step 3: Final calibration to external totals (only for determined obs)
-  dt <- PNADCperiods:::calibrate_to_external_totals(dt, target_totals, ref_var)
+  dt <- calibrate_to_external_totals(dt, target_totals, ref_var)
 
   # Step 4: Smooth weights (if requested and appropriate for the time period)
   if (smooth) {
-    dt <- PNADCperiods:::smooth_calibrated_weights(dt, ref_var)
+    dt <- smooth_calibrated_weights(dt, ref_var)
   }
 
   # Step 5: Parent-period constraint (no-op: all periods calibrated to SIDRA)
-  dt <- PNADCperiods:::apply_parent_period_constraint(dt, weight_var, ref_var, verbose)
+  dt <- apply_parent_period_constraint(dt, weight_var, ref_var, verbose)
 
   # Rename final weight
   data.table::setnames(dt, "weight_current", "weight_calibrated")
