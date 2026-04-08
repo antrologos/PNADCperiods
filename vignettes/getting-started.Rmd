@@ -281,7 +281,7 @@ crosswalk_exp <- pnadc_experimental_periods(
 )
 ```
 
-With `strategy = "both"` and `confidence_threshold = 0.9`, month determination improves to ~97.3% and fortnight to ~13.5%. See [How PNADCperiods Works](how-it-works.html) for details on experimental strategies and the [Determination Rates Benchmark](determination-rates-benchmark.html) for comprehensive results.
+With `strategy = "both"` and `confidence_threshold = 0.9`, month determination improves to ~97.3% and fortnight to ~13.5%. See [How PNADCperiods Works](how-it-works.html) for details on experimental strategies.
 
 ---
 
@@ -331,8 +331,7 @@ For poverty and income analysis using annual data, see [Monthly Poverty Analysis
 - **Annual/poverty data**: [Monthly Poverty Analysis](annual-poverty-analysis.html) — poverty analysis using annual PNADC income data
 - **Survey design**: [Complex Survey Design](complex-survey-design.html) — working with survey design objects and variance estimation
 - **Algorithm details**: [How PNADCperiods Works](how-it-works.html) — complete methodology, experimental strategies, and weight calibration
-- **Benchmarks**: [Determination Rates Benchmark](determination-rates-benchmark.html) — comprehensive performance results across data configurations
-- **Function reference**: Browse the [Reference](../reference/index.html) for documentation of all exported functions
+- **Function reference**: Use `?pnadc_identify_periods` or visit the [package website](https://antrologos.github.io/PNADCperiods/reference/) for full documentation
 
 ---
 
