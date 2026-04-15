@@ -82,12 +82,6 @@
 #' @keywords internal
 "_PACKAGE"
 
-# OPTIMIZATION: Enable data.table's internal parallelization
-# Uses all available cores for groupby, join, and := operations
-.onLoad <- function(libname, pkgname) {
-  data.table::setDTthreads(0L)  # 0 = use all available threads
-}
-
 # Prevent R CMD check notes about data.table syntax
 utils::globalVariables(c(
   # PNADC variables

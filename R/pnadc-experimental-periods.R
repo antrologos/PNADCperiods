@@ -121,29 +121,26 @@
 #'
 #' @examples
 #' \dontrun{
-#' # Build standard crosswalk
 #' crosswalk <- pnadc_identify_periods(pnadc_data)
 #'
-#' # Apply experimental strategies
 #' crosswalk_exp <- pnadc_experimental_periods(
 #'   crosswalk,
 #'   strategy = "probabilistic",
 #'   confidence_threshold = 0.9
 #' )
 #'
-#' # Check how many additional assignments we get
 #' crosswalk_exp[, .(
 #'   strict = sum(!is.na(ref_month_in_quarter) & !probabilistic_assignment),
 #'   experimental = sum(probabilistic_assignment, na.rm = TRUE),
 #'   total = sum(determined_month)
 #' )]
 #'
-#' # Use directly with calibration (experimental output is compatible)
 #' result <- pnadc_apply_periods(pnadc_data, crosswalk_exp,
-#'                               period = "month", calibrate = TRUE)
+#'                               weight_var = "V1028", anchor = "quarter")
 #'
-#' # Or filter to only strict determinations
-#' strict_only <- crosswalk_exp[probabilistic_assignment == FALSE | is.na(probabilistic_assignment)]
+#' strict_only <- crosswalk_exp[
+#'   probabilistic_assignment == FALSE | is.na(probabilistic_assignment)
+#' ]
 #' }
 #'
 #' @export
@@ -265,7 +262,7 @@ pnadc_experimental_periods <- function(
   data.table::setkey(calendar_2, Ano, Trimestre)
   data.table::setkey(calendar_3, Ano, Trimestre)
 
-  calendar_quarter_weeks = calendar_1 |> merge(calendar_2, all.x = T) |> merge(calendar_3, all.x = T)
+  calendar_quarter_weeks = calendar_1 |> merge(calendar_2, all.x = TRUE) |> merge(calendar_3, all.x = TRUE)
 
 
   calendar_month_weeks <- unique(crosswalk[!is.na(ref_month_in_quarter),
@@ -419,7 +416,7 @@ pnadc_experimental_periods <- function(
   # Assigning Months
   # ==========================================================================
 
-  crosswalk[month_prob_filter == 1 & determined_month == F,
+  crosswalk[month_prob_filter == 1 & determined_month == FALSE,
             `:=`(
               prob_ref_month_in_quarter = fcase(!is.na(prob_month_min1_max2), prob_month_min1_max2,
                                                 !is.na(prob_month_min2_max3), prob_month_min2_max3,
@@ -500,7 +497,7 @@ pnadc_experimental_periods <- function(
   # ==========================================================================
 
   n_total      <- crosswalk[, .N]
-  n_month_prob <- sum(crosswalk$determined_probable_month, na.rm = T)
+  n_month_prob <- sum(crosswalk$determined_probable_month, na.rm = TRUE)
 
   if (verbose) {
     cat(sprintf("    Assigned months to %s observations, representing %.1f%% of the total (confidence >= %.0f%%)\n",
@@ -629,7 +626,7 @@ pnadc_experimental_periods <- function(
   # ==========================================================================
 
   n_total          <- crosswalk[, .N]
-  n_fortnight_prob <- sum(crosswalk$determined_probable_fortnight, na.rm = T)
+  n_fortnight_prob <- sum(crosswalk$determined_probable_fortnight, na.rm = TRUE)
 
   if (verbose) {
     cat(sprintf("    Assigned fortnights to %s observations, representing %.1f%% of the total (confidence >= %.0f%%)\n",
@@ -724,7 +721,7 @@ pnadc_experimental_periods <- function(
   # Assigning Probable weeks
   # ==========================================================================
 
-  crosswalk[week_prob_filter == 1 & determined_week == F,
+  crosswalk[week_prob_filter == 1 & determined_week == FALSE,
             `:=`(
               prob_ref_week_in_month = fcase(!is.na(prob_week_1_2), prob_week_1_2,
                                              !is.na(prob_week_3_4), prob_week_3_4,
@@ -785,7 +782,7 @@ pnadc_experimental_periods <- function(
   # Stats
   # ==========================================================================
 
-  n_week_prob <- sum(crosswalk$determined_probable_week, na.rm = T)
+  n_week_prob <- sum(crosswalk$determined_probable_week, na.rm = TRUE)
 
   if (verbose) {
     cat(sprintf("    Assigned weeks to %s observations, representing %.1f%% of the total (confidence >= %.0f%%)\n",

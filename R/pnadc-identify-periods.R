@@ -137,21 +137,17 @@
 #'
 #' @examples
 #' \dontrun{
-#' # Build crosswalk from stacked quarterly data
 #' crosswalk <- pnadc_identify_periods(pnadc_stacked)
 #'
-#' # Check determination rates
 #' crosswalk[, .(
 #'   month_rate = mean(determined_month),
 #'   fortnight_rate = mean(determined_fortnight),
 #'   week_rate = mean(determined_week)
 #' )]
 #'
-#' # Verify nesting (always TRUE by construction)
 #' crosswalk[determined_fortnight, all(determined_month)]
 #' crosswalk[determined_week, all(determined_fortnight)]
 #'
-#' # Apply to a specific dataset
 #' result <- pnadc_apply_periods(pnadc_2023, crosswalk,
 #'                               weight_var = "V1028",
 #'                               anchor = "quarter")

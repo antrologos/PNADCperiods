@@ -62,11 +62,9 @@ Install with: \code{install.packages("sidrar")}
 }
 
 \examples{
-\dontrun{
-# Fetch all available months
+\donttest{
 pop <- fetch_monthly_population()
 
-# Fetch specific date range
 pop <- fetch_monthly_population(201301, 201912)
 }
 

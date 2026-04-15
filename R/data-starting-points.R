@@ -60,13 +60,8 @@
 #' \code{\link{compute_series_starting_points}} for custom calibration
 #'
 #' @examples
-#' \dontrun{
-#' # View bundled starting points
 #' data(pnadc_series_starting_points)
 #' head(pnadc_series_starting_points)
-#'
-#' # See which series are available
 #' unique(pnadc_series_starting_points$series_name)
-#' }
 #'
 "pnadc_series_starting_points"

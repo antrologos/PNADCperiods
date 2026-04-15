@@ -36,18 +36,15 @@ This function simply aggregates the indicators using the already-calibrated weig
 }
 \examples{
 \dontrun{
-# Step 1: Build crosswalk
 crosswalk <- pnadc_identify_periods(stacked_data)
 
-# Step 2: Calibrate weights
 calibrated <- pnadc_apply_periods(stacked_data, crosswalk,
                                    weight_var = "V1028",
+                                   anchor = "quarter",
                                    calibration_unit = "month")
 
-# Step 3: Compute z_ aggregates using calibrated weights
 z_agg <- compute_z_aggregates(calibrated)
 
-# Step 4: Compute starting points
 rq <- fetch_sidra_rolling_quarters()
 y0 <- compute_series_starting_points(z_agg, rq)
 }

@@ -71,11 +71,10 @@ from 201510 (when V4019 became available)}
 
 \examples{
 \dontrun{
-# After calibrating microdata with pnadc_apply_periods():
-# monthly_est <- compute_monthly_estimates(calibrated_data)
-# rq <- fetch_sidra_rolling_quarters()
-# y0 <- compute_series_starting_points(monthly_est, rq)
-# monthly <- mensalize_sidra_series(rq, starting_points = y0)
+rq <- fetch_sidra_rolling_quarters()
+z_agg <- compute_z_aggregates(calibrated_data)
+y0 <- compute_series_starting_points(z_agg, rq)
+monthly <- mensalize_sidra_series(rq, starting_points = y0)
 }
 
 }

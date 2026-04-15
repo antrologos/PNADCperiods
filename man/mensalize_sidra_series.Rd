@@ -84,13 +84,12 @@ The mensalization algorithm proceeds in steps:
 }
 
 \examples{
-\dontrun{
-# Fetch rolling quarters and mensalize
-rq <- fetch_sidra_rolling_quarters(category = "population")
+\donttest{
+rq <- fetch_sidra_rolling_quarters(
+  series = c("taxadesocup", "popocup", "popdesocup")
+)
 monthly <- mensalize_sidra_series(rq)
-
-# View unemployment rate over time
-monthly[, .(anomesexato, m_popocup, m_popdesocup)]
+head(monthly)
 }
 
 }

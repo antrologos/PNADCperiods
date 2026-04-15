@@ -139,29 +139,26 @@ rigorous analysis. Experimental outputs are useful for:
 }
 \examples{
 \dontrun{
-# Build standard crosswalk
 crosswalk <- pnadc_identify_periods(pnadc_data)
 
-# Apply experimental strategies
 crosswalk_exp <- pnadc_experimental_periods(
   crosswalk,
   strategy = "probabilistic",
   confidence_threshold = 0.9
 )
 
-# Check how many additional assignments we get
 crosswalk_exp[, .(
   strict = sum(!is.na(ref_month_in_quarter) & !probabilistic_assignment),
   experimental = sum(probabilistic_assignment, na.rm = TRUE),
   total = sum(determined_month)
 )]
 
-# Use directly with calibration (experimental output is compatible)
 result <- pnadc_apply_periods(pnadc_data, crosswalk_exp,
-                              period = "month", calibrate = TRUE)
+                              weight_var = "V1028", anchor = "quarter")
 
-# Or filter to only strict determinations
-strict_only <- crosswalk_exp[probabilistic_assignment == FALSE | is.na(probabilistic_assignment)]
+strict_only <- crosswalk_exp[
+  probabilistic_assignment == FALSE | is.na(probabilistic_assignment)
+]
 }
 
 }

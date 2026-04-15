@@ -45,21 +45,16 @@ NULL
 #'   }
 #'
 #' @examples
-#' \dontrun{
-#' # Get all series metadata
 #' meta <- get_sidra_series_metadata()
+#' head(meta)
 #'
-#' # Get only labor market series
 #' labor <- get_sidra_series_metadata(theme = "labor_market")
 #'
-#' # Get unemployment rates
 #' unemp <- get_sidra_series_metadata(theme = "labor_market",
 #'                                     theme_category = "unemployment")
 #'
-#' # Get specific series with English descriptions
-#' meta <- get_sidra_series_metadata(series = c("taxadesocup", "popocup"),
-#'                                    lang = "en")
-#' }
+#' meta_en <- get_sidra_series_metadata(series = c("taxadesocup", "popocup"),
+#'                                      lang = "en")
 #'
 #' @export
 get_sidra_series_metadata <- function(series = "all",

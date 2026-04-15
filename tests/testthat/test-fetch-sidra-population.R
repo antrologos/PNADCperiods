@@ -11,6 +11,7 @@ test_that("fetch_monthly_population requires sidrar package", {
 })
 
 test_that("fetch_monthly_population returns expected structure", {
+  skip_on_cran()
   skip_if_not(requireNamespace("sidrar", quietly = TRUE),
               "sidrar package not available")
   skip_if_offline()
@@ -30,6 +31,7 @@ test_that("fetch_monthly_population returns expected structure", {
 })
 
 test_that("fetch_monthly_population respects date range", {
+  skip_on_cran()
   skip_if_not(requireNamespace("sidrar", quietly = TRUE),
               "sidrar package not available")
   skip_if_offline()
@@ -143,6 +145,7 @@ test_that("extrapolate_boundary_months removes temporary columns", {
 # =============================================================================
 
 test_that("clear_sidra_cache clears the cache", {
+  skip_on_cran()
   skip_if_not(requireNamespace("sidrar", quietly = TRUE),
               "sidrar package not available")
   skip_if_offline()
@@ -168,6 +171,7 @@ test_that("clear_sidra_cache clears the cache", {
 
 
 test_that("use_cache=FALSE bypasses cache", {
+  skip_on_cran()
   skip_if_not(requireNamespace("sidrar", quietly = TRUE),
               "sidrar package not available")
   skip_if_offline()
@@ -192,6 +196,7 @@ test_that("use_cache=FALSE bypasses cache", {
 
 
 test_that("cached data is returned on second call", {
+  skip_on_cran()
   skip_if_not(requireNamespace("sidrar", quietly = TRUE),
               "sidrar package not available")
   skip_if_offline()
@@ -225,6 +230,7 @@ test_that("cached data is returned on second call", {
 
 
 test_that("cache respects different date ranges", {
+  skip_on_cran()
   skip_if_not(requireNamespace("sidrar", quietly = TRUE),
               "sidrar package not available")
   skip_if_offline()
@@ -258,6 +264,7 @@ test_that("cache respects different date ranges", {
 
 
 test_that("cache_max_age_hours parameter accepted", {
+  skip_on_cran()
   skip_if_not(requireNamespace("sidrar", quietly = TRUE),
               "sidrar package not available")
   skip_if_offline()

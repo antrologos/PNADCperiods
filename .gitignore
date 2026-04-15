@@ -21,6 +21,9 @@ lib/
 # Test output directory
 test_output/
 
+# testthat generated files
+tests/testthat/testthat-problems.rds
+
 # Claude Code
 CLAUDE.md
 ARCHITECTURE_PLAN.md

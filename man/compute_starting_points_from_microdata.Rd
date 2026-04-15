@@ -53,13 +53,10 @@ All months are scaled uniformly to SIDRA monthly population totals.
 
 \examples{
 \dontrun{
-# Load stacked PNADC data
 stacked <- fst::read_fst("pnadc_stacked.fst", as.data.table = TRUE)
 
-# Compute starting points
 y0 <- compute_starting_points_from_microdata(stacked)
 
-# Compare with bundled values
 bundled <- pnadc_series_starting_points
 comparison <- merge(y0, bundled, by = c("series_name", "mesnotrim"))
 }

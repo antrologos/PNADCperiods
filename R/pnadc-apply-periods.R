@@ -100,10 +100,8 @@
 #'
 #' @examples
 #' \dontrun{
-#' # Build crosswalk
 #' crosswalk <- pnadc_identify_periods(pnadc_stacked)
 #'
-#' # Apply to quarterly data with monthly calibration
 #' result <- pnadc_apply_periods(
 #'   pnadc_2023,
 #'   crosswalk,
@@ -111,7 +109,6 @@
 #'   anchor = "quarter"
 #' )
 #'
-#' # Apply to annual data
 #' result <- pnadc_apply_periods(
 #'   pnadc_annual,
 #'   crosswalk,
@@ -119,7 +116,6 @@
 #'   anchor = "year"
 #' )
 #'
-#' # Weekly calibration
 #' result <- pnadc_apply_periods(
 #'   pnadc_2023,
 #'   crosswalk,
@@ -128,7 +124,6 @@
 #'   calibration_unit = "week"
 #' )
 #'
-#' # No calibration (just merge crosswalk)
 #' result <- pnadc_apply_periods(
 #'   pnadc_2023,
 #'   crosswalk,
@@ -281,7 +276,7 @@ pnadc_apply_periods <- function(data,
   # Merge (keyed merge is faster)
   dt <- merge(dt, xw_small, by = join_keys, all.x = TRUE)
 
-  n_matched <- sum(dt$determined_month == T)
+  n_matched <- sum(dt$determined_month == TRUE)
   if (verbose) {
     cat(sprintf("  Matched %s of %s observations (%.1f%%)\n",
                 format(n_matched, big.mark = ","),

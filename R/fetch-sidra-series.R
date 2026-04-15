@@ -31,11 +31,7 @@ NULL
 #' @return Invisibly returns TRUE if any cache was cleared, FALSE if all empty.
 #'
 #' @examples
-#' \dontrun{
 #' clear_sidra_cache()
-#' series <- fetch_sidra_rolling_quarters()  # Will fetch fresh from API
-#' pop <- fetch_monthly_population()          # Will also fetch fresh
-#' }
 #'
 #' @export
 clear_sidra_cache <- function() {
@@ -174,21 +170,15 @@ if (!is.null(max_age_hours)) {
 #' with exponential backoff for failed requests.
 #'
 #' @examples
-#' \dontrun{
-#' # Fetch all series (may take several minutes on first call)
-#' rq <- fetch_sidra_rolling_quarters()
-#'
-#' # Fetch only labor market series
-#' rq_labor <- fetch_sidra_rolling_quarters(theme = "labor_market")
-#'
-#' # Fetch only unemployment data
-#' rq_unemp <- fetch_sidra_rolling_quarters(theme = "labor_market",
-#'                                           theme_category = "unemployment")
-#'
-#' # Fetch specific series
+#' \donttest{
 #' rq <- fetch_sidra_rolling_quarters(
 #'   series = c("taxadesocup", "popocup", "popdesocup")
 #' )
+#' head(rq)
+#' }
+#'
+#' \donttest{
+#' rq_labor <- fetch_sidra_rolling_quarters(theme = "labor_market")
 #' }
 #'
 #' @seealso

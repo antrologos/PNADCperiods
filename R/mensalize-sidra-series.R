@@ -68,13 +68,12 @@ NULL
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' # Fetch rolling quarters and mensalize
-#' rq <- fetch_sidra_rolling_quarters(category = "population")
+#' \donttest{
+#' rq <- fetch_sidra_rolling_quarters(
+#'   series = c("taxadesocup", "popocup", "popdesocup")
+#' )
 #' monthly <- mensalize_sidra_series(rq)
-#'
-#' # View unemployment rate over time
-#' monthly[, .(anomesexato, m_popocup, m_popdesocup)]
+#' head(monthly)
 #' }
 #'
 #' @seealso
@@ -985,11 +984,10 @@ mensalize_sidra_series <- function(rolling_quarters,
 #'
 #' @examples
 #' \dontrun{
-#' # After calibrating microdata with pnadc_apply_periods():
-#' # monthly_est <- compute_monthly_estimates(calibrated_data)
-#' # rq <- fetch_sidra_rolling_quarters()
-#' # y0 <- compute_series_starting_points(monthly_est, rq)
-#' # monthly <- mensalize_sidra_series(rq, starting_points = y0)
+#' rq <- fetch_sidra_rolling_quarters()
+#' z_agg <- compute_z_aggregates(calibrated_data)
+#' y0 <- compute_series_starting_points(z_agg, rq)
+#' monthly <- mensalize_sidra_series(rq, starting_points = y0)
 #' }
 #'
 #' @export
@@ -1267,18 +1265,15 @@ compute_series_starting_points <- function(monthly_estimates,
 #'
 #' @examples
 #' \dontrun{
-#' # Step 1: Build crosswalk
 #' crosswalk <- pnadc_identify_periods(stacked_data)
 #'
-#' # Step 2: Calibrate weights
 #' calibrated <- pnadc_apply_periods(stacked_data, crosswalk,
 #'                                    weight_var = "V1028",
+#'                                    anchor = "quarter",
 #'                                    calibration_unit = "month")
 #'
-#' # Step 3: Compute z_ aggregates using calibrated weights
 #' z_agg <- compute_z_aggregates(calibrated)
 #'
-#' # Step 4: Compute starting points
 #' rq <- fetch_sidra_rolling_quarters()
 #' y0 <- compute_series_starting_points(z_agg, rq)
 #' }
@@ -1753,13 +1748,10 @@ compute_z_aggregates <- function(calibrated_data, verbose = TRUE) {
 #'
 #' @examples
 #' \dontrun{
-#' # Load stacked PNADC data
 #' stacked <- fst::read_fst("pnadc_stacked.fst", as.data.table = TRUE)
 #'
-#' # Compute starting points
 #' y0 <- compute_starting_points_from_microdata(stacked)
 #'
-#' # Compare with bundled values
 #' bundled <- pnadc_series_starting_points
 #' comparison <- merge(y0, bundled, by = c("series_name", "mesnotrim"))
 #' }
@@ -1802,6 +1794,7 @@ compute_starting_points_from_microdata <- function(data,
     data = data,
     crosswalk = crosswalk,
     weight_var = "V1028",
+    anchor = "quarter",
     calibration_unit = "month",
     verbose = verbose
   )

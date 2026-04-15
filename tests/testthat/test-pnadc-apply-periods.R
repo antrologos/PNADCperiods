@@ -164,6 +164,7 @@ test_that("pnadc_apply_periods with calibration adds weight column", {
 })
 
 test_that("pnadc_apply_periods respects calibration_unit parameter", {
+  skip_on_cran()
   skip_if_not(requireNamespace("sidrar", quietly = TRUE),
               "sidrar package not available for fetching population targets")
   skip_if_offline()

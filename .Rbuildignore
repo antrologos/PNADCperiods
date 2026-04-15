@@ -13,3 +13,7 @@
 ^_run_tests\.R$
 ^cran-comments\.md$
 ^\.Rhistory$
+^tests/testthat/testthat-problems\.rds$
+^inst/scripts$
+^vignettes/.*\.html$
+^vignettes/.*\.R$

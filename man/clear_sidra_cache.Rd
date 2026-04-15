@@ -15,10 +15,6 @@ Use this if you need to force a fresh download, for example after IBGE
 updates their data.
 }
 \examples{
-\dontrun{
 clear_sidra_cache()
-series <- fetch_sidra_rolling_quarters()  # Will fetch fresh from API
-pop <- fetch_monthly_population()          # Will also fetch fresh
-}
 
 }

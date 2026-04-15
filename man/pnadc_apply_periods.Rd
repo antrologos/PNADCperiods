@@ -133,10 +133,8 @@ Use \code{anchor = "quarter"} with quarterly V1028 weights, and
 }
 \examples{
 \dontrun{
-# Build crosswalk
 crosswalk <- pnadc_identify_periods(pnadc_stacked)
 
-# Apply to quarterly data with monthly calibration
 result <- pnadc_apply_periods(
   pnadc_2023,
   crosswalk,
@@ -144,7 +142,6 @@ result <- pnadc_apply_periods(
   anchor = "quarter"
 )
 
-# Apply to annual data
 result <- pnadc_apply_periods(
   pnadc_annual,
   crosswalk,
@@ -152,7 +149,6 @@ result <- pnadc_apply_periods(
   anchor = "year"
 )
 
-# Weekly calibration
 result <- pnadc_apply_periods(
   pnadc_2023,
   crosswalk,
@@ -161,7 +157,6 @@ result <- pnadc_apply_periods(
   calibration_unit = "week"
 )
 
-# No calibration (just merge crosswalk)
 result <- pnadc_apply_periods(
   pnadc_2023,
   crosswalk,

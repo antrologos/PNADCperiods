@@ -66,14 +66,9 @@ custom starting points with \code{\link{compute_starting_points_from_microdata}}
 }
 
 \examples{
-\dontrun{
-# View bundled starting points
 data(pnadc_series_starting_points)
 head(pnadc_series_starting_points)
-
-# See which series are available
 unique(pnadc_series_starting_points$series_name)
-}
 
 }
 \seealso{

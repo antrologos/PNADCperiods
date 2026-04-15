@@ -395,6 +395,7 @@ test_that(".get_mesnotrim returns correct month position in quarter", {
 # =============================================================================
 
 test_that("fetch_sidra_rolling_quarters fetches real data from API", {
+  skip_on_cran()
   skip_if_not(requireNamespace("sidrar", quietly = TRUE),
               "sidrar package not available")
   skip_if_offline()

@@ -79,21 +79,15 @@ with exponential backoff for failed requests.
 }
 
 \examples{
-\dontrun{
-# Fetch all series (may take several minutes on first call)
-rq <- fetch_sidra_rolling_quarters()
-
-# Fetch only labor market series
-rq_labor <- fetch_sidra_rolling_quarters(theme = "labor_market")
-
-# Fetch only unemployment data
-rq_unemp <- fetch_sidra_rolling_quarters(theme = "labor_market",
-                                          theme_category = "unemployment")
-
-# Fetch specific series
+\donttest{
 rq <- fetch_sidra_rolling_quarters(
   series = c("taxadesocup", "popocup", "popdesocup")
 )
+head(rq)
+}
+
+\donttest{
+rq_labor <- fetch_sidra_rolling_quarters(theme = "labor_market")
 }
 
 }

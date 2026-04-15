@@ -318,10 +318,19 @@ required_vars_weights <- function() {
 #'   internally to validate input data.
 #'
 #' @examples
-#' \dontrun{
-#' validate_pnadc(my_data)
-#' validate_pnadc(my_data, check_weights = TRUE)
-#' }
+#' # Minimal valid data (all 9 required columns)
+#' sample_data <- data.frame(
+#'   Ano = 2023L, Trimestre = 1L, UPA = 110000001L,
+#'   V1008 = 1L, V1014 = 1L,
+#'   V2008 = 15L, V20081 = 3L, V20082 = 1990L, V2009 = 33L
+#' )
+#' validate_pnadc(sample_data)
+#'
+#' # Data with missing columns returns issues (non-stop mode)
+#' incomplete_data <- data.frame(Ano = 2023L, Trimestre = 1L)
+#' result <- validate_pnadc(incomplete_data, stop_on_error = FALSE)
+#' result$valid    # FALSE
+#' result$issues   # lists missing columns
 #'
 #' @export
 validate_pnadc <- function(data, check_weights = FALSE, stop_on_error = TRUE) {
