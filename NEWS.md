@@ -1,3 +1,17 @@
+# PNADCperiods 0.1.1
+
+## CRAN resubmission
+
+* Expanded all acronyms in DESCRIPTION (IBGE, SIDRA, UPA, API)
+* Added Hecksher (2020) reference with URL
+* Replaced `\dontrun{}` with `\donttest{}` for API examples;
+  created runnable examples for `validate_pnadc()` and
+  `get_sidra_series_metadata()`
+* Fixed missing `anchor` parameter in `compute_starting_points_from_microdata()`
+* Removed `.onLoad` that globally set `data.table` thread count
+* Added `skip_on_cran()` to all API-dependent tests
+* Added `fst` to Suggests
+
 # PNADCperiods 0.1.0
 
 ## Initial CRAN release
