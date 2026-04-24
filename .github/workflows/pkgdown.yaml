@@ -41,6 +41,26 @@ jobs:
         run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
         shell: Rscript {0}
 
+      - name: Strip internal pages from built site
+        run: |
+          rm -f docs/CLAUDE.html docs/ARCHITECTURE_PLAN.html
+          # Remove them from the search index if present
+          if [ -f docs/search.json ]; then
+            python3 -c "
+          import json, pathlib
+          p = pathlib.Path('docs/search.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          drop = ('CLAUDE.html', 'ARCHITECTURE_PLAN.html')
+          keep = [d for d in data if not str(d.get('path', '')).endswith(drop)]
+          p.write_text(json.dumps(keep, ensure_ascii=False), encoding='utf-8')
+          "
+          fi
+          # Remove from sitemap if present
+          if [ -f docs/sitemap.xml ]; then
+            sed -i '/CLAUDE\.html/d;/ARCHITECTURE_PLAN\.html/d' docs/sitemap.xml
+          fi
+        shell: bash
+
       - name: Upload artifact for Pages
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
