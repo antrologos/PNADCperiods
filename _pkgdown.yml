@@ -7,7 +7,7 @@ template:
 navbar:
   structure:
     left:  [intro, reference, articles]
-    right: [search, github]
+    right: [search, dashboard, github]
   components:
     intro:
       text: Get Started
@@ -28,6 +28,11 @@ navbar:
       - text: "---"
       - text: SIDRA Mensalization Guide
         href: articles/sidra-mensalization.html
+    dashboard:
+      icon: fa-chart-line
+      href: https://antrologos.shinyapps.io/PNADCperiods-dashboard/
+      aria-label: Dashboard
+      target: _blank
 
 articles:
 - title: ~
@@ -85,6 +90,10 @@ reference:
 
 home:
   links:
+  - text: CRAN page
+    href: https://cran.r-project.org/package=PNADCperiods
+  - text: Interactive Dashboard
+    href: https://antrologos.shinyapps.io/PNADCperiods-dashboard/
   - text: PNADC (IBGE)
     href: https://www.ibge.gov.br/estatisticas/sociais/trabalho/9171-pesquisa-nacional-por-amostra-de-domicilios-continua-mensal.html
 

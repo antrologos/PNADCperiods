@@ -33,8 +33,11 @@ For a detailed explanation of the algorithm, see [How PNADCperiods Works](how-it
 ## Installation
 
 ```{r install}
-# Install from GitHub
-devtools::install_github("antrologos/PNADCperiods")
+# From CRAN
+install.packages("PNADCperiods")
+
+# Development version from GitHub
+# remotes::install_github("antrologos/PNADCperiods")
 ```
 
 ```{r libraries}

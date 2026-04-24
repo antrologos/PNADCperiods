@@ -1,6 +1,8 @@
 # PNADCperiods
 
 <!-- badges: start -->
+[![CRAN status](https://www.r-pkg.org/badges/version/PNADCperiods)](https://CRAN.R-project.org/package=PNADCperiods)
+[![CRAN downloads](https://cranlogs.r-pkg.org/badges/grand-total/PNADCperiods)](https://CRAN.R-project.org/package=PNADCperiods)
 [![R-CMD-check](https://github.com/antrologos/PNADCperiods/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/antrologos/PNADCperiods/actions/workflows/R-CMD-check.yaml)
 [![pkgdown](https://github.com/antrologos/PNADCperiods/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/antrologos/PNADCperiods/actions/workflows/pkgdown.yaml)
 [![codecov](https://codecov.io/gh/antrologos/PNADCperiods/branch/master/graph/badge.svg)](https://app.codecov.io/gh/antrologos/PNADCperiods)
@@ -12,8 +14,17 @@ Convert Brazil's quarterly PNADC survey data into sub-quarterly time series (mon
 
 ## Installation
 
+Install the released version from CRAN:
+
 ```r
-devtools::install_github("antrologos/PNADCperiods")
+install.packages("PNADCperiods")
+```
+
+Or the development version from GitHub:
+
+```r
+# install.packages("remotes")
+remotes::install_github("antrologos/PNADCperiods")
 ```
 
 ## Main Features
@@ -22,6 +33,14 @@ devtools::install_github("antrologos/PNADCperiods")
 - **SIDRA mensalization**: Convert 86+ rolling quarterly IBGE series to exact monthly values
 - **Weight calibration**: Hierarchical raking to IBGE population totals
 - **~97% monthly determination** with full data stacking; experimental strategies improve fortnight/week rates further
+
+## Interactive Dashboard
+
+Explore 86+ official PNADC series with an interactive dashboard -- no R required:
+
+**<https://antrologos.shinyapps.io/PNADCperiods-dashboard/>**
+
+The dashboard is built on top of this package and lets you visualize mensalized series, compare strategies, and download monthly time-series as CSV.
 
 ## Basic Usage
 
@@ -86,7 +105,7 @@ Original PNADC data is collected by the Brazilian Institute of Geography and Sta
 
 **Citation:**
 
-> Barbosa, Rogerio J; Hecksher, Marcos. (2026). PNADCperiods: Identify Reference Periods in Brazil's PNADC Survey Data. R package version v0.1.0. https://github.com/antrologos/PNADCperiods
+> Barbosa, Rogerio J; Hecksher, Marcos. (2026). PNADCperiods: Identify Reference Periods in Brazil's PNADC Survey Data. R package version 0.1.1. https://CRAN.R-project.org/package=PNADCperiods
 
 ```r
 citation("PNADCperiods")

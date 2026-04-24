@@ -35,10 +35,7 @@ If you already have PNADC data and want to learn the package API first, see [Get
 
 ```{r packages}
 # Install packages if needed
-install.packages(c("PNADcIBGE", "fst"))
-
-# Install PNADCperiods from GitHub
-# remotes::install_github("antrologos/PNADCperiods")
+install.packages(c("PNADCperiods", "PNADcIBGE", "fst"))
 
 # Load packages
 library(PNADcIBGE)
