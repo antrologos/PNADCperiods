@@ -123,6 +123,52 @@ test_that(".mensalize_split_series propagates trailing NA in post-split", {
 # Full pipeline: derived series must be NA when primaries are NA on trailing
 # =============================================================================
 
+test_that("leading NA before first observed rq is reconstructed via y0 (regression guard)", {
+  # The leading positions for which no rolling quarter ever existed
+  # (e.g., 201201 = mesnotrim 1, 201202 = mesnotrim 2 — before the first
+  # rolling quarter ending in 201203) MUST receive a non-NA mensalized
+  # value derived from y0 + apply_final_adjustment lookahead. A previous
+  # blanket fix `m[is.na(rq)] <- NA_real_` regressed this behaviour and
+  # produced NA; this test guards against re-introducing that bug.
+  start_yyyymm <- 201201L
+  n_months <- 24L
+  start_year <- start_yyyymm %/% 100L
+  start_month <- start_yyyymm %% 100L
+  dt <- data.table::data.table(month_num = seq_len(n_months))
+  dt[, `:=`(
+    year = start_year + (start_month + month_num - 2L) %/% 12L,
+    month = ((start_month + month_num - 2L) %% 12L) + 1L
+  )]
+  dt[, anomesfinaltrimmovel := year * 100L + month]
+  dt[, mesnotrim := ((month - 1L) %% 3L) + 1L]
+  # Series starts ONLY at month 3 (mesnotrim=3) — first 2 are NA, like
+  # IPCA-only leading rows for 201201/201202.
+  dt[, popocup := 90000 + 100 * (month_num - 1)]
+  dt[1L:2L, popocup := NA_real_]
+  dt <- dt[, .(anomesfinaltrimmovel, mesnotrim, popocup)]
+
+  sp <- data.table::data.table(
+    series_name = rep("popocup", 3),
+    mesnotrim = 1:3,
+    y0 = c(89500, 89800, 90100)
+  )
+
+  m <- PNADCperiods:::.mensalize_single_series(dt, "popocup", sp)
+
+  # Leading positions (1, 2) MUST be non-NA (reconstructed from y0).
+  expect_false(is.na(m[1L]),
+               label = "Leading position 1 (rq=NA) reconstructed from y0")
+  expect_false(is.na(m[2L]),
+               label = "Leading position 2 (rq=NA) reconstructed from y0")
+  # And they must be reasonably close to y0 (sanity check; exact value
+  # depends on apply_final_adjustment's lookahead computation).
+  expect_true(abs(m[1L] - 89500) < 10000,
+              label = "Leading m[1] is in the y0 ballpark")
+  expect_true(abs(m[2L] - 89800) < 10000,
+              label = "Leading m[2] is in the y0 ballpark")
+})
+
+
 test_that("mensalize_sidra_series produces NA derived when primaries trail-NA", {
   # Build a multi-series RQ with trailing NA on both popocup and popdesocup
   # so that the derived popnaforca = popocup + popdesocup and rate

@@ -505,12 +505,24 @@ mensalize_sidra_series <- function(rolling_quarters,
   # Step 7: Final adjustment for rolling quarter consistency
   m <- .apply_final_adjustment(y, rq, mesnotrim)
 
-  # Step 8: NA-out positions where rq is missing.
-  # cumsum-by-mesnotrim coalesces NA as 0 (needed for late-starting series
-  # like CNPJ post-201510); without this mask, trailing rows where SIDRA
-  # already published IPCA but not PNADC would receive spurious mensalized
-  # values. Source NA must propagate to output NA.
-  m[is.na(rq)] <- NA_real_
+  # Step 8: NA-out trailing positions where rq is missing.
+  # cumsum-by-mesnotrim coalesces NA as 0; without this mask, trailing
+  # rows where SIDRA already published IPCA but not PNADC would receive
+  # spurious mensalized values from the apply_final_adjustment fallback.
+  #
+  # We mask ONLY positions after the last observed rq. Leading positions
+  # (e.g., 201201/201202, before the first rolling quarter) are preserved
+  # because the algorithm reconstructs them via y0 + lookahead in
+  # apply_final_adjustment (valid_k=TRUE thanks to rq_lead2/rq_lead1).
+  rq_obs <- which(!is.na(rq))
+  if (length(rq_obs) == 0L) {
+    m[] <- NA_real_
+  } else {
+    last_obs <- rq_obs[length(rq_obs)]
+    if (last_obs < length(rq)) {
+      m[(last_obs + 1L):length(rq)] <- NA_real_
+    }
+  }
   m
 }
 
@@ -568,8 +580,16 @@ mensalize_sidra_series <- function(rolling_quarters,
     # Apply final adjustment ONLY to pre-split data (no boundary crossing)
     m_pre <- .apply_final_adjustment(y_pre, rq_pre, mesnotrim_pre)
 
-    # Source NA must propagate to output NA (see .mensalize_single_series).
-    m_pre[is.na(rq_pre)] <- NA_real_
+    # Mask only trailing NA in pre-split (see .mensalize_single_series).
+    rq_pre_obs <- which(!is.na(rq_pre))
+    if (length(rq_pre_obs) == 0L) {
+      m_pre[] <- NA_real_
+    } else {
+      last_pre <- rq_pre_obs[length(rq_pre_obs)]
+      if (last_pre < length(rq_pre)) {
+        m_pre[(last_pre + 1L):length(rq_pre)] <- NA_real_
+      }
+    }
 
     # Store results
     m_result[pre_idx] <- m_pre
@@ -595,8 +615,16 @@ mensalize_sidra_series <- function(rolling_quarters,
     # Apply final adjustment ONLY to post-split data (no boundary crossing)
     m_post <- .apply_final_adjustment(y_post, rq_post, mesnotrim_post)
 
-    # Source NA must propagate to output NA (see .mensalize_single_series).
-    m_post[is.na(rq_post)] <- NA_real_
+    # Mask only trailing NA in post-split (see .mensalize_single_series).
+    rq_post_obs <- which(!is.na(rq_post))
+    if (length(rq_post_obs) == 0L) {
+      m_post[] <- NA_real_
+    } else {
+      last_post <- rq_post_obs[length(rq_post_obs)]
+      if (last_post < length(rq_post)) {
+        m_post[(last_post + 1L):length(rq_post)] <- NA_real_
+      }
+    }
 
     # Store results
     m_result[post_idx] <- m_post
