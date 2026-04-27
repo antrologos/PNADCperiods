@@ -216,7 +216,17 @@ mensalize_sidra_series <- function(rolling_quarters,
   # Filter to PNADC-era data only. Price indices (IPCA) go back to 1979 but
   # mensalization is only valid for PNADC series. Without this filter, pre-2012
   # rows would just output the y0 starting points cyclically (no actual data).
-  pnadc_start <- .PNADC_DATES$PNADC_START
+  # Pre-compute lagged IPCA on the full pre-filter data, so that
+  # .compute_derived_series Phase 5 can use IPCA[201112] as the lag
+  # for 201201. Without this, the post-filter shift() returns NA for
+  # the first PNADC month. This must happen BEFORE the PNADC-era filter.
+  data.table::setorder(dt, anomesfinaltrimmovel)
+  if ("ipca100dez1993" %in% names(dt)) {
+    dt[, .ipca100dez1993_lagged :=
+         data.table::shift(ipca100dez1993, n = 1L, type = "lag")]
+  }
+
+    pnadc_start <- .PNADC_DATES$PNADC_START
   if (min(dt$anomesfinaltrimmovel) < pnadc_start) {
     n_pre_pnadc <- sum(dt$anomesfinaltrimmovel < pnadc_start)
     if (verbose) {
@@ -224,8 +234,6 @@ mensalize_sidra_series <- function(rolling_quarters,
     }
     dt <- dt[anomesfinaltrimmovel >= pnadc_start]
   }
-
-  data.table::setorder(dt, anomesfinaltrimmovel)
 
   # Initialize result with time columns
   result <- data.table::data.table(
@@ -274,6 +282,11 @@ mensalize_sidra_series <- function(rolling_quarters,
     }
   }
 
+
+  # Pass-through pre-computed lagged IPCA (for derived series Phase 5)
+  if (".ipca100dez1993_lagged" %in% names(dt)) {
+    result[, ipca100dez1993_lagged := dt$.ipca100dez1993_lagged]
+  }
   # Note: comrendtodos is now mensalized (added to all_series above)
   # and will be available as m_comrendtodos for deriving average income series
 
@@ -756,8 +769,14 @@ mensalize_sidra_series <- function(rolling_quarters,
     if (!is.na(latest_ipca) && latest_ipca > 0) {
       # Pre-compute deflators
       dt[, .deflator_hab := latest_ipca / ipca100dez1993]
-      dt[, .ipca_lagged := data.table::shift(ipca100dez1993, n = 1L, type = "lag")]
-      dt[, .deflator_efet := latest_ipca / .ipca_lagged]
+      if ("ipca100dez1993_lagged" %in% names(dt)) {
+        # Use pre-computed lagged IPCA from before the PNADC filter
+        dt[, .deflator_efet := latest_ipca / ipca100dez1993_lagged]
+      } else {
+        # Fallback: compute lag on post-filter data (may have NA for first PNADC month)
+        dt[, .ipca_lagged := data.table::shift(ipca100dez1993, n = 1L, type = "lag")]
+        dt[, .deflator_efet := latest_ipca / .ipca_lagged]
+      }
 
       for (spec in .DERIVED_SERIES_SPEC$deflated) {
         if (has_col(spec$source)) {
@@ -770,7 +789,8 @@ mensalize_sidra_series <- function(rolling_quarters,
       }
 
       # Cleanup temporary columns
-      dt[, c(".deflator_hab", ".deflator_efet", ".ipca_lagged") := NULL]
+      if (".ipca_lagged" %in% names(dt)) dt[, .ipca_lagged := NULL]
+      dt[, c(".deflator_hab", ".deflator_efet") := NULL]
     }
   }
 
