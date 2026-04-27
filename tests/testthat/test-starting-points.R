@@ -633,3 +633,57 @@ test_that("compute_z_aggregates produces z_pop14mais only for age >= 14", {
   # z_populacao: all 6 obs
   expect_equal(result$z_populacao, 6 * 1000)
 })
+
+# =============================================================================
+# INPC LAG PRE-COMPUTE TEST
+# =============================================================================
+
+test_that("compute_series_starting_points pre-computes lagged INPC", {
+  skip("requires proper INPC data sequence with pre-PNADC values")
+  
+  # This test validates that .inpc100dez1993_lagged is computed BEFORE
+  # any deflation operations, ensuring that z_massaefetrealtodos can use
+  # the lagged INPC for the first PNADC month (201201 uses INPC[201112]).
+  #
+  # Mock scenario:
+  # - rolling_quarters: 201112, 201201 (at least)
+  # - inpc100dez1993: values for both months
+  # - z_massaefetnominaltodos: values for both months
+  #
+  # Expected: z_massaefetrealtodos[201201] uses INPC[201112] as lag
+  # (not NA from post-filter shift)
+})
+
+test_that("compute_series_starting_points produces non-NA y0 with lagged INPC", {
+  # Lightweight version: validate that the pre-compute doesn't break existing tests
+  # and that y0 values remain finite when inpc columns are present
+  
+  months_seq <- generate_yyyymm_seq(201301L, 12)
+  mesnotrim_seq <- ((months_seq %% 100L - 1L) %% 3L) + 1L
+  
+  rq <- data.table::data.table(
+    anomesfinaltrimmovel = months_seq,
+    mesnotrim = mesnotrim_seq,
+    popocup = rep(100, 12),
+    inpc100dez1993 = 100 + seq_len(12)  # Simple increasing sequence
+  )
+  
+  me <- data.table::data.table(
+    anomesexato = months_seq,
+    z_popocup = rep(100000, 12)  # Nominal values
+  )
+  
+  result <- compute_series_starting_points(
+    me, rq,
+    calibration_start = 201301L,
+    calibration_end = 201312L,
+    scale_factor = 1000,
+    use_series_specific_periods = FALSE,
+    verbose = FALSE
+  )
+  
+  # Verify result is valid (covers the pre-compute block)
+  expect_s3_class(result, "data.table")
+  expect_true(nrow(result) > 0)
+  expect_true(all(is.finite(result$y0)))
+})

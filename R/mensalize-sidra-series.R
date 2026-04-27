@@ -1127,6 +1127,15 @@ compute_series_starting_points <- function(monthly_estimates,
   dt <- merge(rq, me, by = "anomesfinaltrimmovel", all.x = TRUE)
   data.table::setorder(dt, anomesfinaltrimmovel)
 
+  # Pre-compute lagged INPC before any subsequent deflation, so that
+  # the deflator for z_massaefetrealtodos at 201201 can use INPC[201112].
+  # This must happen before the actual shift/deflation blocks.
+  if ("inpc100dez1993" %in% names(dt)) {
+    dt[, .inpc100dez1993_lagged :=
+         data.table::shift(inpc100dez1993, n = 1L, type = "lag")]
+  }
+
+
   # ============================================================================
   # INPC deflation for rhrp* series (hourly wage)
   # ============================================================================
@@ -1179,7 +1188,7 @@ compute_series_starting_points <- function(monthly_estimates,
 
     if (!is.na(latest_inpc) && latest_inpc > 0) {
       # Real effective income mass (INPC) - use lagged INPC like SIDRA
-      inpc_lagged <- data.table::shift(dt$inpc100dez1993, n = 1L, type = "lag")
+      inpc_lagged <- dt$.inpc100dez1993_lagged
       dt[, z_massaefetrealtodos := z_massaefetnominaltodos * latest_inpc / inpc_lagged]
     }
   }

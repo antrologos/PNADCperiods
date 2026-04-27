@@ -333,6 +333,8 @@ utils::globalVariables(c(
   # Derived Series and Aggregate Variables (compute_z_aggregates / compute_series_starting_points)
   # ============================================================================
   ".deflator_efet", ".deflator_hab", ".ipca_lagged",
+  ".ipca100dez1993_lagged", "ipca100dez1993_lagged",
+  ".inpc100dez1993_lagged",
   "ipca100dez1993", "inpc100dez1993",
   "comrendtodos", "rendhabnominaltodos", "rendefetnominaltodos",
   "massahabnominaltodos", "massaefetnominaltodos",
