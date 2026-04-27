@@ -31,6 +31,8 @@ NULL
 #'     \item \code{ref_month_yyyymm}: Integer in YYYYMM format
 #'     \item \code{m_populacao}: Monthly population in thousands
 #'   }
+#'   Returns \code{NULL} invisibly with an informative message if the SIDRA
+#'   API is unreachable (per CRAN policy on Internet resources).
 #'
 #' @details
 #' SIDRA table 6022 provides moving-quarter population estimates. Each value
@@ -106,23 +108,33 @@ fetch_monthly_population <- function(start_yyyymm = NULL,
  # Variable 606: Population (in thousands)
  # n1/all: National level
  # p/all: All periods
+ #
+ # CRAN policy: Internet resources must fail gracefully with an informative
+ # message (no warning, no error). Return NULL invisibly so callers can
+ # detect failure without check()-time errors.
  raw <- tryCatch({
    # suppressMessages to hide sidrar's "All others arguments are desconsidered when 'api' is informed"
    suppressMessages(sidrar::get_sidra(api = "/t/6022/n1/all/v/606/p/all"))
  }, error = function(e) {
-   stop(
-     "Failed to fetch from SIDRA API. Check internet connection.\n",
-     "Error: ", conditionMessage(e),
-     call. = FALSE
+   message(
+     "fetch_monthly_population: failed to fetch from SIDRA API. ",
+     "Check internet connection or try again later. ",
+     "Error: ", conditionMessage(e)
    )
+   NULL
  })
+ if (is.null(raw)) {
+   return(invisible(NULL))
+ }
 
  if (verbose) message("  Transforming moving-quarter to exact months...")
 
  # Convert to data.table and extract relevant columns
  dt <- data.table::as.data.table(raw)
 
- # The column name may vary; find the moving quarter code column
+ # The column name may vary; find the moving quarter code column.
+ # CRAN policy: if the upstream SIDRA response schema has changed (no
+ # matching column), fail gracefully with a message rather than stop().
  code_col <- grep("Trimestre.*vel.*digo|trimestre.*vel.*digo",
                   names(dt), value = TRUE, ignore.case = TRUE)
  if (length(code_col) == 0) {
@@ -130,7 +142,11 @@ fetch_monthly_population <- function(start_yyyymm = NULL,
    code_col <- grep("M.*vel.*C.*digo", names(dt), value = TRUE, ignore.case = TRUE)
  }
  if (length(code_col) == 0) {
-   stop("Could not find moving quarter code column in SIDRA response")
+   message(
+     "fetch_monthly_population: SIDRA response schema appears to have ",
+     "changed (could not find moving quarter code column). Returning NULL."
+   )
+   return(invisible(NULL))
  }
  code_col <- code_col[1]
 

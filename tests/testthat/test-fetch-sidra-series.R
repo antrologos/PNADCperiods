@@ -391,6 +391,36 @@ test_that(".get_mesnotrim returns correct month position in quarter", {
 
 
 # =============================================================================
+# CRAN POLICY: Internet resources must fail gracefully
+# (no warning, no error). Mocked test runs offline.
+# =============================================================================
+
+test_that("fetch_sidra_rolling_quarters fails gracefully when SIDRA is unreachable", {
+  skip_if_not_installed("sidrar")
+  skip_if_not_installed("testthat", "3.0.0")
+
+  # Simulate API down: any call to sidrar::get_sidra throws.
+  testthat::local_mocked_bindings(
+    get_sidra = function(...) stop("simulated network error"),
+    .package = "sidrar"
+  )
+
+  # max_retries = 1, retry_failed = FALSE so we hit the message branch fast.
+  expect_message(
+    result <- fetch_sidra_rolling_quarters(
+      series = "taxadesocup",
+      use_cache = FALSE,
+      verbose = FALSE,
+      max_retries = 1L,
+      retry_failed = FALSE
+    ),
+    "no series could be fetched"
+  )
+  expect_null(result)
+})
+
+
+# =============================================================================
 # INTEGRATION TEST (requires internet + sidrar)
 # =============================================================================
 

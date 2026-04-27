@@ -169,6 +169,14 @@ if (!is.null(max_age_hours)) {
 #' SIDRA API may have rate limits. The function includes automatic retry logic
 #' with exponential backoff for failed requests.
 #'
+#' @section Internet Resource Behaviour:
+#' Per CRAN policy, this function fails gracefully when the SIDRA API is
+#' unreachable: it emits an informative \code{message()} (no warning, no
+#' error) and returns \code{NULL} invisibly when no series could be
+#' fetched. Partial failures (some series succeeded) are also reported
+#' via \code{message()}, and the result includes only the successful
+#' series.
+#'
 #' @examples
 #' \donttest{
 #' rq <- fetch_sidra_rolling_quarters(
@@ -276,7 +284,9 @@ fetch_sidra_rolling_quarters <- function(series = "all",
       message(sprintf("  [%3d%%] Fetching %s...", pct, series_name))
     }
 
-    # Fetch with retry logic
+    # Fetch with retry logic.
+    # CRAN policy: emit only message() (no warning/error) when the SIDRA
+    # API is unreachable, so the function fails gracefully.
     series_data <- NULL
     for (attempt in seq_len(max_retries)) {
       series_data <- tryCatch({
@@ -287,7 +297,7 @@ fetch_sidra_rolling_quarters <- function(series = "all",
           Sys.sleep(2^attempt)
           NULL
         } else {
-          warning("Failed to fetch ", series_name, ": ", conditionMessage(e))
+          message("Failed to fetch ", series_name, ": ", conditionMessage(e))
           NULL
         }
       })
@@ -316,8 +326,14 @@ fetch_sidra_rolling_quarters <- function(series = "all",
     }
   }
 
+  # CRAN policy: when no series could be fetched, fail gracefully with an
+  # informative message and return NULL invisibly (no warning/error).
   if (is.null(result)) {
-    stop("Failed to fetch any series from SIDRA")
+    message(
+      "fetch_sidra_rolling_quarters: no series could be fetched from the ",
+      "SIDRA API. Check internet connection or try again later."
+    )
+    return(invisible(NULL))
   }
 
   # Add mesnotrim column (month position in quarter)
@@ -329,9 +345,9 @@ fetch_sidra_rolling_quarters <- function(series = "all",
   # Sort by time
   data.table::setorder(result, anomesfinaltrimmovel)
 
-  # Report failures
+  # Report partial failures via message() (not warning) per CRAN policy.
   if (length(failed_series) > 0) {
-    warning("Failed to fetch ", length(failed_series), " series: ",
+    message("Failed to fetch ", length(failed_series), " series: ",
             paste(failed_series, collapse = ", "))
   }
 

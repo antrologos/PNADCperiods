@@ -319,10 +319,25 @@ pnadc_apply_periods <- function(data,
                              fortnight = "weight_fortnight",
                              week = "weight_weekly")
 
-    # Get or fetch population targets
+    # Get or fetch population targets.
+    # If SIDRA is unreachable, fetch_monthly_population() returns NULL
+    # invisibly (per CRAN policy on Internet resources). In that case we
+    # cannot proceed with calibrate = TRUE; surface an informative message
+    # and return the un-calibrated data.table instead of erroring.
     if (is.null(target_totals)) {
       if (verbose) cat("    Fetching population targets from SIDRA...\n")
       monthly_pop <- fetch_monthly_population(verbose = FALSE)
+
+      if (is.null(monthly_pop)) {
+        message(
+          "pnadc_apply_periods: SIDRA population targets are unavailable. ",
+          "Returning data with crosswalk applied but without calibrated ",
+          "weights. Pass `target_totals` explicitly or retry when the API ",
+          "is reachable."
+        )
+        if (verbose) cat("Done.\n")
+        return(dt)
+      }
 
       target_totals <- switch(calibration_unit,
                               month = monthly_pop,

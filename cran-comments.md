@@ -1,32 +1,36 @@
-## Resubmission
+## Resubmission addressing CRAN policy notice (Brian Ripley, 2026-04-26)
 
-This is a resubmission. In this version I have:
+This release responds to a CRAN policy notice pointing out that the
+SIDRA-API-dependent tests were giving check warnings and errors when the
+upstream service was momentarily unreachable, in violation of:
 
-* Expanded all acronyms in the Description field on first use: PNADC
-  (Pesquisa Nacional por Amostra de Domicilios Continua), IBGE (Instituto
-  Brasileiro de Geografia e Estatistica), UPA (Primary Sampling Unit),
-  SIDRA (Sistema IBGE de Recuperacao Automatica), and API (Application
-  Programming Interface).
+> 'Packages which use Internet resources should fail gracefully with an
+> informative message if the resource is not available or has changed
+> (and not give a check warning nor error).'
 
-* Added a proper reference in the Description field with URL for the
-  methodology: Hecksher (2020)
-  <https://repositorio.ipea.gov.br/handle/11058/9859>.
+In this version I have:
 
-* Replaced \dontrun{} with \donttest{} for all examples that access
-  external APIs (SIDRA). These examples fetch a small subset of series
-  and complete in under 5 seconds. Only examples requiring large local
-  microdata files (~9 GB) that cannot be distributed retain \dontrun{}.
+* Replaced every `stop()` and `warning()` triggered by SIDRA-API
+  unreachability with `message()` plus `return(invisible(NULL))`.
+  Affected functions: `fetch_monthly_population()`,
+  `fetch_sidra_rolling_quarters()`, and the `target_totals = NULL`
+  branch of `pnadc_apply_periods()` (which now returns the data with
+  the crosswalk applied but uncalibrated weights, instead of erroring).
+* Added two new offline tests using `testthat::local_mocked_bindings()`
+  that explicitly verify the graceful-failure path:
+  `test-fetch-sidra-population.R` and `test-fetch-sidra-series.R`.
+* Removed the implicit SIDRA dependency from 22 calibration and
+  integration tests by injecting locally-constructed `target_totals`
+  mocks. These tests now run offline on CRAN regardless of API
+  availability.
 
-* Removed commented-out code lines from examples.
-
-* Created runnable examples (no wrapper) for `validate_pnadc()` and
-  `get_sidra_series_metadata()` using minimal synthetic data.
+The package also includes bug fixes for `mensalize_sidra_series()`
+where trailing `NA`s in the rolling-quarter input previously produced
+phantom mensalized values; see NEWS.md.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
-
-The NOTE is about this being a new submission to CRAN.
+0 errors | 0 warnings | 1 note (about CRAN resubmission)
 
 ## Test environments
 
@@ -39,14 +43,14 @@ The NOTE is about this being a new submission to CRAN.
 
 * All vignettes use `eval = FALSE` for code chunks because they require
   access to PNADC microdata files (~9 GB) that cannot be bundled with the
-  package. Pre-computed figures are included via markdown image references
-  so that vignettes display meaningful output despite non-evaluated code.
+  package. Pre-computed figures are included via markdown image references.
 
 * Functions that access the IBGE SIDRA API (`fetch_sidra_rolling_quarters()`,
   `fetch_monthly_population()`, `mensalize_sidra_series()`) use
-  `\donttest{}` in examples. All tests involving internet access are
-  wrapped in both `testthat::skip_on_cran()` and
-  `testthat::skip_if_offline()`.
+  `\donttest{}` in examples and now fail gracefully (informative
+  `message()`, return `NULL` invisibly) when the API is unreachable.
+  Tests that would still hit the live API are wrapped in
+  `testthat::skip_on_cran()` and `testthat::skip_if_offline()`.
 
 * Functions that require large local microdata files
   (`pnadc_identify_periods()`, `pnadc_apply_periods()`,

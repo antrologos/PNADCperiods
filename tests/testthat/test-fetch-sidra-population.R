@@ -288,6 +288,29 @@ test_that("cache_max_age_hours parameter accepted", {
 
 
 # =============================================================================
+# CRAN POLICY: Internet resources must fail gracefully
+# (no warning, no error). Mocked tests run offline.
+# =============================================================================
+
+test_that("fetch_monthly_population fails gracefully when SIDRA is unreachable", {
+  skip_if_not_installed("sidrar")
+  skip_if_not_installed("testthat", "3.0.0")
+
+  # Simulate API down: any call to sidrar::get_sidra throws.
+  testthat::local_mocked_bindings(
+    get_sidra = function(...) stop("simulated network error"),
+    .package = "sidrar"
+  )
+
+  expect_message(
+    result <- fetch_monthly_population(verbose = FALSE),
+    "failed to fetch from SIDRA API"
+  )
+  expect_null(result)
+})
+
+
+# =============================================================================
 # ERROR HANDLING TESTS
 # =============================================================================
 

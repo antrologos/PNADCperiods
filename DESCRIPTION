@@ -1,6 +1,7 @@
 Package: PNADCperiods
 Title: Identify Reference Periods in Brazil's PNADC Survey Data
-Version: 0.1.1
+Version: 0.1.2
+Date: 2026-04-27
 Authors@R: c(
     person("Rogerio", "Barbosa", email = "rogerio.barbosa@iesp.uerj.br", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-6796-4547",
