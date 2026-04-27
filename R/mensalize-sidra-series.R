@@ -503,7 +503,15 @@ mensalize_sidra_series <- function(rolling_quarters,
   y <- y0[mesnotrim] + cum
 
   # Step 7: Final adjustment for rolling quarter consistency
-  .apply_final_adjustment(y, rq, mesnotrim)
+  m <- .apply_final_adjustment(y, rq, mesnotrim)
+
+  # Step 8: NA-out positions where rq is missing.
+  # cumsum-by-mesnotrim coalesces NA as 0 (needed for late-starting series
+  # like CNPJ post-201510); without this mask, trailing rows where SIDRA
+  # already published IPCA but not PNADC would receive spurious mensalized
+  # values. Source NA must propagate to output NA.
+  m[is.na(rq)] <- NA_real_
+  m
 }
 
 
@@ -560,6 +568,9 @@ mensalize_sidra_series <- function(rolling_quarters,
     # Apply final adjustment ONLY to pre-split data (no boundary crossing)
     m_pre <- .apply_final_adjustment(y_pre, rq_pre, mesnotrim_pre)
 
+    # Source NA must propagate to output NA (see .mensalize_single_series).
+    m_pre[is.na(rq_pre)] <- NA_real_
+
     # Store results
     m_result[pre_idx] <- m_pre
   }
@@ -583,6 +594,9 @@ mensalize_sidra_series <- function(rolling_quarters,
 
     # Apply final adjustment ONLY to post-split data (no boundary crossing)
     m_post <- .apply_final_adjustment(y_post, rq_post, mesnotrim_post)
+
+    # Source NA must propagate to output NA (see .mensalize_single_series).
+    m_post[is.na(rq_post)] <- NA_real_
 
     # Store results
     m_result[post_idx] <- m_post
