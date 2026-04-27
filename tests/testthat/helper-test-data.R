@@ -309,3 +309,31 @@ generate_yyyymm_seq <- function(start_yyyymm, n) {
   }, integer(1))
 }
 
+
+#' Create mock monthly population targets for tests (avoids SIDRA fetch).
+#'
+#' Builds a target_totals data.table by aggregating V1028 weights of the
+#' input PNADC dataset across quarters and expanding the quarterly sum to
+#' three months. The result has the structure expected by
+#' pnadc_apply_periods() for calibration_unit = "month". For "fortnight"
+#' or "week", apply derive_fortnight_population() or
+#' derive_weekly_population() to the output.
+#'
+#' Using V1028 sums ensures the mock is realistic relative to the
+#' synthetic dataset (so calibration converges and test assertions are
+#' meaningful), without making any HTTP request to SIDRA.
+#'
+#' @param data PNADC data.table with columns Ano, Trimestre, V1028.
+#' @return data.table with columns ref_month_yyyymm and m_populacao.
+create_mock_pop_targets <- function(data) {
+  qtr_wsum <- data[, .(qtr_wsum = sum(V1028, na.rm = TRUE)),
+                    by = .(Ano, Trimestre)]
+  qtr_wsum[, {
+    months <- (Trimestre - 1L) * 3L + 1:3
+    data.table::data.table(
+      ref_month_yyyymm = Ano * 100L + months,
+      m_populacao = qtr_wsum / 1000
+    )
+  }, by = .(Ano, Trimestre)][, .(ref_month_yyyymm, m_populacao)]
+}
+

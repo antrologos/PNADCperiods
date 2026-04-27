@@ -348,9 +348,10 @@ test_that("zero weights in input handled", {
   zero_idx <- sample(1:nrow(data), size = 5)
   data[zero_idx, V1028 := 0]
 
-  # 2. Execute: Apply with calibration
+  # 2. Execute: Apply with calibration (mock targets, no SIDRA)
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
+  result <- NULL
   expect_no_error({
     result <- pnadc_apply_periods(
       data, crosswalk,
@@ -358,6 +359,7 @@ test_that("zero weights in input handled", {
       anchor = "quarter",
       calibrate = TRUE,
       calibration_unit = "month",
+      target_totals = create_mock_pop_targets(data),
       verbose = FALSE
     )
   })

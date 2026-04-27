@@ -155,7 +155,7 @@ test_that("pnadc_apply_periods with calibration adds weight column", {
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
-    target_totals = NULL,  # Auto-derive from SIDRA
+    target_totals = create_mock_pop_targets(test_data),
     verbose = FALSE
   )
 
@@ -222,7 +222,7 @@ test_that("pnadc_apply_periods keep_all = TRUE includes undetermined rows", {
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
-    target_totals = NULL,  # Auto-derive from SIDRA
+    target_totals = create_mock_pop_targets(test_data),
     keep_all = TRUE,
     verbose = FALSE
   )
@@ -246,7 +246,7 @@ test_that("pnadc_apply_periods keep_all = FALSE excludes undetermined rows", {
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
-    target_totals = NULL,  # Auto-derive from SIDRA
+    target_totals = create_mock_pop_targets(test_data),
     keep_all = FALSE,
     verbose = FALSE
   )
@@ -270,7 +270,7 @@ test_that("pnadc_apply_periods accepts anchor = 'quarter'", {
       weight_var = "V1028",
       anchor = "quarter",
       calibrate = TRUE,
-      target_totals = NULL,  # Auto-derive from SIDRA
+      target_totals = create_mock_pop_targets(test_data),
       verbose = FALSE
     )
   )
@@ -286,7 +286,7 @@ test_that("pnadc_apply_periods accepts anchor = 'year'", {
       weight_var = "V1028",
       anchor = "year",
       calibrate = TRUE,
-      target_totals = NULL,  # Auto-derive from SIDRA
+      target_totals = create_mock_pop_targets(test_data),
       verbose = FALSE
     )
   )

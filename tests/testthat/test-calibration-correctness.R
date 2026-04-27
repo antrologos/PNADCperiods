@@ -199,14 +199,23 @@ test_that("no negative weights are produced in any calibration unit", {
 
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
+  # Mock targets derived from V1028 sums (offline; no SIDRA fetch).
+  mock_monthly <- create_mock_pop_targets(data)
+
   # 2. Execute: Test all calibration units
   for (unit in c("month", "fortnight", "week")) {
+    unit_targets <- switch(unit,
+      "month"     = mock_monthly,
+      "fortnight" = PNADCperiods:::derive_fortnight_population(mock_monthly),
+      "week"      = PNADCperiods:::derive_weekly_population(mock_monthly)
+    )
     result <- pnadc_apply_periods(
       data, crosswalk,
       weight_var = "V1028",
       anchor = "quarter",
       calibrate = TRUE,
       calibration_unit = unit,
+      target_totals = unit_targets,
       verbose = FALSE
     )
 
@@ -238,13 +247,14 @@ test_that("anchor='year' produces valid calibrated weights", {
 
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
-  # 2. Execute: Apply with year anchor
+  # 2. Execute: Apply with year anchor (mock targets, no SIDRA)
   result <- pnadc_apply_periods(
     data, crosswalk,
     weight_var = "V1028",
     anchor = "year",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = create_mock_pop_targets(data),
     verbose = FALSE
   )
 
@@ -279,13 +289,14 @@ test_that("indeterminate observations have NA weights", {
 
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
-  # 2. Execute: Apply calibration with keep_all=TRUE
+  # 2. Execute: Apply calibration with keep_all=TRUE (mock targets, no SIDRA)
   result <- pnadc_apply_periods(
     data, crosswalk,
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = create_mock_pop_targets(data),
     keep_all = TRUE,
     verbose = FALSE
   )
@@ -317,13 +328,14 @@ test_that("keep_all=FALSE excludes indeterminate observations", {
 
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
-  # 2. Execute: Apply with keep_all=FALSE
+  # 2. Execute: Apply with keep_all=FALSE (mock targets, no SIDRA)
   result <- pnadc_apply_periods(
     data, crosswalk,
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = create_mock_pop_targets(data),
     keep_all = FALSE,
     verbose = FALSE
   )
@@ -357,13 +369,14 @@ test_that("calibration works with single quarter data", {
 
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
-  # 2. Execute: Apply calibration
+  # 2. Execute: Apply calibration (mock targets, no SIDRA)
   result <- pnadc_apply_periods(
     data, crosswalk,
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = create_mock_pop_targets(data),
     verbose = FALSE
   )
 
@@ -395,7 +408,7 @@ test_that("calibration handles empty periods gracefully", {
 
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
-  # 2. Execute: Should not error with sparse data
+  # 2. Execute: Should not error with sparse data (mock targets, no SIDRA)
   expect_no_error({
     result <- pnadc_apply_periods(
       data, crosswalk,
@@ -403,6 +416,7 @@ test_that("calibration handles empty periods gracefully", {
       anchor = "quarter",
       calibrate = TRUE,
       calibration_unit = "month",
+      target_totals = create_mock_pop_targets(data),
       verbose = FALSE
     )
   })
@@ -423,6 +437,9 @@ test_that("smooth=TRUE modifies weights differently than smooth=FALSE", {
 
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
+  # Mock targets (offline; no SIDRA fetch).
+  mock_targets <- create_mock_pop_targets(data)
+
   # 2. Execute: Apply with and without smoothing
   result_no_smooth <- pnadc_apply_periods(
     data, crosswalk,
@@ -430,6 +447,7 @@ test_that("smooth=TRUE modifies weights differently than smooth=FALSE", {
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = mock_targets,
     smooth = FALSE,
     verbose = FALSE
   )
@@ -440,6 +458,7 @@ test_that("smooth=TRUE modifies weights differently than smooth=FALSE", {
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = mock_targets,
     smooth = TRUE,
     verbose = FALSE
   )
@@ -464,13 +483,14 @@ test_that("smoothing produces valid non-negative weights", {
 
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
-  # 2. Execute: Apply with smoothing
+  # 2. Execute: Apply with smoothing (mock targets, no SIDRA)
   result <- pnadc_apply_periods(
     data, crosswalk,
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = create_mock_pop_targets(data),
     smooth = TRUE,
     verbose = FALSE
   )

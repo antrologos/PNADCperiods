@@ -23,13 +23,14 @@ test_that("full pipeline works end-to-end with monthly calibration", {
   # Step 1: Identify periods
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
-  # Step 2: Apply and calibrate
+  # Step 2: Apply and calibrate (mock targets, no SIDRA)
   result <- pnadc_apply_periods(
     data, crosswalk,
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = create_mock_pop_targets(data),
     smooth = FALSE,
     verbose = FALSE
   )
@@ -69,7 +70,7 @@ test_that("full pipeline works with fortnight calibration", {
     posest_sxi = sample(100:999, .N, replace = TRUE)
   )]
 
-  # 2. Execute: Full pipeline with fortnight
+  # 2. Execute: Full pipeline with fortnight (mock targets, no SIDRA)
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
   result <- pnadc_apply_periods(
@@ -78,6 +79,9 @@ test_that("full pipeline works with fortnight calibration", {
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "fortnight",
+    target_totals = PNADCperiods:::derive_fortnight_population(
+      create_mock_pop_targets(data)
+    ),
     smooth = FALSE,
     verbose = FALSE
   )
@@ -151,7 +155,7 @@ test_that("full pipeline with smoothing produces consistent results", {
     posest_sxi = sample(100:999, .N, replace = TRUE)
   )]
 
-  # 2. Execute: Pipeline with smoothing
+  # 2. Execute: Pipeline with smoothing (mock targets, no SIDRA)
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
   result <- pnadc_apply_periods(
@@ -160,6 +164,7 @@ test_that("full pipeline with smoothing produces consistent results", {
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = create_mock_pop_targets(data),
     smooth = TRUE,
     verbose = FALSE
   )
@@ -202,12 +207,14 @@ test_that("pipeline with experimental strategies maintains invariants", {
   )
 
   # 4. Execute: Apply calibration with experimental crosswalk
+  #    (mock targets, no SIDRA)
   result <- pnadc_apply_periods(
     data, crosswalk_exp,
     weight_var = "V1028",
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = create_mock_pop_targets(data),
     verbose = FALSE
   )
 
@@ -245,7 +252,7 @@ test_that("pipeline works with multi-year data (year anchor)", {
     posest_sxi = sample(100:999, .N, replace = TRUE)
   )]
 
-  # 2. Execute: Pipeline with year anchor
+  # 2. Execute: Pipeline with year anchor (mock targets, no SIDRA)
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
 
   result <- pnadc_apply_periods(
@@ -254,6 +261,7 @@ test_that("pipeline works with multi-year data (year anchor)", {
     anchor = "year",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = create_mock_pop_targets(data),
     verbose = FALSE
   )
 
@@ -345,8 +353,9 @@ test_that("pipeline with keep_all=FALSE filters correctly", {
     posest_sxi = sample(100:999, .N, replace = TRUE)
   )]
 
-  # 2. Execute: Pipeline with keep_all=TRUE
+  # 2. Execute: Pipeline with keep_all=TRUE (mock targets, no SIDRA)
   crosswalk <- pnadc_identify_periods(data, verbose = FALSE)
+  mock_targets <- create_mock_pop_targets(data)
 
   result_all <- pnadc_apply_periods(
     data, crosswalk,
@@ -354,6 +363,7 @@ test_that("pipeline with keep_all=FALSE filters correctly", {
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = mock_targets,
     keep_all = TRUE,
     verbose = FALSE
   )
@@ -365,6 +375,7 @@ test_that("pipeline with keep_all=FALSE filters correctly", {
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = mock_targets,
     keep_all = FALSE,
     verbose = FALSE
   )
@@ -397,7 +408,8 @@ test_that("pipeline produces consistent results with same data", {
     posest_sxi = sample(100:999, .N, replace = TRUE)
   )]
 
-  # 2. Execute: Pipeline twice with same data
+  # 2. Execute: Pipeline twice with same data (mock targets, no SIDRA)
+  mock_targets <- create_mock_pop_targets(data)
   crosswalk1 <- pnadc_identify_periods(data, verbose = FALSE)
   result1 <- pnadc_apply_periods(
     data, crosswalk1,
@@ -405,6 +417,7 @@ test_that("pipeline produces consistent results with same data", {
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = mock_targets,
     verbose = FALSE
   )
 
@@ -415,6 +428,7 @@ test_that("pipeline produces consistent results with same data", {
     anchor = "quarter",
     calibrate = TRUE,
     calibration_unit = "month",
+    target_totals = mock_targets,
     verbose = FALSE
   )
 
