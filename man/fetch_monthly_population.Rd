@@ -34,6 +34,8 @@ A data.table with columns:
 \item \code{ref_month_yyyymm}: Integer in YYYYMM format
 \item \code{m_populacao}: Monthly population in thousands
 }
+Returns \code{NULL} invisibly with an informative message if the SIDRA
+API is unreachable (per CRAN policy on Internet resources).
 }
 \description{
 Downloads population estimates from IBGE SIDRA API (table 6022) and
