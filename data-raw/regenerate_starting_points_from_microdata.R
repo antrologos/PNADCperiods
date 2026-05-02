@@ -20,22 +20,34 @@
 library(data.table)
 library(fst)
 
-# Set working directory to package root
-setwd("D:/Dropbox/Artigos/mensalizacao_pnad/PNADCperiods")
-
 # Load package (use devtools::load_all for development)
+# Run this script from the package root, e.g.:
+#   Rscript data-raw/regenerate_starting_points_from_microdata.R
 devtools::load_all()
 
 # ==============================================================================
 # Configuration
 # ==============================================================================
 
+# Input directory holding the cached microdata + crosswalk files. Set via
+# the PNADC_REGEN_INPUT_DIR environment variable, e.g.:
+#   Sys.setenv(PNADC_REGEN_INPUT_DIR = "D:/path/to/processed")
+input_dir <- Sys.getenv("PNADC_REGEN_INPUT_DIR", unset = NA_character_)
+if (is.na(input_dir) || !nzchar(input_dir)) {
+  stop("Environment variable PNADC_REGEN_INPUT_DIR is not set. Point it to the ",
+       "directory containing pnadc_full_microdata.fst and ",
+       "crosswalk_for_starting_points_full.rds.")
+}
+if (!dir.exists(input_dir)) {
+  stop("PNADC_REGEN_INPUT_DIR does not exist: ", input_dir)
+}
+
 # Path to stacked microdata (FULL population including all ages, not just 14+)
 # This is required for correct z_populacao computation
-MICRODATA_FILE <- "D:/Dropbox/Artigos/mensalizacao_pnad/data/processed/pnadc_full_microdata.fst"
+MICRODATA_FILE <- file.path(input_dir, "pnadc_full_microdata.fst")
 
 # Crosswalk file (pre-computed to save time)
-CROSSWALK_FILE <- "D:/Dropbox/Artigos/mensalizacao_pnad/data/processed/crosswalk_for_starting_points_full.rds"
+CROSSWALK_FILE <- file.path(input_dir, "crosswalk_for_starting_points_full.rds")
 
 # Calibration period
 CALIBRATION_START <- 201301L

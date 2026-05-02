@@ -1,11 +1,14 @@
 # Test NA propagation in derived series - EXTENDED WITH REAL DATA
 
-# Helper to load real rolling quarters
+# Helper to load real rolling quarters.
+# Set the env var PNADC_TEST_ROLLING_QUARTERS to the path of a
+# rolling_quarters.qs2 file (e.g., from the dashboard's data/) to enable
+# the integration tests below; otherwise they are skipped.
 load_real_rolling_quarters <- function() {
   testthat::skip_if_not_installed("qs2")
-  data_path <- "d:/Dropbox/Artigos/mensalizacao_pnad/PNADCperiods-dashboard/data/rolling_quarters.qs2"
-  if (!file.exists(data_path)) {
-    skip("rolling_quarters.qs2 not found")
+  data_path <- Sys.getenv("PNADC_TEST_ROLLING_QUARTERS", unset = "")
+  if (!nzchar(data_path) || !file.exists(data_path)) {
+    skip("rolling_quarters.qs2 not found (set PNADC_TEST_ROLLING_QUARTERS)")
   }
   getNamespace("qs2")$qs_read(data_path)
 }

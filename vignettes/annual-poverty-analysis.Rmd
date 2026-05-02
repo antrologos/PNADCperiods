@@ -10,7 +10,7 @@ vignette: >
 <!--
 MAINTAINER NOTE:
 The code chunks in this vignette must match the code in:
-  mensalizacao_pnad/code/generate_annual_poverty_figures.R
+  data-raw/generate_annual_poverty_figures.R
 
 Look for comments like "# VIGNETTE CODE: chunk-name" in that script.
 To regenerate figures, run that script.

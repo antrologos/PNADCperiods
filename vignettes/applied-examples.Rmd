@@ -10,7 +10,7 @@ vignette: >
 <!--
 MAINTAINER NOTE:
 Code chunks marked with "# VIGNETTE CODE:" comments in
-  mensalizacao_pnad/code/generate_vignette_data.R
+  data-raw/generate_vignette_data.R
 must match the code shown here. To regenerate figures, run that script.
 -->
 
