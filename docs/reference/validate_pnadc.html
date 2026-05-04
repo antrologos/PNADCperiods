@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">PNADCperiods</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -100,25 +100,20 @@ internally to validate input data.</p></div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Minimal valid data (all 9 required columns)</span></span></span>
-<span class="r-in"><span><span class="va">sample_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  Ano <span class="op">=</span> <span class="fl">2023L</span>, Trimestre <span class="op">=</span> <span class="fl">1L</span>, UPA <span class="op">=</span> <span class="fl">110000001L</span>,</span></span>
-<span class="r-in"><span>  V1008 <span class="op">=</span> <span class="fl">1L</span>, V1014 <span class="op">=</span> <span class="fl">1L</span>,</span></span>
-<span class="r-in"><span>  V2008 <span class="op">=</span> <span class="fl">15L</span>, V20081 <span class="op">=</span> <span class="fl">3L</span>, V20082 <span class="op">=</span> <span class="fl">1990L</span>, V2009 <span class="op">=</span> <span class="fl">33L</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu">validate_pnadc</span><span class="op">(</span><span class="va">sample_data</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Data with missing columns returns issues (non-stop mode)</span></span></span>
-<span class="r-in"><span><span class="va">incomplete_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>Ano <span class="op">=</span> <span class="fl">2023L</span>, Trimestre <span class="op">=</span> <span class="fl">1L</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">validate_pnadc</span><span class="op">(</span><span class="va">incomplete_data</span>, stop_on_error <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">result</span><span class="op">$</span><span class="va">valid</span>    <span class="co"># FALSE</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] FALSE</span>
-<span class="r-in"><span><span class="va">result</span><span class="op">$</span><span class="va">issues</span>   <span class="co"># lists missing columns</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $missing_ref_month</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "UPA"    "V1008"  "V1014"  "V2008"  "V20081" "V20082" "V2009" </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="co"># Minimal valid data (all 9 required columns)</span></span>
+<span><span class="va">sample_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  Ano <span class="op">=</span> <span class="fl">2023L</span>, Trimestre <span class="op">=</span> <span class="fl">1L</span>, UPA <span class="op">=</span> <span class="fl">110000001L</span>,</span>
+<span>  V1008 <span class="op">=</span> <span class="fl">1L</span>, V1014 <span class="op">=</span> <span class="fl">1L</span>,</span>
+<span>  V2008 <span class="op">=</span> <span class="fl">15L</span>, V20081 <span class="op">=</span> <span class="fl">3L</span>, V20082 <span class="op">=</span> <span class="fl">1990L</span>, V2009 <span class="op">=</span> <span class="fl">33L</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu">validate_pnadc</span><span class="op">(</span><span class="va">sample_data</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Data with missing columns returns issues (non-stop mode)</span></span>
+<span><span class="va">incomplete_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>Ano <span class="op">=</span> <span class="fl">2023L</span>, Trimestre <span class="op">=</span> <span class="fl">1L</span><span class="op">)</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">validate_pnadc</span><span class="op">(</span><span class="va">incomplete_data</span>, stop_on_error <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="va">result</span><span class="op">$</span><span class="va">valid</span>    <span class="co"># FALSE</span></span>
+<span><span class="va">result</span><span class="op">$</span><span class="va">issues</span>   <span class="co"># lists missing columns</span></span>
+<span></span></code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

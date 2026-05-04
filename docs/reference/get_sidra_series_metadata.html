@@ -9,7 +9,7 @@ available from IBGE's SIDRA API."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">PNADCperiods</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -144,58 +144,17 @@ or "en" (English). When "en", the <code>description</code> column contains Engli
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">meta</span> <span class="op">&lt;-</span> <span class="fu">get_sidra_series_metadata</span><span class="op">(</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">meta</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     series_name                                api_path table_id variable_id</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>          &lt;char&gt;                                  &lt;char&gt;    &lt;int&gt;       &lt;int&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1:   taxapartic /t/5944/n1/all/v/4096/p/all/d/v4096%201     5944        4096</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2:    nivelocup /t/6379/n1/all/v/4097/p/all/d/v4097%201     6379        4097</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3: niveldesocup /t/6380/n1/all/v/4098/p/all/d/v4098%201     6380        4098</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4:   popnaforca  /t/6318/n1/all/v/1641/p/all/c629/32386     6318        1641</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5:      popocup  /t/6318/n1/all/v/1641/p/all/c629/32387     6318        1641</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6:   popdesocup  /t/6318/n1/all/v/1641/p/all/c629/32446     6318        1641</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    classification_id classification_value        theme theme_category</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>               &lt;char&gt;               &lt;char&gt;       &lt;char&gt;         &lt;char&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1:              &lt;NA&gt;                 &lt;NA&gt; labor_market  participation</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2:              &lt;NA&gt;                 &lt;NA&gt; labor_market  participation</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3:              &lt;NA&gt;                 &lt;NA&gt; labor_market  participation</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4:              c629                32386 labor_market  participation</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5:              c629                32387 labor_market  participation</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6:              c629                32446 labor_market  participation</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    subcategory                            description_pt</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         &lt;char&gt;                                    &lt;char&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1:       rates Taxa de participacao na forca de trabalho</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2:       rates                         Nivel de ocupacao</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3:       rates                      Nivel de desocupacao</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4:      levels            Populacao na forca de trabalho</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5:      levels                         Populacao ocupada</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6:      levels                      Populacao desocupada</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                    description_en      unit unit_label_pt unit_label_en</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                            &lt;char&gt;    &lt;char&gt;        &lt;char&gt;        &lt;char&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1: Labor force participation rate   percent             %             %</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2:    Employment-population ratio   percent             %             %</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3:  Unemployment-population ratio   percent             %             %</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4:                    Labor force thousands   mil pessoas     thousands</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5:            Employed population thousands   mil pessoas     thousands</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6:          Unemployed population thousands   mil pessoas     thousands</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    is_derived requires_deflation                               description</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>        &lt;lgcl&gt;             &lt;lgcl&gt;                                    &lt;char&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1:       TRUE              FALSE Taxa de participacao na forca de trabalho</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2:       TRUE              FALSE                         Nivel de ocupacao</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3:       TRUE              FALSE                      Nivel de desocupacao</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4:      FALSE              FALSE            Populacao na forca de trabalho</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5:      FALSE              FALSE                         Populacao ocupada</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6:      FALSE              FALSE                      Populacao desocupada</span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">labor</span> <span class="op">&lt;-</span> <span class="fu">get_sidra_series_metadata</span><span class="op">(</span>theme <span class="op">=</span> <span class="st">"labor_market"</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">unemp</span> <span class="op">&lt;-</span> <span class="fu">get_sidra_series_metadata</span><span class="op">(</span>theme <span class="op">=</span> <span class="st">"labor_market"</span>,</span></span>
-<span class="r-in"><span>                                    theme_category <span class="op">=</span> <span class="st">"unemployment"</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">meta_en</span> <span class="op">&lt;-</span> <span class="fu">get_sidra_series_metadata</span><span class="op">(</span>series <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"taxadesocup"</span>, <span class="st">"popocup"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>                                     lang <span class="op">=</span> <span class="st">"en"</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="va">meta</span> <span class="op">&lt;-</span> <span class="fu">get_sidra_series_metadata</span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">meta</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">labor</span> <span class="op">&lt;-</span> <span class="fu">get_sidra_series_metadata</span><span class="op">(</span>theme <span class="op">=</span> <span class="st">"labor_market"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">unemp</span> <span class="op">&lt;-</span> <span class="fu">get_sidra_series_metadata</span><span class="op">(</span>theme <span class="op">=</span> <span class="st">"labor_market"</span>,</span>
+<span>                                    theme_category <span class="op">=</span> <span class="st">"unemployment"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">meta_en</span> <span class="op">&lt;-</span> <span class="fu">get_sidra_series_metadata</span><span class="op">(</span>series <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"taxadesocup"</span>, <span class="st">"popocup"</span><span class="op">)</span>,</span>
+<span>                                     lang <span class="op">=</span> <span class="st">"en"</span><span class="op">)</span></span>
+<span></span></code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

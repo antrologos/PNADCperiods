@@ -9,7 +9,7 @@ quarterly series into exact monthly estimates."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">PNADCperiods</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -116,55 +116,10 @@ custom starting points with <code><a href="compute_starting_points_from_microdat
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">pnadc_series_starting_points</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">pnadc_series_starting_points</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    series_name mesnotrim       y0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         &lt;char&gt;     &lt;int&gt;    &lt;num&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1:   populacao         1 196602.6</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2:   populacao         2 196639.0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3:   populacao         3 196726.2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4:   pop14mais         1 153014.1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5:   pop14mais         2 152435.9</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6:   pop14mais         3 153251.8</span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">pnadc_series_starting_points</span><span class="op">$</span><span class="va">series_name</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] "populacao"               "pop14mais"              </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [3] "popforadaforca"          "popocup"                </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [5] "popdesocup"              "empregprivcomcart"      </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [7] "empregprivsemcart"       "domesticocomcart"       </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [9] "domesticosemcart"        "empregpublcomcart"      </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [11] "empregpublsemcart"       "estatutmilitar"         </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [13] "empregador"              "contapropria"           </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [15] "trabfamauxiliar"         "empregadorcomcnpj"      </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [17] "empregadorsemcnpj"       "contapropriacomcnpj"    </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [19] "contapropriasemcnpj"     "agropecuaria"           </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [21] "industria"               "construcao"             </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [23] "comercio"                "transporte"             </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [25] "alojaliment"             "infcomfinimobadm"       </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [27] "adminpublica"            "outroservico"           </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [29] "servicodomestico"        "contribuinteprev"       </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [31] "forcapotencial"          "desalentado"            </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [33] "subocuphoras"            "subocuphoras_pre"       </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [35] "popnaforca"              "empregpriv"             </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [37] "domestico"               "empregpubl"             </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [39] "empregado"               "forcaampliada"          </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [41] "massahabnominaltodos"    "comrendtodos"           </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [43] "massaefetnominaltodos"   "rhrpempregado"          </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [45] "rhrpempregpriv"          "rhrpempregprivcomcart"  </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [47] "rhrpempregprivsemcart"   "rhrpdomestico"          </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [49] "rhrpdomesticocomcart"    "rhrpdomesticosemcart"   </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [51] "rhrpempregpubl"          "rhrpempregpublcomcart"  </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [53] "rhrpempregpublsemcart"   "rhrpestatutmilitar"     </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [55] "rhrpempregador"          "rhrpcontapropria"       </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [57] "rhrpempregadorcomcnpj"   "rhrpempregadorsemcnpj"  </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [59] "rhrpcontapropriacomcnpj" "rhrpcontapropriasemcnpj"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [61] "rhrpagropecuaria"        "rhrpindustria"          </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [63] "rhrpconstrucao"          "rhrpcomercio"           </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [65] "rhrptransporte"          "rhrpalojaliment"        </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [67] "rhrpinfcomfinimobadm"    "rhrpadminpublica"       </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [69] "rhrpoutroservico"        "rhrpservicodomestico"   </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [71] "massahabrealtodos"       "massaefetrealtodos"     </span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">pnadc_series_starting_points</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">pnadc_series_starting_points</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">pnadc_series_starting_points</span><span class="op">$</span><span class="va">series_name</span><span class="op">)</span></span>
+<span></span></code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

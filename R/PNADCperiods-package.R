@@ -58,6 +58,12 @@
 #' }
 #'
 #' @references
+#' HECKSHER, Marcos; BARBOSA, Rogerio J. "Estimation of exact months for the
+#' microdata and rolling quarter series from PNAD Continua". SocArXiv preprint,
+#' 2026. \url{https://osf.io/preprints/socarxiv/fra5u_v1}
+#'
+#' Earlier formulations of the methodology:
+#'
 #' HECKSHER, Marcos. "Valor Impreciso por Mes Exato: Microdados e Indicadores
 #' Mensais Baseados na Pnad Continua". IPEA - Nota Tecnica Disoc, n. 62.
 #' Brasilia, DF: IPEA, 2020.
