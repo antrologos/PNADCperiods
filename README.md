@@ -20,11 +20,11 @@ Install the released version from CRAN:
 install.packages("PNADCperiods")
 ```
 
-Or the development version from GitHub:
+Or the development version from the `dev` branch on GitHub:
 
 ```r
 # install.packages("remotes")
-remotes::install_github("antrologos/PNADCperiods")
+remotes::install_github("antrologos/PNADCperiods", ref = "dev")
 ```
 
 ## Main Features
@@ -101,11 +101,13 @@ monthly <- mensalize_sidra_series(rolling)
 
 ## Credits
 
-Original PNADC data is collected by the Brazilian Institute of Geography and Statistics (IBGE). The mensalization methodology was developed by Marcos Hecksher ([Ipea](https://www.ipea.gov.br/)) --- see Hecksher (2020, IPEA Nota Tecnica Disoc n. 62 and n. 87; Carta de Conjuntura v. 47). The R package, interactive dashboard, and documentation website were developed by Rogerio J. Barbosa at the [Center for the Study of Wealth and Social Stratification (Ceres - IESP/UERJ)](https://ceres-iesp.uerj.br/).
+Original PNADC data is collected by the Brazilian Institute of Geography and Statistics (IBGE). The mensalization methodology was developed by Marcos Hecksher ([Ipea](https://www.ipea.gov.br/)) and is described in full in Hecksher & Barbosa (2026), [SocArXiv preprint](https://osf.io/preprints/socarxiv/fra5u_v1). Earlier formulations of the methodology were published in Hecksher (2020, IPEA Nota Tecnica Disoc n. 62 and n. 87; Carta de Conjuntura v. 47). The R package, interactive dashboard, and documentation website were developed by Rogerio J. Barbosa at the [Center for the Study of Wealth and Social Stratification (Ceres - IESP/UERJ)](https://ceres-iesp.uerj.br/).
 
 **Citation:**
 
-> Barbosa, Rogerio J; Hecksher, Marcos. (2026). PNADCperiods: Identify Reference Periods in Brazil's PNADC Survey Data. R package version 0.1.1. https://CRAN.R-project.org/package=PNADCperiods
+> Barbosa, Rogerio J; Hecksher, Marcos. (2026). PNADCperiods: Identify Reference Periods in Brazil's PNADC Survey Data. R package version 0.1.2. https://CRAN.R-project.org/package=PNADCperiods
+
+> Hecksher, Marcos; Barbosa, Rogerio J. (2026). Estimation of exact months for the microdata and rolling quarter series from PNAD Continua. SocArXiv preprint. https://osf.io/preprints/socarxiv/fra5u_v1
 
 ```r
 citation("PNADCperiods")

@@ -9,7 +9,7 @@ the mathematical relationship between consecutive rolling quarters."></head><bod
 
     <a class="navbar-brand me-2" href="../index.html">PNADCperiods</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -143,36 +143,14 @@ equals the original rolling quarter value.</p>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
-<span class="r-in"><span><span class="va">rq</span> <span class="op">&lt;-</span> <span class="fu"><a href="fetch_sidra_rolling_quarters.html">fetch_sidra_rolling_quarters</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  series <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"taxadesocup"</span>, <span class="st">"popocup"</span>, <span class="st">"popdesocup"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Fetching 3 series from SIDRA API...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> This may take a few minutes on first run.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 33%] Fetching popocup...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 67%] Fetching popdesocup...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [100%] Fetching taxadesocup...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Successfully fetched 3/3 series</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Rolling quarters: 201203 to 202602 (168 observations)</span>
-<span class="r-in"><span><span class="va">monthly</span> <span class="op">&lt;-</span> <span class="fu">mensalize_sidra_series</span><span class="op">(</span><span class="va">rq</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Using bundled starting points</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Mensalizing 2 series...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Computing derived series...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>     Computed aggregate: m_popnaforca</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>     Computed rate: m_taxadesocup</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Mensalization complete: 168 months (201203 to 202602)</span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">monthly</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    anomesexato m_popocup m_popdesocup m_popnaforca m_taxadesocup</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>          &lt;int&gt;     &lt;num&gt;        &lt;num&gt;        &lt;num&gt;         &lt;num&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1:      201203  88538.06     7375.089     95913.15           7.7</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2:      201204  88197.81     7696.149     95893.95           8.0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3:      201205  89066.75     7342.311     96409.06           7.6</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4:      201206  90689.45     6918.540     97607.99           7.1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5:      201207  88578.81     7474.149     96052.95           7.8</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6:      201208  89927.75     6955.311     96883.06           7.2</span>
-<span class="r-in"><span><span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="co"># \donttest{</span></span>
+<span><span class="va">rq</span> <span class="op">&lt;-</span> <span class="fu"><a href="fetch_sidra_rolling_quarters.html">fetch_sidra_rolling_quarters</a></span><span class="op">(</span></span>
+<span>  series <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"taxadesocup"</span>, <span class="st">"popocup"</span>, <span class="st">"popdesocup"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">monthly</span> <span class="op">&lt;-</span> <span class="fu">mensalize_sidra_series</span><span class="op">(</span><span class="va">rq</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">monthly</span><span class="op">)</span></span>
+<span><span class="co"># }</span></span>
+<span></span></code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

@@ -9,7 +9,7 @@ transforms from moving-quarter to exact monthly values."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">PNADCperiods</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -95,7 +95,9 @@ automatic expiration when use_cache=TRUE. Default 24 hours.</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A data.table with columns:</p><ul><li><p><code>ref_month_yyyymm</code>: Integer in YYYYMM format</p></li>
 <li><p><code>m_populacao</code>: Monthly population in thousands</p></li>
-</ul></div>
+</ul><p>Returns <code>NULL</code> invisibly with an informative message if the SIDRA
+API is unreachable (per CRAN policy on Internet resources).</p>
+    </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>SIDRA table 6022 provides moving-quarter population estimates. Each value
@@ -123,21 +125,12 @@ Install with: <code>install.packages("sidrar")</code></p>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
-<span class="r-in"><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="fu">fetch_monthly_population</span><span class="op">(</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Fetching population from SIDRA API (table 6022)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Transforming moving-quarter to exact months...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Extrapolating boundary months...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Population data: 201201 to 202602 (170 months)</span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="fu">fetch_monthly_population</span><span class="op">(</span><span class="fl">201301</span>, <span class="fl">201912</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Fetching population from SIDRA API (table 6022)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Transforming moving-quarter to exact months...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Extrapolating boundary months...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Population data: 201301 to 201912 (84 months)</span>
-<span class="r-in"><span><span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="co"># \donttest{</span></span>
+<span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="fu">fetch_monthly_population</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="fu">fetch_monthly_population</span><span class="op">(</span><span class="fl">201301</span>, <span class="fl">201912</span><span class="op">)</span></span>
+<span><span class="co"># }</span></span>
+<span></span></code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

@@ -11,7 +11,7 @@ observations per year."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">PNADCperiods</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -151,6 +151,17 @@ quarter, which is essential for the mensalization algorithm.</p>
 with exponential backoff for failed requests.</p>
     </div>
     <div class="section level2">
+    <h2 id="internet-resource-behaviour">Internet Resource Behaviour<a class="anchor" aria-label="anchor" href="#internet-resource-behaviour"></a></h2>
+
+
+<p>Per CRAN policy, this function fails gracefully when the SIDRA API is
+unreachable: it emits an informative <code><a href="https://rdrr.io/r/base/message.html" class="external-link">message()</a></code> (no warning, no
+error) and returns <code>NULL</code> invisibly when no series could be
+fetched. Partial failures (some series succeeded) are also reported
+via <code><a href="https://rdrr.io/r/base/message.html" class="external-link">message()</a></code>, and the result includes only the successful
+series.</p>
+    </div>
+    <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="get_sidra_series_metadata.html">get_sidra_series_metadata</a></code> for available series names and metadata
 <code><a href="mensalize_sidra_series.html">mensalize_sidra_series</a></code> to convert to exact months</p></div>
@@ -158,84 +169,17 @@ with exponential backoff for failed requests.</p>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
-<span class="r-in"><span><span class="va">rq</span> <span class="op">&lt;-</span> <span class="fu">fetch_sidra_rolling_quarters</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  series <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"taxadesocup"</span>, <span class="st">"popocup"</span>, <span class="st">"popdesocup"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Fetching 3 series from SIDRA API...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> This may take a few minutes on first run.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 33%] Fetching popocup...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 67%] Fetching popdesocup...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [100%] Fetching taxadesocup...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Successfully fetched 3/3 series</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Rolling quarters: 201203 to 202602 (168 observations)</span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">rq</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Key: &lt;anomesfinaltrimmovel&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    anomesfinaltrimmovel mesnotrim popocup popdesocup taxadesocup</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                   &lt;int&gt;     &lt;num&gt;   &lt;num&gt;      &lt;num&gt;       &lt;num&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1:               201203         3   87713       7613         8.0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2:               201204         1   88535       7493         7.8</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3:               201205         2   89059       7403         7.7</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4:               201206         3   89318       7319         7.6</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5:               201207         1   89445       7245         7.5</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6:               201208         2   89732       7116         7.3</span>
-<span class="r-in"><span><span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># \donttest{</span></span></span>
-<span class="r-in"><span><span class="va">rq_labor</span> <span class="op">&lt;-</span> <span class="fu">fetch_sidra_rolling_quarters</span><span class="op">(</span>theme <span class="op">=</span> <span class="st">"labor_market"</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Fetching 46 series from SIDRA API...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> This may take a few minutes on first run.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [  2%] Fetching taxapartic...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [  4%] Fetching nivelocup...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [  7%] Fetching niveldesocup...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [  9%] Fetching popnaforca...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 11%] Fetching popocup...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 13%] Fetching popdesocup...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 15%] Fetching popforadaforca...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 17%] Fetching taxadesocup...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 20%] Fetching perccontribprev...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 22%] Fetching taxacombdesosub...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 24%] Fetching taxacombdesopot...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 26%] Fetching taxacompsubutlz...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 28%] Fetching taxasubocuphoras...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 30%] Fetching percdesalento...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 33%] Fetching subocuphoras...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 35%] Fetching forcapotencial...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 37%] Fetching forcaampliada...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 39%] Fetching desalentado...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 41%] Fetching empregado...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 43%] Fetching empregpriv...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 46%] Fetching empregprivcomcart...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 48%] Fetching empregprivsemcart...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 50%] Fetching empregpubl...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 52%] Fetching empregpublcomcart...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 54%] Fetching empregpublsemcart...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 57%] Fetching estatutmilitar...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 59%] Fetching domestico...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 61%] Fetching domesticocomcart...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 63%] Fetching domesticosemcart...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 65%] Fetching empregador...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 67%] Fetching empregadorcomcnpj...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 70%] Fetching empregadorsemcnpj...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 72%] Fetching contapropria...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 74%] Fetching contapropriacomcnpj...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 76%] Fetching contapropriasemcnpj...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 78%] Fetching trabfamauxiliar...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 80%] Fetching agropecuaria...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 83%] Fetching industria...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 85%] Fetching construcao...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 87%] Fetching comercio...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 89%] Fetching transporte...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 91%] Fetching alojaliment...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 93%] Fetching infcomfinimobadm...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 96%] Fetching adminpublica...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [ 98%] Fetching outroservico...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   [100%] Fetching servicodomestico...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Successfully fetched 46/46 series</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Rolling quarters: 201203 to 202602 (168 observations)</span>
-<span class="r-in"><span><span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="co"># \donttest{</span></span>
+<span><span class="va">rq</span> <span class="op">&lt;-</span> <span class="fu">fetch_sidra_rolling_quarters</span><span class="op">(</span></span>
+<span>  series <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"taxadesocup"</span>, <span class="st">"popocup"</span>, <span class="st">"popdesocup"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">rq</span><span class="op">)</span></span>
+<span><span class="co"># }</span></span>
+<span></span>
+<span><span class="co"># \donttest{</span></span>
+<span><span class="va">rq_labor</span> <span class="op">&lt;-</span> <span class="fu">fetch_sidra_rolling_quarters</span><span class="op">(</span>theme <span class="op">=</span> <span class="st">"labor_market"</span><span class="op">)</span></span>
+<span><span class="co"># }</span></span>
+<span></span></code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

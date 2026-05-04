@@ -6,8 +6,20 @@ bibentry(
     person("Marcos", "Hecksher")
   ),
   year     = "2026",
-  note     = "R package version 0.1.1",
-  url      = "https://github.com/antrologos/PNADCperiods"
+  note     = "R package version 0.1.2",
+  url      = "https://CRAN.R-project.org/package=PNADCperiods"
+)
+
+bibentry(
+  bibtype  = "Article",
+  title    = "Estimation of exact months for the microdata and rolling quarter series from PNAD Continua",
+  author   = c(
+    person("Marcos", "Hecksher"),
+    person("Rogerio J.", "Barbosa")
+  ),
+  year     = "2026",
+  journal  = "SocArXiv preprint",
+  url      = "https://osf.io/preprints/socarxiv/fra5u_v1"
 )
 
 bibentry(
@@ -19,7 +31,8 @@ bibentry(
   type        = "Nota Tecnica Disoc",
   number      = "62",
   address     = "Brasilia, DF",
-  url         = "https://portalantigo.ipea.gov.br/portal/index.php?option=com_content&view=article&id=35453"
+  url         = "https://portalantigo.ipea.gov.br/portal/index.php?option=com_content&view=article&id=35453",
+  note        = "Earlier formulation of the methodology"
 )
 
 bibentry(
@@ -30,7 +43,8 @@ bibentry(
   institution = "IPEA",
   type        = "Nota Tecnica Disoc",
   number      = "87",
-  address     = "Brasilia, DF"
+  address     = "Brasilia, DF",
+  note        = "Earlier formulation of the methodology"
 )
 
 bibentry(
@@ -40,5 +54,6 @@ bibentry(
   year    = "2020",
   journal = "IPEA - Carta de Conjuntura",
   volume  = "47",
-  pages   = "1-6"
+  pages   = "1-6",
+  note    = "Earlier formulation of the methodology"
 )

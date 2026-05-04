@@ -78,6 +78,16 @@ SIDRA API may have rate limits. The function includes automatic retry logic
 with exponential backoff for failed requests.
 }
 
+\section{Internet Resource Behaviour}{
+
+Per CRAN policy, this function fails gracefully when the SIDRA API is
+unreachable: it emits an informative \code{message()} (no warning, no
+error) and returns \code{NULL} invisibly when no series could be
+fetched. Partial failures (some series succeeded) are also reported
+via \code{message()}, and the result includes only the successful
+series.
+}
+
 \examples{
 \donttest{
 rq <- fetch_sidra_rolling_quarters(

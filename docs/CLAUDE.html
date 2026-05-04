@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">PNADCperiods</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,6 +49,11 @@
 <h2 id="project-overview">Project Overview<a class="anchor" aria-label="anchor" href="#project-overview"></a></h2>
 <p>R package (<code>PNADCperiods</code>) that converts Brazil’s quarterly PNADC survey data into sub-quarterly time series (monthly, fortnightly, weekly) with optional weight calibration.</p>
 <p><strong>Authors:</strong> Marcos Hecksher &amp; Rogerio Barbosa <strong>Repository:</strong> <a href="https://github.com/antrologos/PNADCperiods" class="external-link uri">https://github.com/antrologos/PNADCperiods</a></p>
+</div>
+<div class="section level2">
+<h2 id="origin">Origin<a class="anchor" aria-label="anchor" href="#origin"></a></h2>
+<p>This repo lives at <code>D:\Dropbox\Software\R_Packages\PNADCperiods\</code>. It was split out on <strong>2026-05-02</strong> from a previous monorepo at <code>D:\Dropbox\Artigos\mensalizacao_pnad\PNADCperiods\</code> (which also held the dashboard and two papers). For the full separation history (env vars introduced, scripts imported into <code>data-raw/</code>, validation results), see the auto-memory note <code>project_separation_2026_05_02.md</code>.</p>
+<p>Companions (separated at the same time): - Dashboard: <code>D:\Dropbox\Software\Dashboards\PNADCperiods-dashboard\</code> - Methodology paper: <code>D:\Dropbox\Artigos\mensalizacao_pnad\methodology\</code> - Minimum-wage paper: <code>D:\Dropbox\Artigos\mensalizacao_pnad\minimum_wage\</code></p>
 </div>
 <div class="section level2">
 <h2 id="quick-reference">Quick Reference<a class="anchor" aria-label="anchor" href="#quick-reference"></a></h2>
@@ -104,6 +109,12 @@
 </div>
 </div>
 <div class="section level2">
+<h2 id="v013-dev-branch-status-2026-05-04">v0.1.3 dev-branch status (2026-05-04)<a class="anchor" aria-label="anchor" href="#v013-dev-branch-status-2026-05-04"></a></h2>
+<p>The <code>dev</code> branch carries a breaking change to <code><a href="reference/mensalize_sidra_series.html">mensalize_sidra_series()</a></code>: the legacy final adjustment step (which re-anchored each (Jan, Feb, Mar) trio to its rolling-quarter mean) was removed. The algorithm now stops at <code>m = y0 + cum</code> – three strictly independent month-position sub-series. Previously published months are now stable across IBGE releases; the small drift between trio-average and the official rolling-quarter value is the explicit methodological trade-off.</p>
+<p>The internal helper <code>.apply_final_adjustment()</code> is preserved (still unit-tested) for legacy reproduction; the public <code><a href="reference/mensalize_sidra_series.html">mensalize_sidra_series()</a></code> no longer calls it. See <code>NEWS.md</code> for the full breaking-change note.</p>
+<p>CRAN release of v0.1.3 has no deadline. <code>master</code> stays at v0.1.2 (CRAN mirror) until a separate release plan authorises a CRAN submission.</p>
+</div>
+<div class="section level2">
 <h2 id="development-workflow">Development Workflow<a class="anchor" aria-label="anchor" href="#development-workflow"></a></h2>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/document.html" class="external-link">document</a></span><span class="op">(</span><span class="st">"PNADCperiods"</span><span class="op">)</span>  <span class="co"># Update NAMESPACE and man/</span></span>
@@ -115,7 +126,7 @@
 <h3 id="github-pages-deployment">GitHub Pages Deployment<a class="anchor" aria-label="anchor" href="#github-pages-deployment"></a></h3>
 <p>The pkgdown site automatically publishes from the <code>master</code> branch via GitHub Actions.</p>
 <p>To update the online documentation:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad\PNADCperiods"</span></span>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Software\R_Packages\PNADCperiods"</span></span>
 <span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">pkgdown::build_site()</span>  <span class="co"># Build locally first (optional - verifies it works)</span></span>
 <span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="fu">git</span> add .</span>
 <span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Update documentation"</span></span>
@@ -225,21 +236,12 @@
 <p>If output cannot be shown (e.g., depends on user’s data), omit the output section entirely rather than showing hypothetical results.</p>
 </div>
 <div class="section level3">
-<h3 id="git-repository-location">Git Repository Location<a class="anchor" aria-label="anchor" href="#git-repository-location"></a></h3>
-<p><strong>CRITICAL:</strong> The git repository is inside the package directory, NOT the project root.</p>
-<pre><code>D:\Dropbox\Artigos\mensalizacao_pnad\          # Project root (NOT a git repo)
-└── PNADCperiods\                            # Git repository is HERE
-    ├── .git\
-    ├── R\
-    ├── tests\
-    └── ...</code></pre>
-<p><strong>Always use the package directory for git commands:</strong></p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># WRONG - causes exit codes 128/129</span></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad"</span> <span class="kw">&amp;&amp;</span> <span class="fu">git</span> status</span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a></span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co"># CORRECT</span></span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="bu">cd</span> <span class="st">"D:\Dropbox\Artigos\mensalizacao_pnad\PNADCperiods"</span> <span class="kw">&amp;&amp;</span> <span class="fu">git</span> status</span></code></pre></div>
-<p>Common git errors when using wrong directory: - Exit code 128: <code>fatal: not a git repository</code> - Exit code 129: <code>warning: Not a git repository</code></p>
+<h3 id="repository-location">Repository Location<a class="anchor" aria-label="anchor" href="#repository-location"></a></h3>
+<pre><code>D:\Dropbox\Software\R_Packages\PNADCperiods\   # Standalone git repository
+├── .git\
+├── R\
+├── tests\
+└── ...</code></pre>
 </div>
 <div class="section level3">
 <h3 id="common-issues">Common Issues<a class="anchor" aria-label="anchor" href="#common-issues"></a></h3>
@@ -249,8 +251,6 @@
 <strong>Missing columns</strong> → Use <code><a href="reference/validate_pnadc.html">validate_pnadc()</a></code> to check</li>
 <li>
 <strong>SIDRA API errors</strong> → Check internet; API has rate limits</li>
-<li>
-<strong>Git errors (exit 128/129)</strong> → Use <code>PNADCperiods/</code> directory, not project root</li>
 <li>
 <strong>Dropbox file locking</strong> → If <code><a href="https://devtools.r-lib.org/reference/document.html" class="external-link">devtools::document()</a></code> fails with “Invalid argument” error when writing to vignettes, pause Dropbox sync. All vignettes have <code>purl = FALSE</code> to prevent .R file creation, but Dropbox can still interfere.</li>
 </ol></div>
@@ -264,21 +264,16 @@
 </div>
 <div class="section level3">
 <h3 id="vignette-precompute-scripts">Vignette Precompute Scripts<a class="anchor" aria-label="anchor" href="#vignette-precompute-scripts"></a></h3>
-<p><strong>CRITICAL:</strong> Vignette precompute scripts and their outputs must NOT be inside the package folder.</p>
-<pre><code>D:\Dropbox\Artigos\mensalizacao_pnad\
-├── code\                              # Precompute scripts go HERE
+<p>Vignette precompute scripts live in <code>data-raw/</code> (excluded from the built package via <code>.Rbuildignore</code>). They produce the figures and saved objects that the <code>.Rmd</code> files load with <code>eval = FALSE</code>.</p>
+<pre><code>PNADCperiods/
+├── data-raw/                          # Precompute scripts
 │   ├── precompute_getting_started.R
 │   ├── precompute_download_prepare.R
 │   ├── generate_how_it_works_figures.R
 │   └── ...
-├── output\vignette\                   # Precomputed outputs go HERE
-│   ├── figures\                       # Generated figures
-│   ├── tables\                        # Generated tables
-│   ├── getting_started_crosswalk.rds  # Saved R objects
-│   └── *.txt                          # Text outputs for vignettes
-└── PNADCperiods\                      # Package folder (git repo)
-    └── vignettes\                     # Only .Rmd files and static assets</code></pre>
-<p><strong>Convention:</strong> - Scripts: <code>code/precompute_&lt;vignette_name&gt;.R</code> or <code>code/generate_&lt;vignette_name&gt;_figures.R</code> - Outputs: <code>output/vignette/&lt;vignette_name&gt;_*.rds|txt|png</code> - Figures copied to package: <code>PNADCperiods/vignettes/figures/&lt;vignette_name&gt;/</code></p>
+└── vignettes/
+    └── figures/&lt;vignette_name&gt;/       # Generated figures (committed)</code></pre>
+<p><strong>Convention:</strong> - Scripts: <code>data-raw/precompute_&lt;vignette&gt;.R</code> or <code>data-raw/generate_&lt;vignette&gt;_figures.R</code> - Figures: <code>vignettes/figures/&lt;vignette_name&gt;/</code></p>
 </div>
 </div>
 </div>
