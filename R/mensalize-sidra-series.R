@@ -46,8 +46,9 @@ NULL
 #' 3. Backprojecting: e0 = z_ - cum_ over calibration period (2013-2019)
 #' 4. Averaging e0 by month position to get y0_ for each position
 #'
-#' **Final adjustment** ensures the average of 3 consecutive mensalized values
-#' equals the original rolling quarter value.
+#' Each of the three month-position sub-series accumulates strictly
+#' independently from its own starting point. As a consequence, adding a
+#' new rolling quarter never alters previously computed monthly values.
 #'
 #' @section Starting Points Format:
 #' If providing custom starting points, the data.table must have columns:
@@ -63,9 +64,11 @@ NULL
 #'   \item Calculate d3 = 3 * (RQ_t - RQ_t-1)
 #'   \item Separate d3 by month position: d3m1, d3m2, d3m3
 #'   \item Cumulate separately: cum1, cum2, cum3
-#'   \item Apply starting points: y = y0 + cum
-#'   \item Final adjustment for rolling quarter consistency
+#'   \item Apply starting points: m = y0 + cum (final monthly value)
 #' }
+#' The result satisfies the d3 identity \eqn{m_t - m_{t-3} = 3 (rq_t - rq_{t-1})}
+#' for every same-mesnotrim pair. Trailing positions where rq is missing are
+#' masked to NA so that incomplete trios are not published.
 #'
 #' @examples
 #' \donttest{
@@ -512,21 +515,17 @@ mensalize_sidra_series <- function(rolling_quarters,
   # Step 5: Get starting points
   y0 <- .extract_y0_vector(starting_points, series_name)
 
-  # Step 6: Apply starting points
-  y <- y0[mesnotrim] + cum
+  # Step 6: Apply starting points. Pure cumsum: the three mesnotrim
+  # sub-series accumulate independently from y0, so adding new rolling
+  # quarters never shifts previously computed months.
+  m <- y0[mesnotrim] + cum
 
-  # Step 7: Final adjustment for rolling quarter consistency
-  m <- .apply_final_adjustment(y, rq, mesnotrim)
-
-  # Step 8: NA-out trailing positions where rq is missing.
-  # cumsum-by-mesnotrim coalesces NA as 0; without this mask, trailing
-  # rows where SIDRA already published IPCA but not PNADC would receive
-  # spurious mensalized values from the apply_final_adjustment fallback.
-  #
-  # We mask ONLY positions after the last observed rq. Leading positions
-  # (e.g., 201201/201202, before the first rolling quarter) are preserved
-  # because the algorithm reconstructs them via y0 + lookahead in
-  # apply_final_adjustment (valid_k=TRUE thanks to rq_lead2/rq_lead1).
+  # Step 7: NA-out trailing positions where rq is missing. cumsum-by-mesnotrim
+  # coalesces NA as 0, so without this mask trailing rows (e.g., a third
+  # month of a trimester whose rolling quarter is not yet published) would
+  # carry the previous trio's cumsum as if it were a real value. Leading
+  # positions (e.g., 201201/201202, before the first rolling quarter) are
+  # preserved by y0 itself (cum starts at 0 there).
   rq_obs <- which(!is.na(rq))
   if (length(rq_obs) == 0L) {
     m[] <- NA_real_
@@ -586,12 +585,10 @@ mensalize_sidra_series <- function(rolling_quarters,
     # Compute cumsum for pre-split period only
     cum_pre <- .compute_cumsum_by_mesnotrim(rq_pre, mesnotrim_pre)
 
-    # Get starting points for pre-split
+    # Get starting points for pre-split. Pure cumsum: pre-split sub-series
+    # accumulate independently; no boundary crossing is even possible.
     y0_pre <- .extract_y0_vector(starting_points, paste0(series_name, "_pre"))
-    y_pre <- y0_pre[mesnotrim_pre] + cum_pre
-
-    # Apply final adjustment ONLY to pre-split data (no boundary crossing)
-    m_pre <- .apply_final_adjustment(y_pre, rq_pre, mesnotrim_pre)
+    m_pre <- y0_pre[mesnotrim_pre] + cum_pre
 
     # Mask only trailing NA in pre-split (see .mensalize_single_series).
     rq_pre_obs <- which(!is.na(rq_pre))
@@ -621,12 +618,10 @@ mensalize_sidra_series <- function(rolling_quarters,
     # Compute cumsum for post-split period only (cumsum starts fresh from 201510)
     cum_post <- .compute_cumsum_by_mesnotrim(rq_post, mesnotrim_post)
 
-    # Get starting points for post-split
+    # Get starting points for post-split. Pure cumsum: post-split sub-series
+    # accumulate independently from y0_post; boundary crossing impossible.
     y0_post <- .extract_y0_vector(starting_points, series_name)
-    y_post <- y0_post[mesnotrim_post] + cum_post
-
-    # Apply final adjustment ONLY to post-split data (no boundary crossing)
-    m_post <- .apply_final_adjustment(y_post, rq_post, mesnotrim_post)
+    m_post <- y0_post[mesnotrim_post] + cum_post
 
     # Mask only trailing NA in post-split (see .mensalize_single_series).
     rq_post_obs <- which(!is.na(rq_post))

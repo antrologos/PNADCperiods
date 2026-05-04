@@ -1,3 +1,32 @@
+# PNADCperiods 0.1.3 (in development on `dev` branch)
+
+## Breaking change - pure-cumsum mensalization
+
+`mensalize_sidra_series()` no longer re-anchors each (Jan, Feb, Mar)-style
+trio to its rolling-quarter mean as a final step. The internal call to
+`.apply_final_adjustment()` was removed from `.mensalize_single_series()`
+and from both halves of `.mensalize_split_series()`. The algorithm now
+stops at `m = y0 + cum`: three strictly independent month-position
+sub-series accumulating from their own starting points.
+
+**Why:** the legacy final adjustment used `rq_lead1`/`rq_lead2` to enforce
+`mean(m[t-2..t]) == rq[t]`. Whenever IBGE published the rolling quarter
+that ends in month `t`, the trio `(m[t-2], m[t-1], m[t])` would all shift
+by the same delta `rq[t] - mean(y[t-2..t])`. In real PNADC series this
+delta is nonzero (because microdata-derived `y0` is not exactly consistent
+with later-published rq values), so previously published months kept
+silently moving each time IBGE released a new rolling quarter.
+
+**Effect on output:** monthly values previously published are stable
+across IBGE releases. The trio average no longer exactly equals the
+official rolling-quarter value; the maximum drift observed in 2026-04
+real data was about 0.0005% relative to the published rq.
+
+**Backward compatibility:** the internal helper `.apply_final_adjustment()`
+is preserved (still unit-tested and reachable via `:::`) for users who
+need to reproduce historical analyses that assumed the legacy behaviour.
+Calling the public `mensalize_sidra_series()` no longer invokes it.
+
 # PNADCperiods 0.1.2
 
 ## CRAN policy compliance (response to Brian Ripley, 2026-04-26)
