@@ -1,3 +1,60 @@
+# PNADCperiods 0.1.3 (in development on `dev` branch)
+
+## SIDRA access moved to IBGE's aggregated-data API v3
+
+Between 14 and 16 September 2026, IBGE placed `apisidra.ibge.gov.br` behind
+a Cloudflare browser challenge. The host now answers HTTP 403 to most
+programmatic requests, regardless of the client: ten identical requests
+measured on 2026-09-18 returned three successes and seven challenges. Every
+series the package fetches was affected.
+
+`fetch_sidra_rolling_quarters()` and `fetch_monthly_population()` now query
+IBGE's aggregated-data API v3 (`servicodados.ibge.gov.br/api/v3/agregados`),
+which serves the same tables and is not challenged. The legacy SIDRA paths
+in `get_sidra_series_metadata()` are unchanged and are translated at request
+time, so nothing in the public interface moves.
+
+* `sidrar` is no longer a dependency. Its 0.5.1 fallback to the v3 service
+  rejects whole-series period selections (`p/all`) and decimal modifiers
+  (`/d/`), which every path in the metadata table uses. Removing it also
+  drops six transitive dependencies; `curl` and `jsonlite` take its place.
+* All 90 series were validated against the last bundle fetched through
+  `apisidra` (2026-09-14): every value over the 569 shared periods is
+  identical, including the fourteen series whose rounding came from a `/d/`
+  modifier, which the new client reproduces client-side.
+* Two new options: `PNADCperiods.sidra_base_url` overrides the service host
+  and `PNADCperiods.sidra_timeout` the per-request timeout (default 60s).
+
+Behaviour on an unreachable API is unchanged: an informative `message()`
+and `NULL` returned invisibly, never a `warning()` or `stop()`.
+
+## Breaking change - pure-cumsum mensalization
+
+`mensalize_sidra_series()` no longer re-anchors each (Jan, Feb, Mar)-style
+trio to its rolling-quarter mean as a final step. The internal call to
+`.apply_final_adjustment()` was removed from `.mensalize_single_series()`
+and from both halves of `.mensalize_split_series()`. The algorithm now
+stops at `m = y0 + cum`: three strictly independent month-position
+sub-series accumulating from their own starting points.
+
+**Why:** the legacy final adjustment used `rq_lead1`/`rq_lead2` to enforce
+`mean(m[t-2..t]) == rq[t]`. Whenever IBGE published the rolling quarter
+that ends in month `t`, the trio `(m[t-2], m[t-1], m[t])` would all shift
+by the same delta `rq[t] - mean(y[t-2..t])`. In real PNADC series this
+delta is nonzero (because microdata-derived `y0` is not exactly consistent
+with later-published rq values), so previously published months kept
+silently moving each time IBGE released a new rolling quarter.
+
+**Effect on output:** monthly values previously published are stable
+across IBGE releases. The trio average no longer exactly equals the
+official rolling-quarter value; the maximum drift observed in 2026-04
+real data was about 0.0005% relative to the published rq.
+
+**Backward compatibility:** the internal helper `.apply_final_adjustment()`
+is preserved (still unit-tested and reachable via `:::`) for users who
+need to reproduce historical analyses that assumed the legacy behaviour.
+Calling the public `mensalize_sidra_series()` no longer invokes it.
+
 # PNADCperiods 0.1.2
 
 ## CRAN policy compliance (response to Brian Ripley, 2026-04-26)

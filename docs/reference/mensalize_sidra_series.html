@@ -114,8 +114,9 @@ starting level for Jan, Feb, and Mar 2012.</p>
 <li><p>Calculating cumulative variations from SIDRA (cum_ variables)</p></li>
 <li><p>Backprojecting: e0 = z_ - cum_ over calibration period (2013-2019)</p></li>
 <li><p>Averaging e0 by month position to get y0_ for each position</p></li>
-</ol><p><strong>Final adjustment</strong> ensures the average of 3 consecutive mensalized values
-equals the original rolling quarter value.</p>
+</ol><p>Each of the three month-position sub-series accumulates strictly
+independently from its own starting point. As a consequence, adding a
+new rolling quarter never alters previously computed monthly values.</p>
     </div>
     <div class="section level2">
     <h2 id="starting-points-format">Starting Points Format<a class="anchor" aria-label="anchor" href="#starting-points-format"></a></h2>
@@ -132,9 +133,11 @@ equals the original rolling quarter value.</p>
 <p>The mensalization algorithm proceeds in steps:</p><ol><li><p>Calculate d3 = 3 * (RQ_t - RQ_t-1)</p></li>
 <li><p>Separate d3 by month position: d3m1, d3m2, d3m3</p></li>
 <li><p>Cumulate separately: cum1, cum2, cum3</p></li>
-<li><p>Apply starting points: y = y0 + cum</p></li>
-<li><p>Final adjustment for rolling quarter consistency</p></li>
-</ol></div>
+<li><p>Apply starting points: m = y0 + cum (final monthly value)</p></li>
+</ol><p>The result satisfies the d3 identity \(m_t - m_{t-3} = 3 (rq_t - rq_{t-1})\)
+for every same-mesnotrim pair. Trailing positions where rq is missing are
+masked to NA so that incomplete trios are not published.</p>
+    </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="fetch_sidra_rolling_quarters.html">fetch_sidra_rolling_quarters</a></code> to obtain input data

@@ -396,13 +396,11 @@ test_that(".get_mesnotrim returns correct month position in quarter", {
 # =============================================================================
 
 test_that("fetch_sidra_rolling_quarters fails gracefully when SIDRA is unreachable", {
-  skip_if_not_installed("sidrar")
   skip_if_not_installed("testthat", "3.0.0")
 
-  # Simulate API down: any call to sidrar::get_sidra throws.
+  # Simulate API down: any call to the v3 client throws.
   testthat::local_mocked_bindings(
-    get_sidra = function(...) stop("simulated network error"),
-    .package = "sidrar"
+    .get_sidra_v3 = function(...) stop("simulated network error")
   )
 
   # max_retries = 1, retry_failed = FALSE so we hit the message branch fast.
@@ -421,13 +419,11 @@ test_that("fetch_sidra_rolling_quarters fails gracefully when SIDRA is unreachab
 
 
 # =============================================================================
-# INTEGRATION TEST (requires internet + sidrar)
+# INTEGRATION TEST (requires internet)
 # =============================================================================
 
 test_that("fetch_sidra_rolling_quarters fetches real data from API", {
   skip_on_cran()
-  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
-              "sidrar package not available")
   skip_if_offline()
 
   # 1. Setup: Clear cache to ensure fresh fetch
@@ -445,6 +441,8 @@ test_that("fetch_sidra_rolling_quarters fetches real data from API", {
       skip(paste("SIDRA API unavailable:", conditionMessage(e)))
     }
   )
+
+  if (is.null(result)) skip("SIDRA API unavailable")
 
   # 3. Verify: Should be a data.table with expected structure
   expect_s3_class(result, "data.table")

@@ -58,8 +58,9 @@ starting level for Jan, Feb, and Mar 2012.
 \item Averaging e0 by month position to get y0_ for each position
 }
 
-\strong{Final adjustment} ensures the average of 3 consecutive mensalized values
-equals the original rolling quarter value.
+Each of the three month-position sub-series accumulates strictly
+independently from its own starting point. As a consequence, adding a
+new rolling quarter never alters previously computed monthly values.
 }
 \section{Starting Points Format}{
 
@@ -78,9 +79,11 @@ The mensalization algorithm proceeds in steps:
 \item Calculate d3 = 3 * (RQ_t - RQ_t-1)
 \item Separate d3 by month position: d3m1, d3m2, d3m3
 \item Cumulate separately: cum1, cum2, cum3
-\item Apply starting points: y = y0 + cum
-\item Final adjustment for rolling quarter consistency
+\item Apply starting points: m = y0 + cum (final monthly value)
 }
+The result satisfies the d3 identity \eqn{m_t - m_{t-3} = 3 (rq_t - rq_{t-1})}
+for every same-mesnotrim pair. Trailing positions where rq is missing are
+masked to NA so that incomplete trios are not published.
 }
 
 \examples{

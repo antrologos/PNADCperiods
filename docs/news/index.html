@@ -44,6 +44,16 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.3" id="pnadcperiods-013-in-development-on-dev-branch">PNADCperiods 0.1.3 (in development on <code>dev</code> branch)<a class="anchor" aria-label="anchor" href="#pnadcperiods-013-in-development-on-dev-branch"></a></h2>
+<div class="section level3">
+<h3 id="breaking-change---pure-cumsum-mensalization-0-1-3">Breaking change - pure-cumsum mensalization<a class="anchor" aria-label="anchor" href="#breaking-change---pure-cumsum-mensalization-0-1-3"></a></h3>
+<p><code><a href="../reference/mensalize_sidra_series.html">mensalize_sidra_series()</a></code> no longer re-anchors each (Jan, Feb, Mar)-style trio to its rolling-quarter mean as a final step. The internal call to <code>.apply_final_adjustment()</code> was removed from <code>.mensalize_single_series()</code> and from both halves of <code>.mensalize_split_series()</code>. The algorithm now stops at <code>m = y0 + cum</code>: three strictly independent month-position sub-series accumulating from their own starting points.</p>
+<p><strong>Why:</strong> the legacy final adjustment used <code>rq_lead1</code>/<code>rq_lead2</code> to enforce <code>mean(m[t-2..t]) == rq[t]</code>. Whenever IBGE published the rolling quarter that ends in month <code>t</code>, the trio <code>(m[t-2], m[t-1], m[t])</code> would all shift by the same delta <code>rq[t] - mean(y[t-2..t])</code>. In real PNADC series this delta is nonzero (because microdata-derived <code>y0</code> is not exactly consistent with later-published rq values), so previously published months kept silently moving each time IBGE released a new rolling quarter.</p>
+<p><strong>Effect on output:</strong> monthly values previously published are stable across IBGE releases. The trio average no longer exactly equals the official rolling-quarter value; the maximum drift observed in 2026-04 real data was about 0.0005% relative to the published rq.</p>
+<p><strong>Backward compatibility:</strong> the internal helper <code>.apply_final_adjustment()</code> is preserved (still unit-tested and reachable via <code>:::</code>) for users who need to reproduce historical analyses that assumed the legacy behaviour. Calling the public <code><a href="../reference/mensalize_sidra_series.html">mensalize_sidra_series()</a></code> no longer invokes it.</p>
+</div>
+</div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.2" id="pnadcperiods-012">PNADCperiods 0.1.2<a class="anchor" aria-label="anchor" href="#pnadcperiods-012"></a></h2><p class="text-muted">CRAN release: 2026-04-28</p>
 <div class="section level3">
 <h3 id="cran-policy-compliance-response-to-brian-ripley-0-1-2">CRAN policy compliance (response to Brian Ripley, 2026-04-26)<a class="anchor" aria-label="anchor" href="#cran-policy-compliance-response-to-brian-ripley-0-1-2"></a></h3>

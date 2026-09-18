@@ -45,7 +45,7 @@ library(PNADCperiods)
 library(data.table)
 ```
 
-**Dependencies:** `data.table`, `checkmate`, and `sidrar` (for weight calibration and SIDRA API access).
+**Dependencies:** `data.table`, `checkmate`, `curl`, and `jsonlite` (for weight calibration and SIDRA API access).
 
 ---
 
