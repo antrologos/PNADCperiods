@@ -1,22 +1,12 @@
 # Tests for fetch-sidra-population.R
-# Note: Some tests require internet connection and sidrar package
-
-test_that("fetch_monthly_population requires sidrar package", {
-  skip_if(requireNamespace("sidrar", quietly = TRUE),
-          "sidrar is installed, skipping missing package test")
-
-  # Mock the requireNamespace to return FALSE
-  # This test only runs if sidrar is not installed
-  expect_error(fetch_monthly_population(), "Package 'sidrar' is required")
-})
+# Note: Some tests require an internet connection
 
 test_that("fetch_monthly_population returns expected structure", {
   skip_on_cran()
-  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
-              "sidrar package not available")
   skip_if_offline()
 
   result <- fetch_monthly_population(verbose = FALSE)
+  if (is.null(result)) skip("SIDRA API unavailable")
 
   # Should be a data.table
   expect_s3_class(result, "data.table")
@@ -32,8 +22,6 @@ test_that("fetch_monthly_population returns expected structure", {
 
 test_that("fetch_monthly_population respects date range", {
   skip_on_cran()
-  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
-              "sidrar package not available")
   skip_if_offline()
 
   result <- fetch_monthly_population(
@@ -41,6 +29,7 @@ test_that("fetch_monthly_population respects date range", {
     end_yyyymm = 201512,
     verbose = FALSE
   )
+  if (is.null(result)) skip("SIDRA API unavailable")
 
   # Should only have 2015 months
   expect_true(all(result$ref_month_yyyymm >= 201501))
@@ -146,17 +135,16 @@ test_that("extrapolate_boundary_months removes temporary columns", {
 
 test_that("clear_sidra_cache clears the cache", {
   skip_on_cran()
-  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
-              "sidrar package not available")
   skip_if_offline()
 
   # 1. Setup: Fetch data to populate cache
-  fetch_monthly_population(
+  seeded <- fetch_monthly_population(
     start_yyyymm = 201501,
     end_yyyymm = 201503,
     use_cache = TRUE,
     verbose = FALSE
   )
+  if (is.null(seeded)) skip("SIDRA API unavailable")
 
   # 2. Execute: Clear cache
   clear_sidra_cache()
@@ -172,8 +160,6 @@ test_that("clear_sidra_cache clears the cache", {
 
 test_that("use_cache=FALSE bypasses cache", {
   skip_on_cran()
-  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
-              "sidrar package not available")
   skip_if_offline()
 
   # 1. Setup: Clear cache first
@@ -187,6 +173,8 @@ test_that("use_cache=FALSE bypasses cache", {
     verbose = FALSE
   )
 
+  if (is.null(result1)) skip("SIDRA API unavailable")
+
   # 3. Verify: Cache should still be empty
   cache_env <- PNADCperiods:::.sidra_cache
   expect_false(exists("population_data", envir = cache_env))
@@ -197,8 +185,6 @@ test_that("use_cache=FALSE bypasses cache", {
 
 test_that("cached data is returned on second call", {
   skip_on_cran()
-  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
-              "sidrar package not available")
   skip_if_offline()
 
   # 1. Setup: Clear cache
@@ -220,6 +206,8 @@ test_that("cached data is returned on second call", {
     verbose = FALSE
   )
 
+  if (is.null(result2)) skip("SIDRA API unavailable")
+
   # 4. Verify: Results should be identical
   expect_equal(nrow(result1), nrow(result2))
   expect_equal(result1$ref_month_yyyymm, result2$ref_month_yyyymm)
@@ -231,8 +219,6 @@ test_that("cached data is returned on second call", {
 
 test_that("cache respects different date ranges", {
   skip_on_cran()
-  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
-              "sidrar package not available")
   skip_if_offline()
 
   # 1. Setup: Clear cache
@@ -254,6 +240,8 @@ test_that("cache respects different date ranges", {
     verbose = FALSE
   )
 
+  if (is.null(result2)) skip("SIDRA API unavailable")
+
   # 4. Verify: Should have different months
   expect_false(any(result2$ref_month_yyyymm %in% result1$ref_month_yyyymm))
   expect_true(all(result2$ref_month_yyyymm >= 201504))
@@ -265,8 +253,6 @@ test_that("cache respects different date ranges", {
 
 test_that("cache_max_age_hours parameter accepted", {
   skip_on_cran()
-  skip_if_not(requireNamespace("sidrar", quietly = TRUE),
-              "sidrar package not available")
   skip_if_offline()
 
   # 1. Setup: Clear cache
@@ -293,13 +279,11 @@ test_that("cache_max_age_hours parameter accepted", {
 # =============================================================================
 
 test_that("fetch_monthly_population fails gracefully when SIDRA is unreachable", {
-  skip_if_not_installed("sidrar")
   skip_if_not_installed("testthat", "3.0.0")
 
-  # Simulate API down: any call to sidrar::get_sidra throws.
+  # Simulate API down: any call to the v3 client throws.
   testthat::local_mocked_bindings(
-    get_sidra = function(...) stop("simulated network error"),
-    .package = "sidrar"
+    .get_sidra_v3 = function(...) stop("simulated network error")
   )
 
   expect_message(

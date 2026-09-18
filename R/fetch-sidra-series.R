@@ -254,15 +254,6 @@ fetch_sidra_rolling_quarters <- function(series = "all",
     }
   }
 
-  # Check for sidrar package
-  if (!requireNamespace("sidrar", quietly = TRUE)) {
-    stop(
-      "Package 'sidrar' is required for fetching series from SIDRA.\n",
-      "Install with: install.packages('sidrar')",
-      call. = FALSE
-    )
-  }
-
   if (verbose) {
     message("Fetching ", nrow(meta), " series from SIDRA API...")
     message("This may take a few minutes on first run.")
@@ -290,7 +281,7 @@ fetch_sidra_rolling_quarters <- function(series = "all",
     series_data <- NULL
     for (attempt in seq_len(max_retries)) {
       series_data <- tryCatch({
-        suppressMessages(sidrar::get_sidra(api = api_path))
+        .get_sidra_v3(api_path)
       }, error = function(e) {
         if (attempt < max_retries && retry_failed) {
           # Exponential backoff
@@ -371,7 +362,7 @@ fetch_sidra_rolling_quarters <- function(series = "all",
 #'
 #' Internal function to extract the series values from a SIDRA API response.
 #'
-#' @param raw Raw data.frame from sidrar::get_sidra()
+#' @param raw Raw data.frame from the SIDRA API
 #' @param series_name Name to give the value column
 #' @return data.table with anomesfinaltrimmovel and series value columns
 #' @keywords internal

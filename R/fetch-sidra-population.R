@@ -51,8 +51,8 @@ NULL
 #' estimate the first month (Jan 2012) and the most recent month.
 #'
 #' @section Dependencies:
-#' This function requires the \code{sidrar} package for API access.
-#' Install with: \code{install.packages("sidrar")}
+#' This function queries IBGE's aggregated-data API over HTTPS using the
+#' \code{curl} and \code{jsonlite} packages.
 #'
 #' @examples
 #' \donttest{
@@ -92,15 +92,6 @@ fetch_monthly_population <- function(start_yyyymm = NULL,
    return(dt)
  }
 
- # Check for sidrar package
- if (!requireNamespace("sidrar", quietly = TRUE)) {
-   stop(
-     "Package 'sidrar' is required for fetching population from SIDRA.\n",
-     "Install with: install.packages('sidrar')",
-     call. = FALSE
-   )
- }
-
  if (verbose) message("  Fetching population from SIDRA API (table 6022)...")
 
  # Fetch from SIDRA
@@ -113,8 +104,7 @@ fetch_monthly_population <- function(start_yyyymm = NULL,
  # message (no warning, no error). Return NULL invisibly so callers can
  # detect failure without check()-time errors.
  raw <- tryCatch({
-   # suppressMessages to hide sidrar's "All others arguments are desconsidered when 'api' is informed"
-   suppressMessages(sidrar::get_sidra(api = "/t/6022/n1/all/v/606/p/all"))
+   .get_sidra_v3("/t/6022/n1/all/v/606/p/all")
  }, error = function(e) {
    message(
      "fetch_monthly_population: failed to fetch from SIDRA API. ",
