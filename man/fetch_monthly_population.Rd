@@ -59,8 +59,8 @@ estimate the first month (Jan 2012) and the most recent month.
 }
 \section{Dependencies}{
 
-This function requires the \code{sidrar} package for API access.
-Install with: \code{install.packages("sidrar")}
+This function queries IBGE's aggregated-data API over HTTPS using the
+\code{curl} and \code{jsonlite} packages.
 }
 
 \examples{
