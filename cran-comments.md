@@ -1,36 +1,55 @@
-## Resubmission addressing CRAN policy notice (Brian Ripley, 2026-04-26)
+## Summary
 
-This release responds to a CRAN policy notice pointing out that the
-SIDRA-API-dependent tests were giving check warnings and errors when the
-upstream service was momentarily unreachable, in violation of:
+This release does two things: it restores access to IBGE's SIDRA data,
+which broke upstream in September 2026, and it removes a final adjustment
+step from the mensalization algorithm. Details below.
 
-> 'Packages which use Internet resources should fail gracefully with an
-> informative message if the resource is not available or has changed
-> (and not give a check warning nor error).'
+### 1. SIDRA access moved to IBGE's aggregated-data API v3
 
-In this version I have:
+Between 14 and 16 September 2026, IBGE placed the host this package
+queried, `apisidra.ibge.gov.br`, behind a Cloudflare browser challenge.
+It now answers HTTP 403 to most programmatic requests: ten identical
+requests measured on 2026-09-18 returned three successes and seven
+challenges, independent of the request headers. Every data-fetching
+function in version 0.1.2 is therefore unusable in practice.
 
-* Replaced every `stop()` and `warning()` triggered by SIDRA-API
-  unreachability with `message()` plus `return(invisible(NULL))`.
-  Affected functions: `fetch_monthly_population()`,
-  `fetch_sidra_rolling_quarters()`, and the `target_totals = NULL`
-  branch of `pnadc_apply_periods()` (which now returns the data with
-  the crosswalk applied but uncalibrated weights, instead of erroring).
-* Added two new offline tests using `testthat::local_mocked_bindings()`
-  that explicitly verify the graceful-failure path:
-  `test-fetch-sidra-population.R` and `test-fetch-sidra-series.R`.
-* Removed the implicit SIDRA dependency from 22 calibration and
-  integration tests by injecting locally-constructed `target_totals`
-  mocks. These tests now run offline on CRAN regardless of API
-  availability.
+The two affected functions, `fetch_sidra_rolling_quarters()` and
+`fetch_monthly_population()`, now query IBGE's aggregated-data API v3 at
+`servicodados.ibge.gov.br/api/v3/agregados`, which serves the same
+aggregates and is not challenged. The public interface is unchanged, and
+so is the graceful-failure behaviour introduced in 0.1.2: an informative
+`message()` and `NULL` returned invisibly, never a `warning()` or a
+`stop()`.
 
-The package also includes bug fixes for `mensalize_sidra_series()`
-where trailing `NA`s in the rolling-quarter input previously produced
-phantom mensalized values; see NEWS.md.
+All 90 series were validated against the last dataset retrieved through
+the old host on 2026-09-14: every value over the 569 shared periods is
+identical.
+
+### 2. Dependency change: `sidrar` replaced by `curl` and `jsonlite`
+
+`sidrar` was removed from Imports. Its 0.5.1 release added a fallback to
+the same v3 service, but that fallback rejects whole-series period
+selections (`p/all`) and decimal modifiers (`/d/`), which every request
+this package makes uses; it would fail for all 90 series.
+
+The replacement reduces the dependency tree rather than growing it:
+`sidrar` brought in `magrittr`, `httr`, `rjson`, `rvest`, `stringr` and
+`xml2`, whereas `jsonlite` and `curl` have no R dependencies of their
+own.
+
+### 3. Breaking change in `mensalize_sidra_series()`
+
+The function no longer re-anchors each month-position trio to its
+rolling-quarter mean as a final step; it now stops at the cumulative
+sum. This keeps previously published months stable across IBGE releases,
+at the cost of a small drift between the trio average and the official
+rolling-quarter value. The internal helper implementing the legacy step
+is preserved and still unit-tested, so historical analyses can be
+reproduced. See NEWS.md.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note (about CRAN resubmission)
+0 errors | 0 warnings | 0 notes
 
 ## Test environments
 
@@ -47,10 +66,10 @@ phantom mensalized values; see NEWS.md.
 
 * Functions that access the IBGE SIDRA API (`fetch_sidra_rolling_quarters()`,
   `fetch_monthly_population()`, `mensalize_sidra_series()`) use
-  `\donttest{}` in examples and now fail gracefully (informative
-  `message()`, return `NULL` invisibly) when the API is unreachable.
-  Tests that would still hit the live API are wrapped in
-  `testthat::skip_on_cran()` and `testthat::skip_if_offline()`.
+  `\donttest{}` in examples and fail gracefully (informative `message()`,
+  return `NULL` invisibly) when the API is unreachable. Tests that would
+  still hit the live API are wrapped in `testthat::skip_on_cran()` and
+  `testthat::skip_if_offline()`.
 
 * Functions that require large local microdata files
   (`pnadc_identify_periods()`, `pnadc_apply_periods()`,
