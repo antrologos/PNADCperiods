@@ -1,0 +1,27 @@
+# Fixtures for the IBGE aggregated-data API v3 (`view=flat`) adapter.
+#
+# Payloads captured live from servicodados.ibge.gov.br on 2026-09-18 and
+# trimmed to a few rows. Non-ASCII characters are written as \uXXXX escapes
+# so the source file stays pure ASCII regardless of the build locale --
+# the accented column labels are exactly what the period-column regexes in
+# .process_sidra_response() match on, so they must survive verbatim.
+
+# Rolling-quarter series with a classification dimension (D4C/D4N):
+# table 6318, variable 1641, classification 629 category 32386.
+fixture_v3_flat_rq <- '[{"NC":"N\\u00edvel Territorial (C\\u00f3digo)","NN":"N\\u00edvel Territorial","MC":"Unidade de Medida (C\\u00f3digo)","MN":"Unidade de Medida","V":"Valor","D1C":"Brasil (C\\u00f3digo)","D1N":"Brasil","D2C":"Trimestre M\\u00f3vel (C\\u00f3digo)","D2N":"Trimestre M\\u00f3vel","D3C":"Vari\\u00e1vel (C\\u00f3digo)","D3N":"Vari\\u00e1vel","D4C":"Condi\\u00e7\\u00e3o em rela\\u00e7\\u00e3o \\u00e0 for\\u00e7a de trabalho e condi\\u00e7\\u00e3o de ocupa\\u00e7\\u00e3o (C\\u00f3digo)","D4N":"Condi\\u00e7\\u00e3o em rela\\u00e7\\u00e3o \\u00e0 for\\u00e7a de trabalho e condi\\u00e7\\u00e3o de ocupa\\u00e7\\u00e3o"},{"NC":"1","NN":"Brasil","MC":"1572","MN":"Mil pessoas","V":"108768","D1C":"1","D1N":"Brasil","D2C":"202605","D2N":"mar-abr-mai 2026","D3C":"1641","D3N":"Pessoas de 14 anos ou mais de idade","D4C":"32386","D4N":"For\\u00e7a de trabalho"},{"NC":"1","NN":"Brasil","MC":"1572","MN":"Mil pessoas","V":"108919","D1C":"1","D1N":"Brasil","D2C":"202606","D2N":"abr-mai-jun 2026","D3C":"1641","D3N":"Pessoas de 14 anos ou mais de idade","D4C":"32386","D4N":"For\\u00e7a de trabalho"},{"NC":"1","NN":"Brasil","MC":"1572","MN":"Mil pessoas","V":"109154","D1C":"1","D1N":"Brasil","D2C":"202607","D2N":"mai-jun-jul 2026","D3C":"1641","D3N":"Pessoas de 14 anos ou mais de idade","D4C":"32386","D4N":"For\\u00e7a de trabalho"}]'
+
+# Population series, no classification: table 6022, variable 606.
+fixture_v3_flat_pop <- '[{"NC":"N\\u00edvel Territorial (C\\u00f3digo)","NN":"N\\u00edvel Territorial","MC":"Unidade de Medida (C\\u00f3digo)","MN":"Unidade de Medida","V":"Valor","D1C":"Brasil (C\\u00f3digo)","D1N":"Brasil","D2C":"Trimestre M\\u00f3vel (C\\u00f3digo)","D2N":"Trimestre M\\u00f3vel","D3C":"Vari\\u00e1vel (C\\u00f3digo)","D3N":"Vari\\u00e1vel"},{"NC":"1","NN":"Brasil","MC":"1572","MN":"Mil pessoas","V":"213453","D1C":"1","D1N":"Brasil","D2C":"202605","D2N":"mar-abr-mai 2026","D3C":"606","D3N":"Popula\\u00e7\\u00e3o"},{"NC":"1","NN":"Brasil","MC":"1572","MN":"Mil pessoas","V":"213516","D1C":"1","D1N":"Brasil","D2C":"202606","D2N":"abr-mai-jun 2026","D3C":"606","D3N":"Popula\\u00e7\\u00e3o"},{"NC":"1","NN":"Brasil","MC":"1572","MN":"Mil pessoas","V":"213580","D1C":"1","D1N":"Brasil","D2C":"202607","D2N":"mai-jun-jul 2026","D3C":"606","D3N":"Popula\\u00e7\\u00e3o"}]'
+
+# Monthly series, whose period label is "Mes (Codigo)" instead of
+# "Trimestre Movel (Codigo)": table 1737, variable 63 (IPCA monthly change).
+fixture_v3_flat_month <- '[{"NC":"N\\u00edvel Territorial (C\\u00f3digo)","NN":"N\\u00edvel Territorial","MC":"Unidade de Medida (C\\u00f3digo)","MN":"Unidade de Medida","V":"Valor","D1C":"Brasil (C\\u00f3digo)","D1N":"Brasil","D2C":"M\\u00eas (C\\u00f3digo)","D2N":"M\\u00eas","D3C":"Vari\\u00e1vel (C\\u00f3digo)","D3N":"Vari\\u00e1vel"},{"NC":"1","NN":"Brasil","MC":"2","MN":"%","V":"0.16","D1C":"1","D1N":"Brasil","D2C":"202606","D2N":"junho 2026","D3C":"63","D3N":"IPCA - Varia\\u00e7\\u00e3o mensal"},{"NC":"1","NN":"Brasil","MC":"2","MN":"%","V":"0.07","D1C":"1","D1N":"Brasil","D2C":"202607","D2N":"julho 2026","D3C":"63","D3N":"IPCA - Varia\\u00e7\\u00e3o mensal"}]'
+
+# Population payload with SIDRA's missing-value markers in place of numbers.
+fixture_v3_flat_na <- '[{"NC":"N\\u00edvel Territorial (C\\u00f3digo)","NN":"N\\u00edvel Territorial","MC":"Unidade de Medida (C\\u00f3digo)","MN":"Unidade de Medida","V":"Valor","D1C":"Brasil (C\\u00f3digo)","D1N":"Brasil","D2C":"Trimestre M\\u00f3vel (C\\u00f3digo)","D2N":"Trimestre M\\u00f3vel","D3C":"Vari\\u00e1vel (C\\u00f3digo)","D3N":"Vari\\u00e1vel"},{"NC":"1","NN":"Brasil","MC":"1572","MN":"Mil pessoas","V":"..","D1C":"1","D1N":"Brasil","D2C":"202605","D2N":"mar-abr-mai 2026","D3C":"606","D3N":"Popula\\u00e7\\u00e3o"},{"NC":"1","NN":"Brasil","MC":"1572","MN":"Mil pessoas","V":"-","D1C":"1","D1N":"Brasil","D2C":"202606","D2N":"abr-mai-jun 2026","D3C":"606","D3N":"Popula\\u00e7\\u00e3o"},{"NC":"1","NN":"Brasil","MC":"1572","MN":"Mil pessoas","V":"X","D1C":"1","D1N":"Brasil","D2C":"202607","D2N":"mai-jun-jul 2026","D3C":"606","D3N":"Popula\\u00e7\\u00e3o"}]'
+
+# A payload carrying the header row and no data rows.
+fixture_v3_flat_header_only <- '[{"NC":"N\\u00edvel Territorial (C\\u00f3digo)","NN":"N\\u00edvel Territorial","MC":"Unidade de Medida (C\\u00f3digo)","MN":"Unidade de Medida","V":"Valor","D1C":"Brasil (C\\u00f3digo)","D1N":"Brasil","D2C":"Trimestre M\\u00f3vel (C\\u00f3digo)","D2N":"Trimestre M\\u00f3vel","D3C":"Vari\\u00e1vel (C\\u00f3digo)","D3N":"Vari\\u00e1vel","D4C":"Condi\\u00e7\\u00e3o em rela\\u00e7\\u00e3o \\u00e0 for\\u00e7a de trabalho e condi\\u00e7\\u00e3o de ocupa\\u00e7\\u00e3o (C\\u00f3digo)","D4N":"Condi\\u00e7\\u00e3o em rela\\u00e7\\u00e3o \\u00e0 for\\u00e7a de trabalho e condi\\u00e7\\u00e3o de ocupa\\u00e7\\u00e3o"}]'
+
+# The error body the v3 service returns for any invalid parameter.
+fixture_v3_error_500 <- '{"statusCode":500,"message":"Internal server error"}'
