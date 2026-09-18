@@ -8,6 +8,7 @@
 ^\.github$
 ^docs$
 ^data-raw$
+^Curso$
 ^_pkgdown\.yml$
 ^run_tests\.R$
 ^_run_tests\.R$
@@ -19,3 +20,4 @@
 ^vignettes/.*\.R$
 ^CRAN-SUBMISSION$
 ^submission-letter.*\.md$
+^dados_pnadc$
