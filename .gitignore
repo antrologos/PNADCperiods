@@ -28,3 +28,7 @@ tests/testthat/testthat-problems.rds
 CLAUDE.md
 ARCHITECTURE_PLAN.md
 .claude/
+
+# Local scratch data and one-off submission artefacts
+dados_pnadc/
+docs/submission-letter-*.html
